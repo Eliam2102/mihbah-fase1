@@ -1,8 +1,9 @@
 // In-memory rate limiter — resets on server restart
-// 5 attempts per 15-minute window per IP
+// Production: 5 attempts per 15-minute window per IP
+// Development: bumped to 100 to avoid blocking E2E tests
 
 const WINDOW_MS = 15 * 60 * 1000 // 15 min
-const MAX_ATTEMPTS = 5
+const MAX_ATTEMPTS = process.env.NODE_ENV === 'production' ? 5 : 100
 
 interface Entry {
   count: number
