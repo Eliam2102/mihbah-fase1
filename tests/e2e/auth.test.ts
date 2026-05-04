@@ -17,7 +17,7 @@ test.describe('Login', () => {
     await page.getByRole('button', { name: 'Iniciar sesión' }).click()
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 })
-    await expect(page.getByText('Dashboard')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   })
 
   test('credenciales incorrectas muestra error', async ({ page }) => {
