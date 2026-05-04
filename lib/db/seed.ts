@@ -1,5 +1,7 @@
 import 'dotenv/config'
 import postgres from 'postgres'
+import { randomUUID } from 'crypto'
+import { hash } from '@node-rs/argon2'
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1 })
 
@@ -157,6 +159,51 @@ async function seed() {
     }
     console.log(`  categorias: ${categoriasInput.length}`)
 
+    // ── Admin User ────────────────────────────────────────────────────────────
+    const adminId = randomUUID()
+    const adminEmail = 'admin@universojade.com'
+    const adminPassword = 'Admin12345!'
+    const passwordHash = await hash(adminPassword, {
+      algorithm: 2, // Argon2id
+      memoryCost: 19456,
+      timeCost: 2,
+      parallelism: 1,
+    })
+
+    await trx`
+      INSERT INTO users (id, name, email, email_verified, role, tenant_id)
+      VALUES (
+        ${adminId},
+        'Administrador',
+        ${adminEmail},
+        true,
+        'super_admin',
+        ${tenantId}
+      )
+    `
+
+    // better-auth stores credentials in the accounts table with providerId='credential'
+    const accountId = randomUUID()
+    await trx`
+      INSERT INTO accounts (id, user_id, account_id, provider_id, password)
+      VALUES (
+        ${accountId},
+        ${adminId},
+        ${adminId},
+        'credential',
+        ${passwordHash}
+      )
+    `
+
+    // Grant access to all 3 empresas
+    for (const empresaId of Object.values(empresaIds)) {
+      await trx`
+        INSERT INTO user_empresa_access (tenant_id, user_id, empresa_id, rol)
+        VALUES (${tenantId}, ${adminId}, ${empresaId}, 'ADMIN')
+      `
+    }
+
+    console.log(`  admin user: ${adminEmail}`)
     console.log('✅ Seed complete.')
   })
 

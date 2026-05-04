@@ -97,4 +97,5 @@ Tipos: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`
 
 - **Épica 0** ✅ Setup base
 - **Épica 1** ✅ Multi-tenant base (tenants, organizaciones, empresas, proyectos, RLS)
-- **Épica 2** _(pendiente)_
+- **Épica 2** ✅ Autenticación (better-auth, argon2id, sesiones 30d, password reset, rate limit)
+- **Épica 3** _(pendiente)_
