@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mihbah-postgres
+    environment:
+      POSTGRES_USER: mihbah
+      POSTGRES_PASSWORD: mihbah_dev_password
+      POSTGRES_DB: mihbah_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mihbah -d mihbah_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    driver: local

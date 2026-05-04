@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code
+.claude/
+
+# test artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
