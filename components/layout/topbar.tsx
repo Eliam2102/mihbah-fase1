@@ -4,7 +4,7 @@ import { useTheme } from 'next-themes'
 import { signOut } from '@/lib/auth/client'
 import { EmpresaSelector, type EmpresaOption } from './empresa-selector'
 import { Sun, Moon, Monitor, Bell, ChevronDown, User, LogOut, Settings } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 
@@ -22,6 +22,13 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
 
+  // Hydration guard via useSyncExternalStore (avoids setState-in-effect)
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
+
   // Close dropdowns on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -37,8 +44,20 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
     router.push('/login')
   }
 
-  const nextTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark'
-  const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor
+  const nextTheme = mounted
+    ? theme === 'dark'
+      ? 'light'
+      : theme === 'light'
+        ? 'system'
+        : 'dark'
+    : 'system'
+  const ThemeIcon = mounted
+    ? theme === 'dark'
+      ? Moon
+      : theme === 'light'
+        ? Sun
+        : Monitor
+    : Monitor
 
   return (
     <header className="border-border bg-background/80 flex h-16 shrink-0 items-center gap-4 border-b px-6 backdrop-blur-sm">

@@ -39,14 +39,11 @@ export function EmpresaSelector({ empresas, compact = false }: EmpresaSelectorPr
   function handleSelect(id: EmpresaId) {
     setEmpresaActiva(id)
     setOpen(false)
-    // Update URL to reflect empresa change (using query param)
-    const url = new URL(window.location.href)
     if (id === 'TODAS') {
-      url.searchParams.delete('empresa')
+      router.push('/dashboard')
     } else {
-      url.searchParams.set('empresa', id)
+      router.push(`/empresa/${id}/dashboard`)
     }
-    router.replace(url.pathname + (url.search ?? ''))
   }
 
   return (
