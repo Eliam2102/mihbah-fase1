@@ -53,6 +53,16 @@ CREATE POLICY tenant_isolation ON ventas_bmcorp
   USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
   WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
 
+-- ─── excel_uploads ───────────────────────────────────────────────────────────
+
+ALTER TABLE excel_uploads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE excel_uploads FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS tenant_isolation ON excel_uploads;
+CREATE POLICY tenant_isolation ON excel_uploads
+  USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
 -- ─── repartos_bmcorp ─────────────────────────────────────────────────────────
 
 ALTER TABLE repartos_bmcorp ENABLE ROW LEVEL SECURITY;

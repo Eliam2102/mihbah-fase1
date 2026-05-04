@@ -40,23 +40,23 @@ async function seed() {
 
     // ── Empresas ─────────────────────────────────────────────────────────────
     const empresasInput = [
-      { name: 'MIHBAH', tipo: 'CONSTRUCTORA' },
-      { name: 'YCDI', tipo: 'CAPITAL' },
-      { name: 'BM CORP', tipo: 'COMERCIAL' },
+      { name: 'MIHBAH', tipo: 'CONSTRUCTORA', fuenteDatos: 'EXCEL' },
+      { name: 'YCDI', tipo: 'CAPITAL', fuenteDatos: 'EXCEL' },
+      { name: 'BM CORP', tipo: 'COMERCIAL', fuenteDatos: 'MONDAY' },
     ] as const
 
     const empresaIds: Record<string, string> = {}
     for (const e of empresasInput) {
       const [row] = await trx`
-        INSERT INTO empresas (tenant_id, organizacion_id, name, tipo)
-        VALUES (${tenantId}, ${orgId}, ${e.name}, ${e.tipo})
+        INSERT INTO empresas (tenant_id, organizacion_id, name, tipo, fuente_datos)
+        VALUES (${tenantId}, ${orgId}, ${e.name}, ${e.tipo}, ${e.fuenteDatos})
         RETURNING id, name
       `
       empresaIds[e.name] = row!.id as string
     }
     console.log(`  empresas: ${Object.keys(empresaIds).join(', ')}`)
 
-    // ── Proyectos ─────────────────────────────────────────────────────────────
+    // ── Proyectos MIHBAH ──────────────────────────────────────────────────────
     const proyectosInput = [
       'KOOBEN',
       'HUUNAL',
@@ -73,45 +73,64 @@ async function seed() {
     ]
 
     const mihbahId = empresaIds['MIHBAH']!
+    const proyectoIds: Record<string, string> = {}
     for (const name of proyectosInput) {
-      await trx`
+      const [row] = await trx`
         INSERT INTO proyectos (tenant_id, empresa_id, name)
         VALUES (${tenantId}, ${mihbahId}, ${name})
+        RETURNING id, name
       `
+      proyectoIds[name] = row!.id as string
     }
-    console.log(`  proyectos: ${proyectosInput.length}`)
+    console.log(`  proyectos MIHBAH: ${proyectosInput.length}`)
+
+    // ── Proyectos YCDI ────────────────────────────────────────────────────────
+    const ycdiId = empresaIds['YCDI']!
+    const ycdiProyectosInput = ['KOOBEN CAPITAL', 'HUUNAL CAPITAL', 'OTOCH CAPITAL']
+    const ycdiProyectoIds: Record<string, string> = {}
+    for (const name of ycdiProyectosInput) {
+      const [row] = await trx`
+        INSERT INTO proyectos (tenant_id, empresa_id, name)
+        VALUES (${tenantId}, ${ycdiId}, ${name})
+        RETURNING id, name
+      `
+      ycdiProyectoIds[name] = row!.id as string
+    }
+    console.log(`  proyectos YCDI: ${ycdiProyectosInput.length}`)
 
     // ── Cuentas Bancarias ─────────────────────────────────────────────────────
     await trx`
       INSERT INTO cuentas_bancarias (tenant_id, empresa_id, nombre, banco)
       VALUES
         (${tenantId}, ${mihbahId}, 'BBVA Mihbah', 'BBVA'),
-        (${tenantId}, ${mihbahId}, 'EFECTIVO', null)
+        (${tenantId}, ${mihbahId}, 'EFECTIVO', null),
+        (${tenantId}, ${ycdiId}, 'BBVA YCDI', 'BBVA')
     `
-    console.log('  cuentas_bancarias: 2')
+    console.log('  cuentas_bancarias: 3')
 
     // ── Grupos ───────────────────────────────────────────────────────────────
     const gruposInput = [
       { nombre: 'INGRESOS PROYECTOS', orden: 1 },
       { nombre: 'INGRESOS RENTAS', orden: 2 },
       { nombre: 'INGRESOS VARIOS', orden: 3 },
-      { nombre: 'MATERIALES', orden: 4 },
-      { nombre: 'MANO DE OBRA', orden: 5 },
-      { nombre: 'SUBCONTRATISTAS', orden: 6 },
-      { nombre: 'HONORARIOS', orden: 7 },
-      { nombre: 'GASTOS ADMINISTRATIVOS', orden: 8 },
-      { nombre: 'GASTOS OPERATIVOS', orden: 9 },
-      { nombre: 'PUBLICIDAD', orden: 10 },
-      { nombre: 'SERVICIOS EXTERNOS', orden: 11 },
-      { nombre: 'IMPUESTOS', orden: 12 },
-      { nombre: 'NÓMINA', orden: 13 },
-      { nombre: 'EQUIPO Y MAQUINARIA', orden: 14 },
-      { nombre: 'MANTENIMIENTO', orden: 15 },
-      { nombre: 'FINANCIAMIENTO', orden: 16 },
-      { nombre: 'INVERSIONES', orden: 17 },
-      { nombre: 'ANTICIPOS', orden: 18 },
-      { nombre: 'INTERCOMPANY', orden: 19 },
-      { nombre: 'VARIOS', orden: 20 },
+      { nombre: 'APORTACIONES DE CAPITAL', orden: 4 },
+      { nombre: 'MATERIALES', orden: 5 },
+      { nombre: 'MANO DE OBRA', orden: 6 },
+      { nombre: 'SUBCONTRATISTAS', orden: 7 },
+      { nombre: 'HONORARIOS', orden: 8 },
+      { nombre: 'GASTOS ADMINISTRATIVOS', orden: 9 },
+      { nombre: 'GASTOS OPERATIVOS', orden: 10 },
+      { nombre: 'PUBLICIDAD', orden: 11 },
+      { nombre: 'SERVICIOS EXTERNOS', orden: 12 },
+      { nombre: 'IMPUESTOS', orden: 13 },
+      { nombre: 'NÓMINA', orden: 14 },
+      { nombre: 'EQUIPO Y MAQUINARIA', orden: 15 },
+      { nombre: 'MANTENIMIENTO', orden: 16 },
+      { nombre: 'FINANCIAMIENTO', orden: 17 },
+      { nombre: 'INVERSIONES', orden: 18 },
+      { nombre: 'ANTICIPOS', orden: 19 },
+      { nombre: 'INTERCOMPANY', orden: 20 },
+      { nombre: 'VARIOS', orden: 21 },
     ]
 
     const grupoIds: Record<string, string> = {}
@@ -132,6 +151,9 @@ async function seed() {
       { nombre: 'Arrendamiento', tipo: 'INGRESO', grupo: 'INGRESOS RENTAS' },
       { nombre: 'Anticipo Cliente', tipo: 'INGRESO', grupo: 'ANTICIPOS' },
       { nombre: 'Otros Ingresos', tipo: 'INGRESO', grupo: 'INGRESOS VARIOS' },
+      { nombre: 'Aportación de Capital', tipo: 'INGRESO', grupo: 'APORTACIONES DE CAPITAL' },
+      { nombre: 'Enganche Accionista', tipo: 'INGRESO', grupo: 'APORTACIONES DE CAPITAL' },
+      { nombre: 'Mensualidad Accionista', tipo: 'INGRESO', grupo: 'APORTACIONES DE CAPITAL' },
       { nombre: 'Cemento y Block', tipo: 'EGRESO', grupo: 'MATERIALES' },
       { nombre: 'Varilla y Acero', tipo: 'EGRESO', grupo: 'MATERIALES' },
       { nombre: 'Instalaciones Eléctricas', tipo: 'EGRESO', grupo: 'SUBCONTRATISTAS' },
@@ -159,12 +181,185 @@ async function seed() {
     }
     console.log(`  categorias: ${categoriasInput.length}`)
 
+    // ── YCDI: Accionistas ─────────────────────────────────────────────────────
+    const accionistasInput = [
+      {
+        codigo: 'AC-001',
+        nombre: 'Carlos Mendoza Torres',
+        asesor: 'Luis Ríos',
+        tipoAccionista: 'INDIVIDUAL',
+      },
+      {
+        codigo: 'AC-002',
+        nombre: 'María González Pérez',
+        asesor: 'Luis Ríos',
+        tipoAccionista: 'INDIVIDUAL',
+      },
+      {
+        codigo: 'AC-003',
+        nombre: 'Inversiones Familia López S.A.',
+        asesor: 'Ana Castillo',
+        tipoAccionista: 'EMPRESA',
+      },
+      {
+        codigo: 'AC-004',
+        nombre: 'Roberto Hernández Vega',
+        asesor: 'Ana Castillo',
+        tipoAccionista: 'INDIVIDUAL',
+      },
+      {
+        codigo: 'AC-005',
+        nombre: 'Patricia Ruiz Morales',
+        asesor: 'Luis Ríos',
+        tipoAccionista: 'INDIVIDUAL',
+      },
+    ]
+
+    const accionistaIds: string[] = []
+    for (const a of accionistasInput) {
+      const [row] = await trx`
+        INSERT INTO accionistas (tenant_id, codigo, nombre, asesor, tipo_accionista)
+        VALUES (${tenantId}, ${a.codigo}, ${a.nombre}, ${a.asesor}, ${a.tipoAccionista})
+        RETURNING id
+      `
+      accionistaIds.push(row!.id as string)
+    }
+    console.log(`  accionistas: ${accionistasInput.length}`)
+
+    // ── YCDI: Acuerdos de Aportación ──────────────────────────────────────────
+    // Each accionista gets 1 acuerdo tied to a YCDI project
+    const ycdiProyIds = Object.values(ycdiProyectoIds)
+    const acuerdosInput = [
+      {
+        accionistaIdx: 0,
+        proyectoIdx: 0,
+        paquete: 'PAQUETE A',
+        numeroAcciones: 10,
+        precioPorAccion: 50000,
+        enganche: 100000,
+        numeroMensualidades: 9,
+        fechaInicio: '2025-08-01',
+      },
+      {
+        accionistaIdx: 1,
+        proyectoIdx: 0,
+        paquete: 'PAQUETE B',
+        numeroAcciones: 5,
+        precioPorAccion: 50000,
+        enganche: 50000,
+        numeroMensualidades: 9,
+        fechaInicio: '2025-09-01',
+      },
+      {
+        accionistaIdx: 2,
+        proyectoIdx: 1,
+        paquete: 'PAQUETE A',
+        numeroAcciones: 20,
+        precioPorAccion: 50000,
+        enganche: 200000,
+        numeroMensualidades: 9,
+        fechaInicio: '2025-07-01',
+      },
+      {
+        accionistaIdx: 3,
+        proyectoIdx: 2,
+        paquete: 'PAQUETE C',
+        numeroAcciones: 8,
+        precioPorAccion: 50000,
+        enganche: 80000,
+        numeroMensualidades: 9,
+        fechaInicio: '2025-10-01',
+      },
+      {
+        accionistaIdx: 4,
+        proyectoIdx: 1,
+        paquete: 'PAQUETE B',
+        numeroAcciones: 6,
+        precioPorAccion: 50000,
+        enganche: 60000,
+        numeroMensualidades: 9,
+        fechaInicio: '2025-09-01',
+      },
+    ]
+
+    const acuerdoIds: string[] = []
+    for (const a of acuerdosInput) {
+      const montoTotal = a.numeroAcciones * a.precioPorAccion
+      const mensualidad = (montoTotal - a.enganche) / a.numeroMensualidades
+      const [row] = await trx`
+        INSERT INTO acuerdos_aportacion (
+          tenant_id, accionista_id, proyecto_id, paquete,
+          numero_acciones, precio_por_accion, monto_total,
+          enganche, numero_mensualidades, mensualidad,
+          fecha_inicio, estado
+        ) VALUES (
+          ${tenantId}, ${accionistaIds[a.accionistaIdx]!},
+          ${ycdiProyIds[a.proyectoIdx]!}, ${a.paquete},
+          ${a.numeroAcciones}, ${a.precioPorAccion}, ${montoTotal},
+          ${a.enganche}, ${a.numeroMensualidades}, ${mensualidad.toFixed(2)},
+          ${a.fechaInicio}, 'EN_PROCESO'
+        ) RETURNING id
+      `
+      acuerdoIds.push(row!.id as string)
+    }
+    console.log(`  acuerdos_aportacion: ${acuerdosInput.length}`)
+
+    // ── YCDI: Pagos de Aportación (30 pagos: 9 por acuerdo x 5 acuerdos) ─────
+    let totalPagos = 0
+    for (let acuerdoIdx = 0; acuerdoIdx < acuerdosInput.length; acuerdoIdx++) {
+      const acuerdo = acuerdosInput[acuerdoIdx]!
+      const acuerdoId = acuerdoIds[acuerdoIdx]!
+      const montoTotal = acuerdo.numeroAcciones * acuerdo.precioPorAccion
+      const mensualidad = (montoTotal - acuerdo.enganche) / acuerdo.numeroMensualidades
+      const startDate = new Date(acuerdo.fechaInicio)
+
+      for (let n = 1; n <= acuerdo.numeroMensualidades; n++) {
+        const fechaProg = new Date(startDate)
+        fechaProg.setMonth(fechaProg.getMonth() + n)
+        const fechaProgramada = fechaProg.toISOString().slice(0, 10)
+
+        // First 4 payments are PAGADA, rest PROXIMA o VENCIDA
+        const esPagado = n <= 4
+        const fechaPago = esPagado ? fechaProgramada : null
+        const montoPagado = esPagado ? mensualidad.toFixed(2) : '0'
+        const estado = esPagado ? 'PAGADA' : n === 5 ? 'VENCIDA' : 'PROXIMA'
+
+        if (fechaPago) {
+          await trx`
+            INSERT INTO pagos_aportacion (
+              tenant_id, acuerdo_id, numero_pago,
+              fecha_programada, fecha_pago,
+              monto_esperado, monto_pagado, estado
+            ) VALUES (
+              ${tenantId}, ${acuerdoId}, ${n},
+              ${fechaProgramada}, ${fechaPago},
+              ${mensualidad.toFixed(2)}, ${montoPagado}, ${estado}
+            )
+          `
+        } else {
+          await trx`
+            INSERT INTO pagos_aportacion (
+              tenant_id, acuerdo_id, numero_pago,
+              fecha_programada,
+              monto_esperado, monto_pagado, estado
+            ) VALUES (
+              ${tenantId}, ${acuerdoId}, ${n},
+              ${fechaProgramada},
+              ${mensualidad.toFixed(2)}, ${montoPagado}, ${estado}
+            )
+          `
+        }
+        totalPagos++
+      }
+    }
+    console.log(`  pagos_aportacion: ${totalPagos}`)
+
     // ── Admin User ────────────────────────────────────────────────────────────
     const adminId = randomUUID()
     const adminEmail = 'admin@universojade.com'
     const adminPassword = 'Admin12345!'
     const passwordHash = await hash(adminPassword, {
-      algorithm: 2, // Argon2id
+      algorithm: 2,
       memoryCost: 19456,
       timeCost: 2,
       parallelism: 1,
@@ -173,33 +368,21 @@ async function seed() {
     await trx`
       INSERT INTO users (id, name, email, email_verified, role, tenant_id)
       VALUES (
-        ${adminId},
-        'Administrador',
-        ${adminEmail},
-        true,
-        'super_admin',
-        ${tenantId}
+        ${adminId}, 'Administrador', ${adminEmail},
+        true, 'super_admin', ${tenantId}
       )
     `
 
-    // better-auth stores credentials in the accounts table with providerId='credential'
     const accountId = randomUUID()
     await trx`
       INSERT INTO accounts (id, user_id, account_id, provider_id, password)
-      VALUES (
-        ${accountId},
-        ${adminId},
-        ${adminId},
-        'credential',
-        ${passwordHash}
-      )
+      VALUES (${accountId}, ${adminId}, ${adminId}, 'credential', ${passwordHash})
     `
 
-    // Grant access to all 3 empresas
-    for (const empresaId of Object.values(empresaIds)) {
+    for (const eid of Object.values(empresaIds)) {
       await trx`
         INSERT INTO user_empresa_access (tenant_id, user_id, empresa_id, rol)
-        VALUES (${tenantId}, ${adminId}, ${empresaId}, 'ADMIN')
+        VALUES (${tenantId}, ${adminId}, ${eid}, 'ADMIN')
       `
     }
 
