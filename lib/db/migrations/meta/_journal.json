@@ -15,6 +15,20 @@
       "when": 1777911045278,
       "tag": "0001_adorable_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777913440835,
+      "tag": "0002_past_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777914402127,
+      "tag": "0003_demonic_redwing",
+      "breakpoints": true
     }
   ]
 }
