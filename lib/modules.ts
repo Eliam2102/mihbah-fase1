@@ -74,7 +74,11 @@ export function getModulesForEmpresa(
   }
 
   if (name === 'BM CORP') {
-    return [...base, MONDAY_MODULE(id)]
+    // BM CORP usa /flujo-caja (vista semanal) en lugar de /flujo genérico
+    const baseBmcorp = base.map((m) =>
+      m.label === 'Flujo' ? { ...m, href: `/empresa/${id}/flujo-caja` } : m,
+    )
+    return [...baseBmcorp, MONDAY_MODULE(id)]
   }
 
   return base

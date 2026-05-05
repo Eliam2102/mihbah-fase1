@@ -40,8 +40,28 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# claude code
+# AI agents — contexto y memoria local (no subir al repo)
 .claude/
+.cursor/
+.aider*
+.windsurfrules
+.continue/
+.codex/
+.gemini/
+.antigravity/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+AGENT.md
+GEMINI.md
+.cursorrules
+.cursorignore
+.aiderignore
+
+# Inspecciones / dumps locales (datos de cliente)
+monday-inspection.json
+*.local.json
+*.local.md
 
 # test artifacts
 /test-results/

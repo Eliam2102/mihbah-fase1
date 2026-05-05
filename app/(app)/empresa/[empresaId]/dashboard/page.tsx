@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm'
 import { PeriodFilter } from './period-filter'
 import { DashboardMihbah } from './dashboard-mihbah'
 import { DashboardYcdi } from './dashboard-ycdi'
+import { DashboardBmcorp } from './dashboard-bmcorp'
 
 // ─── 💡 Next.js Concept: searchParams ────────────────────────────────────────
 // En Next.js App Router, los parámetros de URL (?anio=2026&mes=5) llegan como
@@ -63,6 +64,13 @@ export default async function DashboardEmpresaPage({ params, searchParams }: Pag
       {/* 💡 Renderizado condicional según tipo de empresa */}
       {tipo === 'CAPITAL' ? (
         <DashboardYcdi empresaId={empresaId} tenantId={tenantId} />
+      ) : tipo === 'COMERCIAL' ? (
+        <DashboardBmcorp
+          empresaId={empresaId}
+          tenantId={tenantId}
+          anio={anio}
+          {...(mes ? { mes } : {})}
+        />
       ) : (
         <DashboardMihbah
           empresaId={empresaId}

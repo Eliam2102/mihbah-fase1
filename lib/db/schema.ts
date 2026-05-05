@@ -49,9 +49,20 @@ export const estadoVentaEnum = pgEnum('estado_venta', [
   'APROBADO_JURIDICO',
   'FINALIZADA',
   'CANCELADA',
+  // Estados BM CORP (Monday "Estado de venta")
+  'APROBADO_VENTAS',
+  'RECHAZADO',
+  'ESPERANDO_AUTORIZACION',
+  'LIBERADO',
+  'FINALIZADO_Y_LIQUIDADO',
 ])
 
 export const estadoComisionEnum = pgEnum('estado_comision', ['PENDIENTE', 'PARCIAL', 'PAGADA'])
+
+// Pagos BM CORP — repartos a alianzas + comisiones a asesores
+export const estadoPagoBmcorpEnum = pgEnum('estado_pago_bmcorp', ['PENDIENTE', 'PARCIAL', 'PAGADO'])
+
+export const tipoPagoBmcorpEnum = pgEnum('tipo_pago_bmcorp', ['REPARTO_ALIANZA', 'COMISION_ASESOR'])
 
 export const estadoCxEnum = pgEnum('estado_cx', ['AL_CORRIENTE', 'VENCIDA', 'PROXIMA', 'PAGADA'])
 
@@ -265,40 +276,98 @@ export const cuentasPendientes = pgTable('cuentas_pendientes', {
 
 // ─── Ventas BM Corp ──────────────────────────────────────────────────────────
 
-export const ventasBmcorp = pgTable('ventas_bmcorp', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenants.id, { onDelete: 'cascade' }),
-  empresaId: uuid('empresa_id')
-    .notNull()
-    .references(() => empresas.id, { onDelete: 'cascade' }),
-  cliente: text('cliente').notNull(),
-  productoServicio: text('producto_servicio'),
-  monto: numeric('monto', { precision: 18, scale: 2 }).notNull(),
-  fecha: date('fecha').notNull(),
-  descripcion: text('descripcion'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const ventasBmcorp = pgTable(
+  'ventas_bmcorp',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id, { onDelete: 'cascade' }),
+    // Monday.com sync key — used for idempotent upserts
+    mondayItemId: text('monday_item_id'),
+    // Core deal data
+    cliente: text('cliente').notNull(),
+    afiliadoId: uuid('afiliado_id').references(() => afiliados.id, { onDelete: 'set null' }),
+    desarrolloId: uuid('desarrollo_id').references(() => desarrollos.id, { onDelete: 'set null' }),
+    asesor: text('asesor'),
+    monto: numeric('monto', { precision: 18, scale: 2 }).notNull().default('0'),
+    financiamiento: text('financiamiento'), // CONTADO / CREDITO / etc
+    enganche: numeric('enganche', { precision: 18, scale: 2 }).default('0'),
+    estadoVenta: estadoVentaEnum('estado_venta').notNull().default('EN_PROCESO'),
+    fechaApertura: date('fecha_apertura'),
+    fechaCierre: date('fecha_cierre'),
+
+    // Novedades de la inspección real de Monday
+    loteAcciones: text('lote_acciones'),
+    paqueteAccion: text('paquete_accion'),
+    pipelineGroup: text('pipeline_group'),
+    operativoApertura: text('operativo_apertura'),
+    operativoCierre: text('operativo_cierre'),
+    comisionBmcorp: numeric('comision_bmcorp', { precision: 18, scale: 2 }).default('0'),
+    mondayBoardId: text('monday_board_id'),
+
+    // Datos personales
+    telefono: text('telefono'),
+    correo: text('correo'),
+    nacionalidad: text('nacionalidad'),
+    residencia: text('residencia'),
+    sexo: text('sexo'),
+    fechaNacimiento: date('fecha_nacimiento'),
+
+    // Legacy / generic
+    productoServicio: text('producto_servicio'),
+    fecha: date('fecha').notNull(),
+    descripcion: text('descripcion'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    tenantIdx: index('ventas_bmcorp_tenant_idx').on(t.tenantId),
+    mondayItemIdx: uniqueIndex('ventas_bmcorp_monday_item_unique').on(t.tenantId, t.mondayItemId),
+  }),
+)
 
 // ─── Repartos BM Corp ────────────────────────────────────────────────────────
 
-export const repartosBmcorp = pgTable('repartos_bmcorp', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenants.id, { onDelete: 'cascade' }),
-  empresaId: uuid('empresa_id')
-    .notNull()
-    .references(() => empresas.id, { onDelete: 'cascade' }),
-  beneficiario: text('beneficiario').notNull(),
-  monto: numeric('monto', { precision: 18, scale: 2 }).notNull(),
-  fecha: date('fecha').notNull(),
-  descripcion: text('descripcion'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const repartosBmcorp = pgTable(
+  'repartos_bmcorp',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id, { onDelete: 'cascade' }),
+    // Sync con Monday — venta origen + idempotencia
+    ventaId: uuid('venta_id').references(() => ventasBmcorp.id, { onDelete: 'set null' }),
+    afiliadoId: uuid('afiliado_id').references(() => afiliados.id, { onDelete: 'set null' }),
+    mondayItemId: text('monday_item_id'),
+    // Tipo y estado del pago
+    tipo: tipoPagoBmcorpEnum('tipo').notNull().default('REPARTO_ALIANZA'),
+    estado: estadoPagoBmcorpEnum('estado').notNull().default('PENDIENTE'),
+    // Datos del pago
+    beneficiario: text('beneficiario').notNull(),
+    monto: numeric('monto', { precision: 18, scale: 2 }).notNull(),
+    fecha: date('fecha').notNull(),
+    descripcion: text('descripcion'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    tenantIdx: index('repartos_bmcorp_tenant_idx').on(t.tenantId),
+    mondayItemIdx: uniqueIndex('repartos_bmcorp_monday_unique').on(
+      t.tenantId,
+      t.mondayItemId,
+      t.tipo,
+    ),
+    ventaIdx: index('repartos_bmcorp_venta_idx').on(t.ventaId),
+    fechaIdx: index('repartos_bmcorp_fecha_idx').on(t.fecha),
+  }),
+)
 
 // ─── User Empresa Access ─────────────────────────────────────────────────────
 
