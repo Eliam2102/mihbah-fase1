@@ -93,6 +93,26 @@ export interface UltimaSyncInfo {
   stale: boolean
 }
 
+export interface RepartosSplit {
+  realizado: { count: number; monto: number }
+  parcial: { count: number; monto: number }
+  pendiente: { count: number; monto: number }
+  totalMonto: number
+  ultimoReparto: string | null
+  /** True si tabla está vacía → cliente aún no agrega columnas Monday */
+  sinDatos: boolean
+}
+
+export interface ComisionamientoConciliado {
+  totalGenerado: number // Suma de comisionBmcorp en ventas (Monto 15%)
+  pagado: number // Suma de pagos tipo COMISION_ASESOR con estado PAGADO
+  parcial: number
+  pendiente: number // totalGenerado − pagado − parcial
+  porcentajeConciliado: number
+  /** True si no hay COMISION_ASESOR registrada → espera columnas Monday */
+  sinDatos: boolean
+}
+
 // ─── KPIs principales ─────────────────────────────────────────────────────────
 
 export async function getKpisBmcorp(
@@ -442,6 +462,127 @@ export async function getUltimaSync(empresaId: string, tenantId: string): Promis
       actualizados: row?.actualizados ?? 0,
       errores: row?.errores ?? 0,
       stale,
+    }
+  })
+}
+
+// ─── Repartos split (realizado / parcial / pendiente) ─────────────────────────
+
+/**
+ * Separa repartos por estado. Hoy hasta que cliente agregue columnas Monday
+ * (ver docs/MONDAY_COLUMNAS_REQUERIDAS.md), tabla está vacía → sinDatos: true.
+ */
+export async function getRepartosSplit(
+  empresaId: string,
+  tenantId: string,
+): Promise<RepartosSplit> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const rows = await tx
+      .select({
+        estado: repartosBmcorp.estado,
+        count: sql<number>`COUNT(*)::int`,
+        monto: sql<string>`COALESCE(SUM(${repartosBmcorp.monto}), 0)::text`,
+      })
+      .from(repartosBmcorp)
+      .where(
+        and(
+          eq(repartosBmcorp.tenantId, tenantId),
+          eq(repartosBmcorp.empresaId, empresaId),
+          eq(repartosBmcorp.tipo, 'REPARTO_ALIANZA'),
+        ),
+      )
+      .groupBy(repartosBmcorp.estado)
+
+    const [ultimoRow] = await tx
+      .select({ ultimo: sql<string | null>`MAX(${repartosBmcorp.fecha})::text` })
+      .from(repartosBmcorp)
+      .where(
+        and(
+          eq(repartosBmcorp.tenantId, tenantId),
+          eq(repartosBmcorp.empresaId, empresaId),
+          eq(repartosBmcorp.tipo, 'REPARTO_ALIANZA'),
+          eq(repartosBmcorp.estado, 'PAGADO'),
+        ),
+      )
+
+    const result: RepartosSplit = {
+      realizado: { count: 0, monto: 0 },
+      parcial: { count: 0, monto: 0 },
+      pendiente: { count: 0, monto: 0 },
+      totalMonto: 0,
+      ultimoReparto: ultimoRow?.ultimo ?? null,
+      sinDatos: rows.length === 0,
+    }
+    for (const r of rows) {
+      const monto = Number(r.monto)
+      const count = Number(r.count)
+      result.totalMonto += monto
+      if (r.estado === 'PAGADO') result.realizado = { count, monto }
+      else if (r.estado === 'PARCIAL') result.parcial = { count, monto }
+      else result.pendiente = { count, monto }
+    }
+    return result
+  })
+}
+
+// ─── Comisionamiento conciliado ───────────────────────────────────────────────
+
+/**
+ * Total comisión BM CORP generada (de ventas) vs pagada/pendiente al asesor.
+ * Hoy `pagado` = 0 hasta que cliente registre comisiones en columnas Monday.
+ */
+export async function getComisionamientoConciliado(
+  empresaId: string,
+  tenantId: string,
+): Promise<ComisionamientoConciliado> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    // Total comisión generada — del campo comisionBmcorp en ventas
+    const [genRow] = await tx
+      .select({
+        total: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+      })
+      .from(ventasBmcorp)
+      .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+
+    // Pagos tipo COMISION_ASESOR agrupados por estado
+    const pagoRows = await tx
+      .select({
+        estado: repartosBmcorp.estado,
+        monto: sql<string>`COALESCE(SUM(${repartosBmcorp.monto}), 0)::text`,
+      })
+      .from(repartosBmcorp)
+      .where(
+        and(
+          eq(repartosBmcorp.tenantId, tenantId),
+          eq(repartosBmcorp.empresaId, empresaId),
+          eq(repartosBmcorp.tipo, 'COMISION_ASESOR'),
+        ),
+      )
+      .groupBy(repartosBmcorp.estado)
+
+    const totalGenerado = Number(genRow?.total ?? 0)
+    let pagado = 0
+    let parcial = 0
+    for (const r of pagoRows) {
+      const monto = Number(r.monto)
+      if (r.estado === 'PAGADO') pagado = monto
+      else if (r.estado === 'PARCIAL') parcial = monto
+    }
+    const pendiente = Math.max(0, totalGenerado - pagado - parcial)
+    const porcentajeConciliado =
+      totalGenerado > 0 ? Math.round(((pagado + parcial) / totalGenerado) * 100) : 0
+
+    return {
+      totalGenerado,
+      pagado,
+      parcial,
+      pendiente,
+      porcentajeConciliado,
+      sinDatos: pagoRows.length === 0,
     }
   })
 }

@@ -1,4 +1,8 @@
 // Server Component — BM CORP Dashboard
+// Layout per CLAUDE.md sección 7 / Indicadores BM CORP:
+//   - Semáforo arriba
+//   - 50/50 — Izquierda: KPI vendido + Ranking afiliados + Ranking proyectos
+//   - 50/50 — Derecha: Repartos + Flujo semanal + Comisionamiento conciliado
 
 import Link from 'next/link'
 import {
@@ -6,15 +10,19 @@ import {
   getRankingAfiliados,
   getRankingDesarrollos,
   getFlujoSemanal,
-  getRepartosKpi,
+  getRepartosSplit,
   getRemanentesPorAfiliado,
+  getComisionamientoConciliado,
   getUltimaSync,
 } from '@/lib/services/dashboard-bmcorp.service'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { BmcorpRanking } from '@/components/dashboard/bmcorp-ranking'
 import { BmcorpFlujoSemanal } from '@/components/dashboard/bmcorp-flujo-semanal'
 import { BmcorpEmptyState } from '@/components/dashboard/bmcorp-empty-state'
-import { Cloud, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react'
+import { BmcorpSemaforo } from '@/components/dashboard/bmcorp-semaforo'
+import { BmcorpComisionamiento } from '@/components/dashboard/bmcorp-comisionamiento'
+import { BmcorpRepartosCard } from '@/components/dashboard/bmcorp-repartos-card'
+import { Cloud, RefreshCw, AlertTriangle, CheckCircle, TrendingUp } from 'lucide-react'
 
 interface Props {
   empresaId: string
@@ -45,37 +53,45 @@ function formatAbsoluteDate(iso: string | null): string {
 export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props) {
   const period = mes ? { anio, mes } : { anio }
 
-  const [kpis, afiliados, desarrollos, flujo, repartos, remanentes, ultimaSync] = await Promise.all(
-    [
-      getKpisBmcorp(empresaId, tenantId, period),
-      getRankingAfiliados(empresaId, tenantId, period, 5),
-      getRankingDesarrollos(empresaId, tenantId, period, 5),
-      getFlujoSemanal(empresaId, tenantId, 12),
-      getRepartosKpi(empresaId, tenantId),
-      getRemanentesPorAfiliado(empresaId, tenantId, 5),
-      getUltimaSync(empresaId, tenantId),
-    ],
-  )
+  const [
+    kpis,
+    afiliados,
+    desarrollos,
+    flujo,
+    repartosSplit,
+    remanentes,
+    comisionamiento,
+    ultimaSync,
+  ] = await Promise.all([
+    getKpisBmcorp(empresaId, tenantId, period),
+    getRankingAfiliados(empresaId, tenantId, period, 10),
+    getRankingDesarrollos(empresaId, tenantId, period, 10),
+    getFlujoSemanal(empresaId, tenantId, 12),
+    getRepartosSplit(empresaId, tenantId),
+    getRemanentesPorAfiliado(empresaId, tenantId, 5),
+    getComisionamientoConciliado(empresaId, tenantId),
+    getUltimaSync(empresaId, tenantId),
+  ])
 
-  // Empty state — no ventas yet
   if (kpis.totalVentas === 0) {
     return <BmcorpEmptyState empresaId={empresaId} />
   }
 
-  const stale = ultimaSync.stale
-
   return (
     <div className="space-y-6">
+      {/* Semáforo arriba — placeholder hasta criterios cliente */}
+      <BmcorpSemaforo />
+
       {/* Sync banner */}
       <div
         className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
-          stale
+          ultimaSync.stale
             ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
             : 'border-border bg-card'
         }`}
       >
         <div className="flex items-center gap-3 text-sm">
-          {stale ? (
+          {ultimaSync.stale ? (
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
           ) : (
             <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -99,89 +115,83 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
         </Link>
       </div>
 
-      {/* Row 1 — KPIs principales (4 cards) */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard
-          label="Total vendido"
-          value={kpis.totalVendido}
-          variant="success"
-          comparison={`${kpis.totalVentas} ventas`}
-        />
-        <KpiCard
-          label="En proceso"
-          value={kpis.enProceso.monto}
-          variant="warning"
-          comparison={`${kpis.enProceso.count} ventas`}
-        />
-        <KpiCard
-          label="Aprobado jurídico"
-          value={kpis.aprobadoJuridico.monto}
-          variant="default"
-          comparison={`${kpis.aprobadoJuridico.count} ventas`}
-        />
-        <KpiCard
-          label="Finalizadas"
-          value={kpis.finalizada.monto}
-          variant="success"
-          comparison={`${kpis.finalizada.count} ventas`}
-        />
-      </div>
-
-      {/* Row 2 — Lado izquierdo: rankings | Lado derecho: repartos + flujo */}
+      {/* 50 / 50 layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Izquierda: rankings ventas */}
+        {/* IZQUIERDA — Ventas */}
         <div className="space-y-6">
+          {/* KPI total vendido */}
+          <div className="border-border bg-card rounded-xl border p-5">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="text-jade-600 h-4 w-4" />
+              <span className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
+                Total vendido — periodo
+              </span>
+            </div>
+            <p className="text-foreground mt-3 text-3xl font-bold tabular-nums">
+              {formatMXN(kpis.totalVendido)}
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {kpis.totalVentas} {kpis.totalVentas === 1 ? 'venta' : 'ventas'}
+            </p>
+            <div className="border-border mt-4 grid grid-cols-3 gap-2 border-t pt-4 text-center">
+              <div>
+                <p className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
+                  En proceso
+                </p>
+                <p className="mt-0.5 text-sm font-bold text-amber-600 tabular-nums dark:text-amber-400">
+                  {kpis.enProceso.count}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
+                  Aprobado jurídico
+                </p>
+                <p className="mt-0.5 text-sm font-bold text-blue-600 tabular-nums dark:text-blue-400">
+                  {kpis.aprobadoJuridico.count}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
+                  Finalizadas
+                </p>
+                <p className="mt-0.5 text-sm font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
+                  {kpis.finalizada.count}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking afiliados con drill-down */}
           <BmcorpRanking
             title="Top alianzas (afiliados)"
             rows={afiliados}
             emptyLabel="Sin ventas asignadas a afiliados aún."
+            drillDownHref={`/empresa/${empresaId}/cuentas?afiliado`}
           />
+
+          {/* Ranking desarrollos con drill-down */}
           <BmcorpRanking
             title="Top desarrollos"
             rows={desarrollos}
             emptyLabel="Sin ventas asignadas a desarrollos aún."
+            drillDownHref={`/empresa/${empresaId}/proyectos`}
           />
         </div>
 
-        {/* Derecha: repartos + flujo */}
+        {/* DERECHA — Pagos y flujo */}
         <div className="space-y-6">
-          <div className="border-border bg-card grid grid-cols-2 gap-4 rounded-xl border p-5">
-            <div>
-              <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
-                Repartos realizados
-              </p>
-              <p className="text-foreground mt-2 text-2xl font-bold tabular-nums">
-                {formatMXN(repartos.totalRealizado)}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {repartos.cantidadRealizados} {repartos.cantidadRealizados === 1 ? 'pago' : 'pagos'}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
-                Último reparto
-              </p>
-              <p className="text-foreground mt-2 text-2xl font-bold tabular-nums">
-                {repartos.ultimoReparto
-                  ? new Date(repartos.ultimoReparto).toLocaleDateString('es-MX', {
-                      day: '2-digit',
-                      month: 'short',
-                    })
-                  : '—'}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {repartos.ultimoReparto
-                  ? new Date(repartos.ultimoReparto).getFullYear()
-                  : 'sin registros'}
-              </p>
-            </div>
-          </div>
+          {/* Repartos card con split */}
+          <BmcorpRepartosCard data={repartosSplit} />
 
+          {/* Flujo semanal */}
           <BmcorpFlujoSemanal data={flujo} />
+
+          {/* Comisionamiento conciliado */}
+          <BmcorpComisionamiento data={comisionamiento} />
         </div>
       </div>
 
-      {/* Row 3 — Remanentes por afiliado */}
+      {/* Remanentes — full width abajo */}
       <div className="border-border bg-card rounded-xl border p-5">
         <div className="mb-4 flex items-center gap-2">
           <Cloud className="text-jade-600 h-4 w-4" />

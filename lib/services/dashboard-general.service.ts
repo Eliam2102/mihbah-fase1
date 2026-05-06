@@ -1,0 +1,765 @@
+/**
+ * lib/services/dashboard-general.service.ts
+ *
+ * Dashboard General — vista consolidada del tenant (las 3 empresas).
+ *
+ * NO calcula "Margen" (decisión cliente). Foco: visibilidad + correlación.
+ *
+ * Patrón consistente: db.transaction() + setTenant() para que RLS aplique.
+ */
+
+import { db } from '@/lib/db'
+import {
+  empresas,
+  movimientos,
+  cuentasPendientes,
+  ventasBmcorp,
+  acuerdosAportacion,
+  pagosAportacion,
+} from '@/lib/db/schema'
+import { and, eq, gte, lte, sql, inArray } from 'drizzle-orm'
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+async function setTenant(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tenantId: string,
+) {
+  await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`)
+}
+
+// ─── Periodo helper ───────────────────────────────────────────────────────────
+
+export interface PeriodFilter {
+  anio?: number
+  mes?: number
+}
+
+function periodRange(p?: PeriodFilter): { from: string; to: string } {
+  const anio = p?.anio ?? new Date().getFullYear()
+  if (p?.mes) {
+    const mes = String(p.mes).padStart(2, '0')
+    const lastDay = new Date(anio, p.mes, 0).getDate()
+    return { from: `${anio}-${mes}-01`, to: `${anio}-${mes}-${String(lastDay).padStart(2, '0')}` }
+  }
+  return { from: `${anio}-01-01`, to: `${anio}-12-31` }
+}
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+export interface EmpresaResumen {
+  empresaId: string
+  nombre: string
+  tipo: 'CONSTRUCTORA' | 'CAPITAL' | 'COMERCIAL'
+  // KPIs según tipo
+  ingresos: number // CONSTRUCTORA: movimientos INGRESO · CAPITAL: pagos · COMERCIAL: ventas finalizadas
+  egresos: number // CONSTRUCTORA: movimientos EGRESO · COMERCIAL: repartos pagados (placeholder hoy)
+  neto: number
+  cxc: number // por cobrar
+  cxp: number // por pagar
+  /** True si KPIs están parcialmente vacíos por dependencia externa (BM CORP repartos) */
+  parcial?: boolean
+}
+
+export interface ResumenGeneral {
+  empresas: EmpresaResumen[]
+  totalIngresos: number
+  totalEgresos: number
+  totalNeto: number
+  totalCxc: number
+  totalCxp: number
+  periodo: { anio: number; mes?: number }
+}
+
+export interface CorrelacionFlow {
+  /** Origen: nombre empresa */
+  from: string
+  /** Destino */
+  to: string
+  /** Concepto narrativo de la relación */
+  concepto: string
+  /** Monto que fluye en el periodo */
+  monto: number
+  /** Hint visual */
+  tipo: 'CAPITAL_TO_OBRA' | 'VENTA_TO_CAPITAL' | 'COMISION_TO_OBRA'
+}
+
+export interface CuentasConsolidado {
+  cxcPorEmpresa: { empresaId: string; nombre: string; total: number; vencidas: number }[]
+  cxpPorEmpresa: { empresaId: string; nombre: string; total: number; vencidas: number }[]
+  totalCxc: number
+  totalCxp: number
+  totalCxcVencidas: number
+  totalCxpVencidas: number
+}
+
+export interface MihbahEstimadoVsAvance {
+  empresaId: string | null
+  estimadoMes: number // Por proyecto: presupuesto del mes
+  gastadoMes: number // movimientos EGRESO del mes
+  porcentajeAvance: number
+  /** True si MIHBAH no tiene movimientos en el mes */
+  sinDatos: boolean
+}
+
+export interface ResumenDelResumen {
+  ventasBmcorpFinalizadas: number // Ingreso esperado de comisiones BM
+  comisionGeneradaBmcorp: number // 15% de ventas
+  capitalLevantadoYcdi: number // Pagos recibidos por aportaciones
+  capitalPendienteYcdi: number // Saldo de acuerdos − pagado
+  // Narrativa: ¿qué hace BM correlacionar con YCDI?
+  hipotesis: string
+}
+
+// ─── Helpers internos ─────────────────────────────────────────────────────────
+
+async function getEmpresasTenant(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tenantId: string,
+) {
+  return tx
+    .select({ id: empresas.id, name: empresas.name, tipo: empresas.tipo })
+    .from(empresas)
+    .where(eq(empresas.tenantId, tenantId))
+}
+
+async function kpisConstructora(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tenantId: string,
+  empresaId: string,
+  range: { from: string; to: string },
+): Promise<Pick<EmpresaResumen, 'ingresos' | 'egresos' | 'neto' | 'cxc' | 'cxp'>> {
+  // Movimientos
+  const movs = await tx
+    .select({
+      tipo: movimientos.tipo,
+      total: sql<string>`COALESCE(SUM(${movimientos.monto}), 0)::text`,
+    })
+    .from(movimientos)
+    .where(
+      and(
+        eq(movimientos.tenantId, tenantId),
+        eq(movimientos.empresaId, empresaId),
+        gte(movimientos.fecha, range.from),
+        lte(movimientos.fecha, range.to),
+      ),
+    )
+    .groupBy(movimientos.tipo)
+
+  let ingresos = 0
+  let egresos = 0
+  for (const r of movs) {
+    const monto = Number(r.total)
+    if (r.tipo === 'INGRESO') ingresos += monto
+    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += monto
+  }
+
+  // CXC / CXP
+  const pendientes = await tx
+    .select({
+      tipo: cuentasPendientes.tipo,
+      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+    })
+    .from(cuentasPendientes)
+    .where(
+      and(
+        eq(cuentasPendientes.tenantId, tenantId),
+        eq(cuentasPendientes.empresaId, empresaId),
+        eq(cuentasPendientes.estado, 'PENDIENTE'),
+      ),
+    )
+    .groupBy(cuentasPendientes.tipo)
+
+  let cxc = 0
+  let cxp = 0
+  for (const r of pendientes) {
+    const monto = Number(r.total)
+    if (r.tipo === 'POR_COBRAR') cxc = monto
+    else if (r.tipo === 'POR_PAGAR') cxp = monto
+  }
+
+  return { ingresos, egresos, neto: ingresos - egresos, cxc, cxp }
+}
+
+async function kpisCapitalYcdi(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tenantId: string,
+  empresaId: string,
+  range: { from: string; to: string },
+): Promise<Pick<EmpresaResumen, 'ingresos' | 'egresos' | 'neto' | 'cxc' | 'cxp'>> {
+  // YCDI tiene 2 fuentes de datos:
+  //   1) movimientos (importados de Excel)            → ingresos/egresos
+  //   2) acuerdos_aportacion + pagos_aportacion       → CXC capital
+  //
+  // Para que el consolidado cuadre con la realidad del seed (que mete YCDI en
+  // movimientos), usamos movimientos como fuente primaria de ingresos/egresos
+  // y pagos_aportacion como complemento de CXC capital.
+
+  // Movimientos
+  const movs = await tx
+    .select({
+      tipo: movimientos.tipo,
+      total: sql<string>`COALESCE(SUM(${movimientos.monto}), 0)::text`,
+    })
+    .from(movimientos)
+    .where(
+      and(
+        eq(movimientos.tenantId, tenantId),
+        eq(movimientos.empresaId, empresaId),
+        gte(movimientos.fecha, range.from),
+        lte(movimientos.fecha, range.to),
+      ),
+    )
+    .groupBy(movimientos.tipo)
+
+  let ingresos = 0
+  let egresos = 0
+  for (const r of movs) {
+    const monto = Number(r.total)
+    if (r.tipo === 'INGRESO') ingresos += monto
+    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += monto
+  }
+
+  // CXC desde pagos_aportacion (capital pendiente). Si tabla vacía → 0.
+  const [cxcRow] = await tx
+    .select({
+      total: sql<string>`COALESCE(SUM(${pagosAportacion.montoEsperado} - ${pagosAportacion.montoPagado}), 0)::text`,
+    })
+    .from(pagosAportacion)
+    .where(
+      and(
+        eq(pagosAportacion.tenantId, tenantId),
+        inArray(pagosAportacion.estado, ['VENCIDA', 'PROXIMA']),
+      ),
+    )
+
+  // Fallback CXC: cuentas_pendientes para YCDI también
+  const [cxcMovRow] = await tx
+    .select({
+      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+    })
+    .from(cuentasPendientes)
+    .where(
+      and(
+        eq(cuentasPendientes.tenantId, tenantId),
+        eq(cuentasPendientes.empresaId, empresaId),
+        eq(cuentasPendientes.tipo, 'POR_COBRAR'),
+        eq(cuentasPendientes.estado, 'PENDIENTE'),
+      ),
+    )
+
+  const [cxpRow] = await tx
+    .select({
+      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+    })
+    .from(cuentasPendientes)
+    .where(
+      and(
+        eq(cuentasPendientes.tenantId, tenantId),
+        eq(cuentasPendientes.empresaId, empresaId),
+        eq(cuentasPendientes.tipo, 'POR_PAGAR'),
+        eq(cuentasPendientes.estado, 'PENDIENTE'),
+      ),
+    )
+
+  const cxc = Number(cxcRow?.total ?? 0) + Number(cxcMovRow?.total ?? 0)
+  const cxp = Number(cxpRow?.total ?? 0)
+
+  return { ingresos, egresos, neto: ingresos - egresos, cxc, cxp }
+}
+
+async function kpisComercialBmcorp(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tenantId: string,
+  empresaId: string,
+  range: { from: string; to: string },
+): Promise<
+  Pick<EmpresaResumen, 'ingresos' | 'egresos' | 'neto' | 'cxc' | 'cxp'> & { parcial: boolean }
+> {
+  // BM CORP fuentes:
+  //   1) ventas_bmcorp (sync Monday)               → comisión generada
+  //   2) movimientos (fallback si import Excel)
+  //   3) cuentas_pendientes                         → CXC/CXP
+
+  const [ventasRow] = await tx
+    .select({
+      total: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+    })
+    .from(ventasBmcorp)
+    .where(
+      and(
+        eq(ventasBmcorp.tenantId, tenantId),
+        eq(ventasBmcorp.empresaId, empresaId),
+        gte(ventasBmcorp.fechaApertura, range.from),
+        lte(ventasBmcorp.fechaApertura, range.to),
+      ),
+    )
+
+  const movs = await tx
+    .select({
+      tipo: movimientos.tipo,
+      total: sql<string>`COALESCE(SUM(${movimientos.monto}), 0)::text`,
+    })
+    .from(movimientos)
+    .where(
+      and(
+        eq(movimientos.tenantId, tenantId),
+        eq(movimientos.empresaId, empresaId),
+        gte(movimientos.fecha, range.from),
+        lte(movimientos.fecha, range.to),
+      ),
+    )
+    .groupBy(movimientos.tipo)
+
+  let ingresosMov = 0
+  let egresos = 0
+  for (const r of movs) {
+    const monto = Number(r.total)
+    if (r.tipo === 'INGRESO') ingresosMov += monto
+    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += monto
+  }
+
+  // Ingresos = comisión generada Monday + movimientos manuales
+  const ingresosVentas = Number(ventasRow?.total ?? 0)
+  const ingresos = ingresosVentas + ingresosMov
+
+  const [cxcRow] = await tx
+    .select({
+      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+    })
+    .from(cuentasPendientes)
+    .where(
+      and(
+        eq(cuentasPendientes.tenantId, tenantId),
+        eq(cuentasPendientes.empresaId, empresaId),
+        eq(cuentasPendientes.tipo, 'POR_COBRAR'),
+        eq(cuentasPendientes.estado, 'PENDIENTE'),
+      ),
+    )
+  const [cxpRow] = await tx
+    .select({
+      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+    })
+    .from(cuentasPendientes)
+    .where(
+      and(
+        eq(cuentasPendientes.tenantId, tenantId),
+        eq(cuentasPendientes.empresaId, empresaId),
+        eq(cuentasPendientes.tipo, 'POR_PAGAR'),
+        eq(cuentasPendientes.estado, 'PENDIENTE'),
+      ),
+    )
+
+  // BM CORP es parcial cuando NO hay ventas sincronizadas todavía
+  // O cuando faltan repartos pagados (siempre Fase 1).
+  return {
+    ingresos,
+    egresos,
+    neto: ingresos - egresos,
+    cxc: Number(cxcRow?.total ?? 0),
+    cxp: Number(cxpRow?.total ?? 0),
+    parcial: ingresosVentas === 0,
+  }
+}
+
+// ─── 1. Resumen General ───────────────────────────────────────────────────────
+
+export async function getResumenGeneral(
+  tenantId: string,
+  period?: PeriodFilter,
+): Promise<ResumenGeneral> {
+  const range = periodRange(period)
+  const anio = period?.anio ?? new Date().getFullYear()
+
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const empresasRows = await getEmpresasTenant(tx, tenantId)
+    const resumen: EmpresaResumen[] = []
+
+    for (const e of empresasRows) {
+      let kpis: Pick<EmpresaResumen, 'ingresos' | 'egresos' | 'neto' | 'cxc' | 'cxp'> & {
+        parcial?: boolean
+      }
+      if (e.tipo === 'CONSTRUCTORA') {
+        kpis = await kpisConstructora(tx, tenantId, e.id, range)
+      } else if (e.tipo === 'CAPITAL') {
+        kpis = await kpisCapitalYcdi(tx, tenantId, e.id, range)
+      } else {
+        kpis = await kpisComercialBmcorp(tx, tenantId, e.id, range)
+      }
+
+      resumen.push({
+        empresaId: e.id,
+        nombre: e.name,
+        tipo: e.tipo,
+        ...kpis,
+      })
+    }
+
+    return {
+      empresas: resumen,
+      totalIngresos: resumen.reduce((s, r) => s + r.ingresos, 0),
+      totalEgresos: resumen.reduce((s, r) => s + r.egresos, 0),
+      totalNeto: resumen.reduce((s, r) => s + r.neto, 0),
+      totalCxc: resumen.reduce((s, r) => s + r.cxc, 0),
+      totalCxp: resumen.reduce((s, r) => s + r.cxp, 0),
+      periodo: period?.mes ? { anio, mes: period.mes } : { anio },
+    }
+  })
+}
+
+// ─── 2. Correlación entre empresas ────────────────────────────────────────────
+
+/**
+ * Modelo narrativo (no transferencias bancarias reales):
+ *   YCDI levanta capital → financia obras de MIHBAH
+ *   BM CORP vende → genera comisiones que pueden financiar otros proyectos
+ *   YCDI tiene proyectos comerciales que vende BM CORP
+ */
+export async function getCorrelacionEmpresas(
+  tenantId: string,
+  period?: PeriodFilter,
+): Promise<CorrelacionFlow[]> {
+  const range = periodRange(period)
+
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const empresasRows = await getEmpresasTenant(tx, tenantId)
+    const ycdi = empresasRows.find((e) => e.tipo === 'CAPITAL')
+    const mihbah = empresasRows.find((e) => e.tipo === 'CONSTRUCTORA')
+    const bmcorp = empresasRows.find((e) => e.tipo === 'COMERCIAL')
+
+    const flows: CorrelacionFlow[] = []
+
+    // YCDI → MIHBAH: capital levantado en periodo
+    if (ycdi && mihbah) {
+      const [capitalRow] = await tx
+        .select({
+          total: sql<string>`COALESCE(SUM(${pagosAportacion.montoPagado}), 0)::text`,
+        })
+        .from(pagosAportacion)
+        .where(
+          and(
+            eq(pagosAportacion.tenantId, tenantId),
+            sql`${pagosAportacion.fechaPago} IS NOT NULL`,
+            gte(pagosAportacion.fechaPago, range.from),
+            lte(pagosAportacion.fechaPago, range.to),
+          ),
+        )
+
+      flows.push({
+        from: ycdi.name,
+        to: mihbah.name,
+        concepto: 'Capital levantado disponible para obra',
+        monto: Number(capitalRow?.total ?? 0),
+        tipo: 'CAPITAL_TO_OBRA',
+      })
+    }
+
+    // BM CORP → YCDI: ventas que pueden ser de proyectos YCDI
+    if (bmcorp && ycdi) {
+      const [ventasRow] = await tx
+        .select({
+          total: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
+        })
+        .from(ventasBmcorp)
+        .where(
+          and(
+            eq(ventasBmcorp.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, bmcorp.id),
+            gte(ventasBmcorp.fechaApertura, range.from),
+            lte(ventasBmcorp.fechaApertura, range.to),
+          ),
+        )
+
+      flows.push({
+        from: bmcorp.name,
+        to: ycdi.name,
+        concepto: 'Ventas comerciales (parcialmente acciones YCDI)',
+        monto: Number(ventasRow?.total ?? 0),
+        tipo: 'VENTA_TO_CAPITAL',
+      })
+    }
+
+    // BM CORP → MIHBAH: comisiones generadas pueden financiar obra
+    if (bmcorp && mihbah) {
+      const [comisionRow] = await tx
+        .select({
+          total: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+        })
+        .from(ventasBmcorp)
+        .where(
+          and(
+            eq(ventasBmcorp.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, bmcorp.id),
+            gte(ventasBmcorp.fechaApertura, range.from),
+            lte(ventasBmcorp.fechaApertura, range.to),
+          ),
+        )
+
+      flows.push({
+        from: bmcorp.name,
+        to: mihbah.name,
+        concepto: 'Comisión generada (15%) — flujo potencial a obra',
+        monto: Number(comisionRow?.total ?? 0),
+        tipo: 'COMISION_TO_OBRA',
+      })
+    }
+
+    return flows
+  })
+}
+
+// ─── 3. Cuentas consolidado ───────────────────────────────────────────────────
+
+export async function getCuentasConsolidado(tenantId: string): Promise<CuentasConsolidado> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const empresasRows = await getEmpresasTenant(tx, tenantId)
+
+    const cxcPorEmpresa: CuentasConsolidado['cxcPorEmpresa'] = []
+    const cxpPorEmpresa: CuentasConsolidado['cxpPorEmpresa'] = []
+    const today = new Date().toISOString().slice(0, 10)
+
+    for (const e of empresasRows) {
+      // CXC para CONSTRUCTORA y COMERCIAL → cuentas_pendientes
+      if (e.tipo === 'CONSTRUCTORA' || e.tipo === 'COMERCIAL') {
+        const [cxcRow] = await tx
+          .select({
+            total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+            vencidas: sql<string>`COALESCE(SUM(CASE WHEN ${cuentasPendientes.fechaVencimiento} < ${today} THEN ${cuentasPendientes.monto} ELSE 0 END), 0)::text`,
+          })
+          .from(cuentasPendientes)
+          .where(
+            and(
+              eq(cuentasPendientes.tenantId, tenantId),
+              eq(cuentasPendientes.empresaId, e.id),
+              eq(cuentasPendientes.tipo, 'POR_COBRAR'),
+              eq(cuentasPendientes.estado, 'PENDIENTE'),
+            ),
+          )
+
+        const [cxpRow] = await tx
+          .select({
+            total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+            vencidas: sql<string>`COALESCE(SUM(CASE WHEN ${cuentasPendientes.fechaVencimiento} < ${today} THEN ${cuentasPendientes.monto} ELSE 0 END), 0)::text`,
+          })
+          .from(cuentasPendientes)
+          .where(
+            and(
+              eq(cuentasPendientes.tenantId, tenantId),
+              eq(cuentasPendientes.empresaId, e.id),
+              eq(cuentasPendientes.tipo, 'POR_PAGAR'),
+              eq(cuentasPendientes.estado, 'PENDIENTE'),
+            ),
+          )
+
+        cxcPorEmpresa.push({
+          empresaId: e.id,
+          nombre: e.name,
+          total: Number(cxcRow?.total ?? 0),
+          vencidas: Number(cxcRow?.vencidas ?? 0),
+        })
+        cxpPorEmpresa.push({
+          empresaId: e.id,
+          nombre: e.name,
+          total: Number(cxpRow?.total ?? 0),
+          vencidas: Number(cxpRow?.vencidas ?? 0),
+        })
+      } else if (e.tipo === 'CAPITAL') {
+        // CXC YCDI = saldo aportaciones pendientes (esperado − pagado)
+        const [cxcRow] = await tx
+          .select({
+            total: sql<string>`COALESCE(SUM(${pagosAportacion.montoEsperado} - ${pagosAportacion.montoPagado}), 0)::text`,
+            vencidas: sql<string>`COALESCE(SUM(CASE WHEN ${pagosAportacion.estado} = 'VENCIDA' THEN ${pagosAportacion.montoEsperado} - ${pagosAportacion.montoPagado} ELSE 0 END), 0)::text`,
+          })
+          .from(pagosAportacion)
+          .where(
+            and(
+              eq(pagosAportacion.tenantId, tenantId),
+              inArray(pagosAportacion.estado, ['VENCIDA', 'PROXIMA']),
+            ),
+          )
+
+        cxcPorEmpresa.push({
+          empresaId: e.id,
+          nombre: e.name,
+          total: Number(cxcRow?.total ?? 0),
+          vencidas: Number(cxcRow?.vencidas ?? 0),
+        })
+        cxpPorEmpresa.push({
+          empresaId: e.id,
+          nombre: e.name,
+          total: 0,
+          vencidas: 0,
+        })
+      }
+    }
+
+    return {
+      cxcPorEmpresa,
+      cxpPorEmpresa,
+      totalCxc: cxcPorEmpresa.reduce((s, r) => s + r.total, 0),
+      totalCxp: cxpPorEmpresa.reduce((s, r) => s + r.total, 0),
+      totalCxcVencidas: cxcPorEmpresa.reduce((s, r) => s + r.vencidas, 0),
+      totalCxpVencidas: cxpPorEmpresa.reduce((s, r) => s + r.vencidas, 0),
+    }
+  })
+}
+
+// ─── 4. MIHBAH estimado vs avance (mes) ───────────────────────────────────────
+
+/**
+ * MIHBAH específicamente: gasto del mes vs estimado.
+ * Hoy "estimado" no se captura aún (Fase 2 — presupuesto por proyecto).
+ * Fallback: estimado = promedio mensual del año hasta el mes actual.
+ */
+export async function getMihbahEstimadoVsAvance(
+  tenantId: string,
+  anio: number,
+  mes: number,
+): Promise<MihbahEstimadoVsAvance> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const [mihbah] = await tx
+      .select({ id: empresas.id })
+      .from(empresas)
+      .where(and(eq(empresas.tenantId, tenantId), eq(empresas.tipo, 'CONSTRUCTORA')))
+      .limit(1)
+
+    if (!mihbah) {
+      return {
+        empresaId: null,
+        estimadoMes: 0,
+        gastadoMes: 0,
+        porcentajeAvance: 0,
+        sinDatos: true,
+      }
+    }
+
+    // Gastado mes actual
+    const lastDay = new Date(anio, mes, 0).getDate()
+    const mesStr = String(mes).padStart(2, '0')
+    const from = `${anio}-${mesStr}-01`
+    const to = `${anio}-${mesStr}-${String(lastDay).padStart(2, '0')}`
+
+    const [gastadoRow] = await tx
+      .select({
+        total: sql<string>`COALESCE(SUM(${movimientos.monto}), 0)::text`,
+      })
+      .from(movimientos)
+      .where(
+        and(
+          eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, mihbah.id),
+          inArray(movimientos.tipo, ['EGRESO', 'SALIDA']),
+          gte(movimientos.fecha, from),
+          lte(movimientos.fecha, to),
+        ),
+      )
+
+    // Estimado = promedio mensual desde inicio de año hasta mes anterior
+    const inicioAnio = `${anio}-01-01`
+    const finMesAnterior =
+      mes > 1
+        ? `${anio}-${String(mes - 1).padStart(2, '0')}-${new Date(anio, mes - 1, 0).getDate()}`
+        : null
+
+    let estimadoMes = 0
+    if (finMesAnterior) {
+      const [historicoRow] = await tx
+        .select({
+          total: sql<string>`COALESCE(SUM(${movimientos.monto}), 0)::text`,
+        })
+        .from(movimientos)
+        .where(
+          and(
+            eq(movimientos.tenantId, tenantId),
+            eq(movimientos.empresaId, mihbah.id),
+            inArray(movimientos.tipo, ['EGRESO', 'SALIDA']),
+            gte(movimientos.fecha, inicioAnio),
+            lte(movimientos.fecha, finMesAnterior),
+          ),
+        )
+      const totalHist = Number(historicoRow?.total ?? 0)
+      estimadoMes = totalHist / (mes - 1)
+    }
+
+    const gastadoMes = Number(gastadoRow?.total ?? 0)
+    const porcentajeAvance = estimadoMes > 0 ? Math.round((gastadoMes / estimadoMes) * 100) : 0
+
+    return {
+      empresaId: mihbah.id,
+      estimadoMes,
+      gastadoMes,
+      porcentajeAvance,
+      sinDatos: gastadoMes === 0 && estimadoMes === 0,
+    }
+  })
+}
+
+// ─── 5. Resumen del resumen — BM CORP ↔ YCDI ──────────────────────────────────
+
+export async function getResumenDelResumen(tenantId: string): Promise<ResumenDelResumen> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const empresasRows = await getEmpresasTenant(tx, tenantId)
+    const bmcorp = empresasRows.find((e) => e.tipo === 'COMERCIAL')
+
+    let ventasBmcorpFinalizadas = 0
+    let comisionGeneradaBmcorp = 0
+
+    if (bmcorp) {
+      const [ventasRow] = await tx
+        .select({
+          total: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
+          comision: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+        })
+        .from(ventasBmcorp)
+        .where(
+          and(
+            eq(ventasBmcorp.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, bmcorp.id),
+            inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
+          ),
+        )
+      ventasBmcorpFinalizadas = Number(ventasRow?.total ?? 0)
+      comisionGeneradaBmcorp = Number(ventasRow?.comision ?? 0)
+    }
+
+    // YCDI — capital total levantado vs comprometido (todos los acuerdos)
+    const [acuerdosRow] = await tx
+      .select({
+        comprometido: sql<string>`COALESCE(SUM(${acuerdosAportacion.montoTotal}), 0)::text`,
+      })
+      .from(acuerdosAportacion)
+      .where(eq(acuerdosAportacion.tenantId, tenantId))
+
+    const [pagadoRow] = await tx
+      .select({
+        total: sql<string>`COALESCE(SUM(${pagosAportacion.montoPagado}), 0)::text`,
+      })
+      .from(pagosAportacion)
+      .where(eq(pagosAportacion.tenantId, tenantId))
+
+    const capitalLevantadoYcdi = Number(pagadoRow?.total ?? 0)
+    const capitalComprometido = Number(acuerdosRow?.comprometido ?? 0)
+    const capitalPendienteYcdi = Math.max(0, capitalComprometido - capitalLevantadoYcdi)
+
+    return {
+      ventasBmcorpFinalizadas,
+      comisionGeneradaBmcorp,
+      capitalLevantadoYcdi,
+      capitalPendienteYcdi,
+      hipotesis:
+        ventasBmcorpFinalizadas > 0 && capitalLevantadoYcdi > 0
+          ? `BM CORP cerró ${ventasBmcorpFinalizadas.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })} en ventas mientras YCDI levantó ${capitalLevantadoYcdi.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })} de capital. Una porción de las ventas BM puede ser acciones YCDI — confirmar con cliente para correlación exacta.`
+          : 'Sin suficientes datos de ambas empresas para correlacionar.',
+    }
+  })
+}
