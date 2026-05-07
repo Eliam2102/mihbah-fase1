@@ -30,6 +30,7 @@
     "@better-auth/core": "^1.6.9",
     "@better-auth/drizzle-adapter": "^1.6.9",
     "@hookform/resolvers": "^3.9.1",
+    "@react-pdf/renderer": "^4.5.1",
     "@tanstack/react-query": "^5.62.7",
     "better-auth": "^1.6.9",
     "better-call": "^2.0.3",

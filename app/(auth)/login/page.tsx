@@ -58,14 +58,14 @@ export default function LoginPage() {
           {pending ? 'Iniciando sesión...' : 'Iniciar sesión'}
         </button>
 
-        <div className="text-center">
+        {/* <div className="text-center">
           <a
             href="/recuperar"
             className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
           >
             ¿Olvidaste tu contraseña?
           </a>
-        </div>
+        </div> */}
       </form>
     </div>
   )

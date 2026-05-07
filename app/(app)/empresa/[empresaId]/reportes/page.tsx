@@ -1,177 +1,137 @@
 import { requireUser } from '@/lib/auth/helpers'
-import { getVentasReporteBmcorp } from '@/lib/services/reportes-bmcorp.service'
-import { Download, FileText, Calendar } from 'lucide-react'
+import { getEmpresaById } from '@/lib/services/empresas'
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { TrendingUp, FolderOpen, Receipt, BarChart3, ChevronRight, Download } from 'lucide-react'
 
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
+interface ReportCard {
+  tipo: string
+  titulo: string
+  descripcion: string
+  icon: React.ComponentType<{ className?: string }>
+  available: boolean
 }
 
-function mapStatusToBadge(status: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    EN_PROCESO: {
-      label: 'En Proceso',
-      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-    },
-    APROBADO_VENTAS: {
-      label: 'Ap. Ventas',
-      className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    },
-    APROBADO_JURIDICO: {
-      label: 'Ap. Jurídico',
-      className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
-    },
-    ESPERANDO_AUTORIZACION: {
-      label: 'En Autorización',
-      className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-    },
-    LIBERADO: {
-      label: 'Liberado',
-      className: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
-    },
-    FINALIZADA: {
-      label: 'Finalizada',
-      className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-    },
-    FINALIZADO_Y_LIQUIDADO: {
-      label: 'Finalizado y Liquidado',
-      className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-    },
-    CANCELADA: {
-      label: 'Cancelada',
-      className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    },
-    RECHAZADO: {
-      label: 'Rechazado',
-      className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    },
+function getReports(tipo: string): ReportCard[] {
+  if (tipo === 'COMERCIAL') {
+    return [
+      {
+        tipo: 'ventas',
+        titulo: 'Reporte de Ventas',
+        descripcion:
+          'Listado completo de ventas sincronizadas desde Monday.com con estado del pipeline.',
+        icon: TrendingUp,
+        available: true,
+      },
+      {
+        tipo: 'comisiones',
+        titulo: 'Reporte de Comisiones',
+        descripcion:
+          'Comisiones por asesor y reparto por alianza. Conciliación de pagos pendientes.',
+        icon: Receipt,
+        available: true,
+      },
+      {
+        tipo: 'flujo',
+        titulo: 'Flujo Semanal',
+        descripcion: 'Histórico de ingresos y egresos agrupado por semana.',
+        icon: BarChart3,
+        available: true,
+      },
+    ]
   }
-  const match = map[status] || {
-    label: status,
-    className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  }
-  return (
-    <span
-      className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-wider uppercase ${match.className}`}
-    >
-      {match.label}
-    </span>
-  )
+  return [
+    {
+      tipo: 'flujo',
+      titulo: 'Flujo de Caja',
+      descripcion: 'Reporte mensual de ingresos y egresos del año. Exportable a PDF.',
+      icon: BarChart3,
+      available: true,
+    },
+    {
+      tipo: 'proyectos',
+      titulo: 'Reporte de Proyectos',
+      descripcion: 'Resumen financiero por proyecto: ingresos, egresos y avance.',
+      icon: FolderOpen,
+      available: true,
+    },
+    {
+      tipo: 'cuentas',
+      titulo: 'Cuentas Pendientes',
+      descripcion: 'CXC y CXP con antigüedad de saldos y estado de cobro/pago.',
+      icon: Receipt,
+      available: true,
+    },
+    {
+      tipo: 'movimientos',
+      titulo: 'Movimientos Detallados',
+      descripcion: 'Listado completo de movimientos importados desde Excel.',
+      icon: TrendingUp,
+      available: true,
+    },
+  ]
 }
 
 export default async function ReportesPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = await params
   const user = await requireUser()
+  const tenantId = user.tenantId
+  if (!tenantId) throw new Error('Tenant ID is required')
 
-  if (!user.tenantId) {
-    throw new Error('Tenant ID is required')
-  }
+  const empresa = await getEmpresaById(empresaId, tenantId)
+  if (!empresa) notFound()
 
-  const ventas = await getVentasReporteBmcorp(empresaId, user.tenantId)
+  const reports = getReports(empresa.tipo)
+  const anio = new Date().getFullYear()
 
   return (
     <section className="p-6">
-      <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold">Reporte General de Ventas</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Listado completo de ventas sincronizadas desde Monday.com
-          </p>
-        </div>
-        <button
-          disabled
-          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" />
-          Exportar a Excel (Próximamente)
-        </button>
+      <div className="mb-6">
+        <h1 className="text-foreground text-2xl font-bold">Reportes</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          {empresa.name} · Selecciona un reporte para ver el detalle o exportarlo.
+        </p>
       </div>
 
-      <div className="border-border bg-card rounded-xl border shadow-sm">
-        {ventas.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center">
-            <FileText className="text-muted-foreground mb-4 h-12 w-12 opacity-50" />
-            <h3 className="text-foreground text-lg font-medium">Sin datos para el reporte</h3>
-            <p className="text-muted-foreground mt-1 text-sm">
-              No hay ventas registradas. Intenta sincronizar con Monday primero.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-border bg-muted/50 border-b">
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Cliente
-                  </th>
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Lote/Acción
-                  </th>
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Desarrollo
-                  </th>
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Alianza
-                  </th>
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Monto Total
-                  </th>
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Comisión (15%)
-                  </th>
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Apertura
-                  </th>
-                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Estado
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {ventas.map((v) => (
-                  <tr
-                    key={v.id}
-                    className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
-                  >
-                    <td className="px-4 py-3">
-                      <p className="text-foreground font-medium">{v.cliente}</p>
-                      {v.asesor && (
-                        <p className="text-muted-foreground text-xs">Asesor: {v.asesor}</p>
-                      )}
-                    </td>
-                    <td className="text-foreground px-4 py-3 font-medium">{v.lote || '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-foreground font-medium">{v.desarrollo || '—'}</span>
-                    </td>
-                    <td className="text-foreground px-4 py-3">{v.afiliado || '—'}</td>
-                    <td className="text-foreground px-4 py-3 font-semibold whitespace-nowrap tabular-nums">
-                      {formatMXN(v.monto)}
-                    </td>
-                    <td className="px-4 py-3 font-medium whitespace-nowrap text-emerald-600 tabular-nums dark:text-emerald-400">
-                      {formatMXN(v.comision)}
-                    </td>
-                    <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
-                      {v.fechaApertura ? (
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {v.fechaApertura}
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {mapStatusToBadge(v.estadoVenta)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {reports.map((r) => {
+          const Icon = r.icon
+          return (
+            <div
+              key={r.tipo}
+              className="border-border bg-card hover:border-primary/50 group flex flex-col rounded-xl border shadow-sm transition-colors"
+            >
+              <div className="flex-1 p-5">
+                <div className="mb-4 flex items-start justify-between">
+                  <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
+                    <Icon className="text-primary h-5 w-5" />
+                  </div>
+                  {r.available && empresa.tipo !== 'COMERCIAL' && r.tipo === 'flujo' && (
+                    <a
+                      href={`/empresa/${empresaId}/reportes/${r.tipo}/pdf?anio=${anio}`}
+                      download
+                      className="text-muted-foreground hover:text-primary flex items-center gap-1 text-xs font-medium transition-colors"
+                      title="Descargar PDF"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      PDF
+                    </a>
+                  )}
+                </div>
+                <h3 className="text-foreground mb-1 font-semibold">{r.titulo}</h3>
+                <p className="text-muted-foreground text-sm">{r.descripcion}</p>
+              </div>
+              <div className="border-border border-t px-5 py-3">
+                <Link
+                  href={`/empresa/${empresaId}/reportes/${r.tipo}`}
+                  className="text-primary group-hover:text-primary/80 flex items-center gap-1.5 text-sm font-medium transition-colors"
+                >
+                  Ver reporte <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </section>
   )

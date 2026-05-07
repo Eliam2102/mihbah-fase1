@@ -1,209 +1,427 @@
 import { requireUser } from '@/lib/auth/helpers'
+import { getEmpresaById } from '@/lib/services/empresas'
 import { getCuentasBmcorp } from '@/lib/services/cuentas-bmcorp.service'
-import { CreditCard, WalletCards, Receipt, ArrowRight } from 'lucide-react'
+import { getCuentasExcel } from '@/lib/services/cuentas-excel.service'
+import { CuentasTabs } from '@/components/cuentas/cuentas-tabs'
+import { notFound } from 'next/navigation'
+import { AlertCircle, Receipt, WalletCards } from 'lucide-react'
 
 function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
+  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
-function mapStatusToBadge(status: string) {
-  const map: Record<string, { label: string; className: string }> = {
-    EN_PROCESO: {
-      label: 'En Proceso',
-      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-    },
-    APROBADO_VENTAS: {
-      label: 'Ap. Ventas',
-      className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    },
-    APROBADO_JURIDICO: {
-      label: 'Ap. Jurídico',
-      className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
-    },
-    ESPERANDO_AUTORIZACION: {
-      label: 'En Autorización',
-      className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-    },
-    LIBERADO: {
-      label: 'Liberado',
-      className: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
-    },
-  }
-  const match = map[status] || {
-    label: status,
-    className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  }
+function AgingBadge({ dias }: { dias: number | null }) {
+  if (dias === null) return null
+  const cls =
+    dias > 90
+      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+      : dias > 60
+        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+        : dias > 30
+          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
   return (
     <span
-      className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-wider uppercase ${match.className}`}
+      className={`ml-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${cls}`}
     >
-      {match.label}
+      <AlertCircle className="h-2.5 w-2.5" />
+      {dias}d
     </span>
   )
 }
 
-export default async function CuentasPage({ params }: { params: Promise<{ empresaId: string }> }) {
+function EstadoBadge({ estado }: { estado: string }) {
+  const map: Record<string, string> = {
+    PENDIENTE: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    PARCIAL: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    LIQUIDADA: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    EN_PROCESO: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    APROBADO_VENTAS: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    APROBADO_JURIDICO: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+    ESPERANDO_AUTORIZACION:
+      'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    LIBERADO: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
+    FINALIZADA: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    FINALIZADO_Y_LIQUIDADO:
+      'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    CANCELADA: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    RECHAZADO: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  }
+  const label =
+    estado === 'LIQUIDADA'
+      ? 'Liquidada'
+      : estado === 'PARCIAL'
+        ? 'Parcial'
+        : estado === 'PENDIENTE'
+          ? 'Pendiente'
+          : estado === 'EN_PROCESO'
+            ? 'En Proceso'
+            : estado === 'APROBADO_VENTAS'
+              ? 'Ap. Ventas'
+              : estado === 'APROBADO_JURIDICO'
+                ? 'Ap. Jurídico'
+                : estado === 'ESPERANDO_AUTORIZACION'
+                  ? 'En Autorización'
+                  : estado === 'LIBERADO'
+                    ? 'Liberado'
+                    : estado === 'FINALIZADA'
+                      ? 'Finalizada'
+                      : estado === 'FINALIZADO_Y_LIQUIDADO'
+                        ? 'Finalizado y Liquidado'
+                        : estado === 'CANCELADA'
+                          ? 'Cancelada'
+                          : estado === 'RECHAZADO'
+                            ? 'Rechazado'
+                            : estado
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${map[estado] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'}`}
+    >
+      {label}
+    </span>
+  )
+}
+
+export default async function CuentasPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ empresaId: string }>
+  searchParams: Promise<{ tab?: string }>
+}) {
   const { empresaId } = await params
+  const { tab = 'cxc' } = await searchParams
+
   const user = await requireUser()
   const tenantId = user.tenantId
-
   if (!tenantId) throw new Error('Tenant ID is required')
 
-  const cuentas = await getCuentasBmcorp(empresaId, tenantId)
+  const empresa = await getEmpresaById(empresaId, tenantId)
+  if (!empresa) notFound()
 
-  const totalCobrar = cuentas.cxc.reduce((acc, c) => acc + c.saldoPendiente, 0)
-  const totalPagar = cuentas.cxpAsesores.reduce((acc, c) => acc + c.saldoPendiente, 0)
+  const esBmcorp = empresa.tipo === 'COMERCIAL'
+
+  // Load data based on empresa type
+  let totalCxc = 0
+  let totalCxp = 0
+  let vencidasCxc = 0
+  let vencidasCxp = 0
+
+  type CxcRow =
+    | { tipo: 'bmcorp'; data: Awaited<ReturnType<typeof getCuentasBmcorp>>['cxc'][0] }
+    | { tipo: 'excel'; data: Awaited<ReturnType<typeof getCuentasExcel>>['cxc'][0] }
+
+  type CxpRow =
+    | { tipo: 'bmcorp'; data: Awaited<ReturnType<typeof getCuentasBmcorp>>['cxpAsesores'][0] }
+    | { tipo: 'excel'; data: Awaited<ReturnType<typeof getCuentasExcel>>['cxp'][0] }
+
+  let cxcRows: CxcRow[] = []
+  let cxpRows: CxpRow[] = []
+
+  if (esBmcorp) {
+    const data = await getCuentasBmcorp(empresaId, tenantId)
+    totalCxc = data.cxc.reduce((s, c) => s + c.saldoPendiente, 0)
+    totalCxp = data.cxpAsesores.reduce((s, c) => s + c.saldoPendiente, 0)
+    cxcRows = data.cxc.map((d) => ({ tipo: 'bmcorp' as const, data: d }))
+    cxpRows = data.cxpAsesores.map((d) => ({ tipo: 'bmcorp' as const, data: d }))
+  } else {
+    const data = await getCuentasExcel(empresaId, tenantId)
+    totalCxc = data.totalCxc
+    totalCxp = data.totalCxp
+    vencidasCxc = data.cxc
+      .filter((c) => c.diasVencido !== null && c.estado !== 'LIQUIDADA')
+      .reduce((s, c) => s + c.saldoPendiente, 0)
+    vencidasCxp = data.cxp
+      .filter((c) => c.diasVencido !== null && c.estado !== 'LIQUIDADA')
+      .reduce((s, c) => s + c.saldoPendiente, 0)
+    cxcRows = data.cxc.map((d) => ({ tipo: 'excel' as const, data: d }))
+    cxpRows = data.cxp.map((d) => ({ tipo: 'excel' as const, data: d }))
+  }
 
   return (
-    <section className="p-6">
-      <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold">Cuentas por Cobrar y Pagar</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Gestión de mensualidades de clientes y comisiones/repartos pendientes.
-          </p>
-        </div>
+    <section className="space-y-6 p-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-foreground text-2xl font-bold">Cuentas por Cobrar y Pagar</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          {empresa.name} · {esBmcorp ? 'Datos de Monday.com' : 'Importado desde Excel'}
+        </p>
       </div>
 
-      {/* CXC Section */}
-      <div className="border-border bg-card mb-8 rounded-xl border shadow-sm">
-        <div className="border-border flex items-center justify-between border-b px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-emerald-500" />
-            <h3 className="text-foreground font-semibold">
-              Cuentas por Cobrar (Mensualidades Clientes)
-            </h3>
+      {/* KPI Summary */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="border-border bg-card rounded-xl border p-4 shadow-sm">
+          <div className="mb-1 flex items-center gap-1.5">
+            <Receipt className="h-4 w-4 text-emerald-500" />
+            <p className="text-muted-foreground text-xs font-semibold uppercase">Total CXC</p>
           </div>
-          <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700 tabular-nums dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
-            Total: {formatMXN(totalCobrar)}
-          </div>
+          <p className="text-foreground text-xl font-bold tabular-nums">{formatMXN(totalCxc)}</p>
         </div>
-
-        {cuentas.cxc.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <p className="text-muted-foreground text-sm">No hay cuentas por cobrar pendientes.</p>
+        <div className="border-border bg-card rounded-xl border p-4 shadow-sm">
+          <div className="mb-1 flex items-center gap-1.5">
+            <WalletCards className="h-4 w-4 text-red-500" />
+            <p className="text-muted-foreground text-xs font-semibold uppercase">Total CXP</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-border bg-muted/50 border-b">
-                  <th className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Cliente / Desarrollo
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-right text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Monto Total
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-right text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Enganche
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-right text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Saldo Pendiente
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-center text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Estado Pipeline
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {cuentas.cxc.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
-                  >
-                    <td className="px-6 py-4">
-                      <p className="text-foreground font-medium">{c.cliente}</p>
-                      <p className="text-muted-foreground text-xs">{c.desarrollo || '—'}</p>
-                    </td>
-                    <td className="text-foreground px-6 py-4 text-right tabular-nums">
-                      {formatMXN(c.montoTotal)}
-                    </td>
-                    <td className="text-foreground px-6 py-4 text-right tabular-nums">
-                      {formatMXN(c.enganche)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
-                      {formatMXN(c.saldoPendiente)}
-                    </td>
-                    <td className="px-6 py-4 text-center">{mapStatusToBadge(c.estadoVenta)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="text-foreground text-xl font-bold tabular-nums">{formatMXN(totalCxp)}</p>
+        </div>
+        {!esBmcorp && (
+          <>
+            <div className="border-border bg-card rounded-xl border p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                <p className="text-muted-foreground text-xs font-semibold uppercase">
+                  CXC Vencidas
+                </p>
+              </div>
+              <p
+                className={`text-xl font-bold tabular-nums ${vencidasCxc > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}
+              >
+                {formatMXN(vencidasCxc)}
+              </p>
+            </div>
+            <div className="border-border bg-card rounded-xl border p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-red-500" />
+                <p className="text-muted-foreground text-xs font-semibold uppercase">
+                  CXP Vencidas
+                </p>
+              </div>
+              <p
+                className={`text-xl font-bold tabular-nums ${vencidasCxp > 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}
+              >
+                {formatMXN(vencidasCxp)}
+              </p>
+            </div>
+          </>
         )}
       </div>
 
-      {/* CXP Section */}
-      <div className="border-border bg-card rounded-xl border shadow-sm">
-        <div className="border-border flex items-center justify-between border-b px-6 py-4">
-          <div className="flex items-center gap-2">
-            <WalletCards className="h-5 w-5 text-red-500" />
-            <h3 className="text-foreground font-semibold">
-              Cuentas por Pagar (Comisiones a Asesores)
+      {/* Tabs */}
+      <CuentasTabs totalCxc={totalCxc} totalCxp={totalCxp} />
+
+      {/* Tabla CXC */}
+      {tab !== 'cxp' && (
+        <div className="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
+          <div className="border-border border-b px-6 py-4">
+            <h3 className="text-foreground flex items-center gap-2 font-semibold">
+              <Receipt className="h-4 w-4 text-emerald-500" />
+              Cuentas por Cobrar ({cxcRows.length})
             </h3>
           </div>
-          <div className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700 tabular-nums dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-            Total Pendiente: {formatMXN(totalPagar)}
-          </div>
-        </div>
-
-        {cuentas.cxpAsesores.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <p className="text-muted-foreground text-sm">No hay comisiones pendientes de pago.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-border bg-muted/50 border-b">
-                  <th className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Asesor
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Venta Asociada
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-right text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Comisión Total (15%)
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-right text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Saldo Pendiente
-                  </th>
-                  <th className="text-muted-foreground px-6 py-3 text-center text-xs font-semibold tracking-wider whitespace-nowrap uppercase">
-                    Estado Pipeline
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {cuentas.cxpAsesores.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
-                  >
-                    <td className="px-6 py-4">
-                      <p className="text-foreground font-medium">{c.asesor || 'Sin asignar'}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-foreground">{c.cliente}</p>
-                      <p className="text-muted-foreground text-xs">{c.desarrollo || '—'}</p>
-                    </td>
-                    <td className="text-foreground px-6 py-4 text-right tabular-nums">
-                      {formatMXN(c.comisionTotal)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-red-600 tabular-nums dark:text-red-400">
-                      {formatMXN(c.saldoPendiente)}
-                    </td>
-                    <td className="px-6 py-4 text-center">{mapStatusToBadge(c.estadoVenta)}</td>
+          {cxcRows.length === 0 ? (
+            <p className="text-muted-foreground p-8 text-sm">Sin cuentas por cobrar.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-border bg-muted/50 border-b">
+                    {esBmcorp
+                      ? ['Cliente / Desarrollo', 'Monto Total', 'Enganche', 'Saldo', 'Estado'].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                            >
+                              {h}
+                            </th>
+                          ),
+                        )
+                      : ['Tercero', 'Monto', 'Pagado', 'Saldo', 'Vencimiento', 'Estado'].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                            >
+                              {h}
+                            </th>
+                          ),
+                        )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {cxcRows.map((row) => {
+                    if (row.tipo === 'bmcorp') {
+                      const c = row.data
+                      return (
+                        <tr
+                          key={c.id}
+                          className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
+                        >
+                          <td className="px-6 py-4">
+                            <p className="text-foreground font-medium">{c.cliente}</p>
+                            <p className="text-muted-foreground text-xs">{c.desarrollo || '—'}</p>
+                          </td>
+                          <td className="text-foreground px-6 py-4 text-right tabular-nums">
+                            {formatMXN(c.montoTotal)}
+                          </td>
+                          <td className="text-foreground px-6 py-4 text-right tabular-nums">
+                            {formatMXN(c.enganche)}
+                          </td>
+                          <td className="px-6 py-4 text-right font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
+                            {formatMXN(c.saldoPendiente)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <EstadoBadge estado={c.estadoVenta} />
+                          </td>
+                        </tr>
+                      )
+                    }
+                    const c = row.data
+                    return (
+                      <tr
+                        key={c.id}
+                        className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="text-foreground font-medium">{c.tercero}</p>
+                          {c.descripcion && (
+                            <p className="text-muted-foreground text-xs">{c.descripcion}</p>
+                          )}
+                        </td>
+                        <td className="text-foreground px-6 py-4 text-right tabular-nums">
+                          {formatMXN(c.monto)}
+                        </td>
+                        <td className="text-muted-foreground px-6 py-4 text-right tabular-nums">
+                          {formatMXN(c.montoPagado)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
+                          {formatMXN(c.saldoPendiente)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {c.fechaVencimiento ? (
+                            <span className="text-foreground">
+                              {c.fechaVencimiento}
+                              <AgingBadge dias={c.diasVencido} />
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <EstadoBadge estado={c.estado} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tabla CXP */}
+      {tab === 'cxp' && (
+        <div className="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
+          <div className="border-border border-b px-6 py-4">
+            <h3 className="text-foreground flex items-center gap-2 font-semibold">
+              <WalletCards className="h-4 w-4 text-red-500" />
+              Cuentas por Pagar ({cxpRows.length})
+            </h3>
           </div>
-        )}
-      </div>
+          {cxpRows.length === 0 ? (
+            <p className="text-muted-foreground p-8 text-sm">Sin cuentas por pagar.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-border bg-muted/50 border-b">
+                    {esBmcorp
+                      ? ['Asesor', 'Venta Asociada', 'Comisión (15%)', 'Saldo', 'Estado'].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                            >
+                              {h}
+                            </th>
+                          ),
+                        )
+                      : ['Tercero', 'Monto', 'Pagado', 'Saldo', 'Vencimiento', 'Estado'].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                            >
+                              {h}
+                            </th>
+                          ),
+                        )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {cxpRows.map((row) => {
+                    if (row.tipo === 'bmcorp') {
+                      const c = row.data
+                      return (
+                        <tr
+                          key={c.id}
+                          className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
+                        >
+                          <td className="px-6 py-4">
+                            <p className="text-foreground font-medium">
+                              {c.asesor || 'Sin asignar'}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-foreground">{c.cliente}</p>
+                            <p className="text-muted-foreground text-xs">{c.desarrollo || '—'}</p>
+                          </td>
+                          <td className="text-foreground px-6 py-4 text-right tabular-nums">
+                            {formatMXN(c.comisionTotal)}
+                          </td>
+                          <td className="px-6 py-4 text-right font-bold text-red-600 tabular-nums dark:text-red-400">
+                            {formatMXN(c.saldoPendiente)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <EstadoBadge estado={c.estadoVenta} />
+                          </td>
+                        </tr>
+                      )
+                    }
+                    const c = row.data
+                    return (
+                      <tr
+                        key={c.id}
+                        className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="text-foreground font-medium">{c.tercero}</p>
+                          {c.descripcion && (
+                            <p className="text-muted-foreground text-xs">{c.descripcion}</p>
+                          )}
+                        </td>
+                        <td className="text-foreground px-6 py-4 text-right tabular-nums">
+                          {formatMXN(c.monto)}
+                        </td>
+                        <td className="text-muted-foreground px-6 py-4 text-right tabular-nums">
+                          {formatMXN(c.montoPagado)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-red-600 tabular-nums dark:text-red-400">
+                          {formatMXN(c.saldoPendiente)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {c.fechaVencimiento ? (
+                            <span className="text-foreground">
+                              {c.fechaVencimiento}
+                              <AgingBadge dias={c.diasVencido} />
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <EstadoBadge estado={c.estado} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
