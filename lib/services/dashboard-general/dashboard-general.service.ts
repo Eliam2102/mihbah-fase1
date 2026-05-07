@@ -327,7 +327,7 @@ export async function getMihbahEstimadoVsAvance(
         and(
           eq(movimientos.tenantId, tenantId),
           eq(movimientos.empresaId, mihbah.id),
-          inArray(movimientos.tipo, ['EGRESO', 'SALIDA']),
+          inArray(movimientos.tipo, ['EGRESO', 'SALIDA', 'PRESTAMO']),
           gte(movimientos.fecha, from),
           lte(movimientos.fecha, to),
         ),
@@ -351,7 +351,7 @@ export async function getMihbahEstimadoVsAvance(
           and(
             eq(movimientos.tenantId, tenantId),
             eq(movimientos.empresaId, mihbah.id),
-            inArray(movimientos.tipo, ['EGRESO', 'SALIDA']),
+            inArray(movimientos.tipo, ['EGRESO', 'SALIDA', 'PRESTAMO']),
             gte(movimientos.fecha, inicioAnio),
             lte(movimientos.fecha, finMesAnterior),
           ),

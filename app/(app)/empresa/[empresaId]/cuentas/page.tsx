@@ -139,7 +139,7 @@ export default async function CuentasPage({
   }
 
   return (
-    <section className="space-y-6 p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div>
         <h1 className="text-foreground text-2xl font-bold">Cuentas por Cobrar y Pagar</h1>

@@ -1,8 +1,10 @@
 import { db } from '@/lib/db'
-import { proyectos, movimientos } from '@/lib/db/schema'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { movimientos } from '@/lib/db/schema'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
 import type { MovimientoProyecto, ProyectoDetalle, ProyectoExcel } from './proyectos-excel.types'
+
+// Y16 fix: query proyectoNombre text field (not FK to proyectos table)
 
 export async function getProyectosExcel(
   empresaId: string,
@@ -13,40 +15,42 @@ export async function getProyectosExcel(
 
     const rows = await tx
       .select({
-        id: proyectos.id,
-        name: proyectos.name,
-        descripcion: proyectos.descripcion,
-        activo: proyectos.activo,
+        proyectoNombre: movimientos.proyectoNombre,
         totalIngresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
         totalEgresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA','PRESTAMO') THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
         totalMovimientos: sql<number>`COUNT(${movimientos.id})::int`,
       })
-      .from(proyectos)
-      .leftJoin(
-        movimientos,
-        and(eq(movimientos.proyectoId, proyectos.id), eq(movimientos.tenantId, tenantId)),
+      .from(movimientos)
+      .where(
+        and(
+          eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, empresaId),
+          isNotNull(movimientos.proyectoNombre),
+        ),
       )
-      .where(and(eq(proyectos.empresaId, empresaId), eq(proyectos.tenantId, tenantId)))
-      .groupBy(proyectos.id, proyectos.name, proyectos.descripcion, proyectos.activo)
-      .orderBy(proyectos.name)
+      .groupBy(movimientos.proyectoNombre)
+      .orderBy(sql`SUM(${movimientos.monto}) DESC`)
 
-    return rows.map((r) => {
-      const totalIngresos = Number(r.totalIngresos)
-      const totalEgresos = Number(r.totalEgresos)
-      return {
-        id: r.id,
-        name: r.name,
-        descripcion: r.descripcion,
-        activo: r.activo,
-        totalIngresos,
-        totalEgresos,
-        neto: totalIngresos - totalEgresos,
-        totalMovimientos: Number(r.totalMovimientos),
-      }
-    })
+    return rows
+      .filter((r) => r.proyectoNombre)
+      .map((r) => {
+        const totalIngresos = Number(r.totalIngresos)
+        const totalEgresos = Number(r.totalEgresos)
+        return {
+          id: r.proyectoNombre!,
+          name: r.proyectoNombre!,
+          descripcion: null,
+          activo: true,
+          totalIngresos,
+          totalEgresos,
+          neto: totalIngresos - totalEgresos,
+          totalMovimientos: Number(r.totalMovimientos),
+        }
+      })
   })
 }
 
+// proyectoId param = proyectoNombre text (URL-decoded by Next.js)
 export async function getProyectoDetalle(
   proyectoId: string,
   empresaId: string,
@@ -54,25 +58,6 @@ export async function getProyectoDetalle(
 ): Promise<ProyectoDetalle | null> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
-
-    const [proyecto] = await tx
-      .select({
-        id: proyectos.id,
-        name: proyectos.name,
-        descripcion: proyectos.descripcion,
-        activo: proyectos.activo,
-      })
-      .from(proyectos)
-      .where(
-        and(
-          eq(proyectos.id, proyectoId),
-          eq(proyectos.empresaId, empresaId),
-          eq(proyectos.tenantId, tenantId),
-        ),
-      )
-      .limit(1)
-
-    if (!proyecto) return null
 
     const movRows = await tx
       .select({
@@ -87,13 +72,15 @@ export async function getProyectoDetalle(
       .from(movimientos)
       .where(
         and(
-          eq(movimientos.proyectoId, proyectoId),
-          eq(movimientos.empresaId, empresaId),
           eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, empresaId),
+          eq(movimientos.proyectoNombre, proyectoId),
         ),
       )
       .orderBy(desc(movimientos.fecha))
       .limit(200)
+
+    if (movRows.length === 0) return null
 
     const movList: MovimientoProyecto[] = movRows.map((r) => ({ ...r, monto: Number(r.monto) }))
     const totalIngresos = movList
@@ -104,7 +91,10 @@ export async function getProyectoDetalle(
       .reduce((s, m) => s + m.monto, 0)
 
     return {
-      ...proyecto,
+      id: proyectoId,
+      name: proyectoId,
+      descripcion: null,
+      activo: true,
       totalIngresos,
       totalEgresos,
       neto: totalIngresos - totalEgresos,

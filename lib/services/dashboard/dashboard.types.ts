@@ -18,4 +18,5 @@ export interface AvanceProyecto {
   id: string
   nombre: string
   gastado: number
+  ingresos?: number
 }

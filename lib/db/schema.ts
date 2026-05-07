@@ -205,6 +205,9 @@ export const movimientos = pgTable('movimientos', {
   concepto: text('concepto'),
   comentarios: text('comentarios'),
   descripcion: text('descripcion'),
+  proyectoNombre: text('proyecto_nombre'),
+  categoriaNombre: text('categoria_nombre'),
+  grupoNombre: text('grupo_nombre'),
   referencia: text('referencia'),
   uploadId: uuid('upload_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -383,6 +386,36 @@ export const userEmpresaAccess = pgTable('user_empresa_access', {
   rol: text('rol').notNull().default('VIEWER'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+// ─── User Módulo Access ──────────────────────────────────────────────────────
+// Granular per-user, per-empresa, per-module permissions.
+// If no row exists for a (userId, empresaId, modulo) combo → falls back to empresa-level rol.
+
+export const userModuloAccess = pgTable(
+  'user_modulo_access',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id, { onDelete: 'cascade' }),
+    modulo: text('modulo').notNull(),
+    puedeVer: boolean('puede_ver').notNull().default(true),
+    puedeEditar: boolean('puede_editar').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userEmpresaModuloUnique: uniqueIndex('user_modulo_empresa_unique').on(
+      t.userId,
+      t.empresaId,
+      t.modulo,
+    ),
+    tenantIdx: index('user_modulo_tenant_idx').on(t.tenantId),
+  }),
+)
 
 // ─── Auth: Users ─────────────────────────────────────────────────────────────
 // Better Auth manages this table. IDs are text (not UUID) per better-auth convention.

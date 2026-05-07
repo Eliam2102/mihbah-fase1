@@ -38,6 +38,7 @@ export async function getCuentasBmcorp(
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
           notInArray(ventasBmcorp.estadoVenta, [
+            'FINALIZADA',
             'FINALIZADO_Y_LIQUIDADO',
             'CANCELADA',
             'RECHAZADO',
@@ -77,6 +78,7 @@ export async function getCuentasBmcorp(
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
           notInArray(ventasBmcorp.estadoVenta, [
+            'FINALIZADA',
             'FINALIZADO_Y_LIQUIDADO',
             'CANCELADA',
             'RECHAZADO',

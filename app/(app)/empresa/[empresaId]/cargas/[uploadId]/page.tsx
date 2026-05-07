@@ -30,7 +30,7 @@ export default async function DetalleCargaPage({
   })
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <div className="mb-6">
         <Link
           href={`/empresa/${empresaId}/cargas`}
@@ -93,7 +93,7 @@ export default async function DetalleCargaPage({
           No hay movimientos vinculados a esta carga.
         </p>
       ) : (
-        <div className="border-border bg-card overflow-hidden rounded-xl border">
+        <div className="border-border bg-card overflow-hidden overflow-x-auto rounded-xl border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-border bg-muted/50 border-b">

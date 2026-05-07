@@ -12,7 +12,7 @@ import {
   ventasBmcorp,
   pagosAportacion,
 } from '@/lib/db/schema'
-import { and, eq, gte, lte, sql, inArray } from 'drizzle-orm'
+import { and, eq, gte, lte, sql, inArray, notInArray } from 'drizzle-orm'
 import type { EmpresaResumen, PeriodFilter } from './dashboard-general.types'
 
 // ─── Period helper ────────────────────────────────────────────────────────────
@@ -228,30 +228,22 @@ async function kpisComercialBmcorp(
   const ingresosVentas = Number(ventasRow?.total ?? 0)
   const ingresos = ingresosVentas + ingresosMov
 
+  // G3: BM CORP CXC = SUM(monto - enganche) for non-finalized, non-cancelled ventas
   const [cxcRow] = await tx
     .select({
-      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+      total: sql<string>`COALESCE(SUM(${ventasBmcorp.monto} - ${ventasBmcorp.enganche}), 0)::text`,
     })
-    .from(cuentasPendientes)
+    .from(ventasBmcorp)
     .where(
       and(
-        eq(cuentasPendientes.tenantId, tenantId),
-        eq(cuentasPendientes.empresaId, empresaId),
-        eq(cuentasPendientes.tipo, 'POR_COBRAR'),
-        eq(cuentasPendientes.estado, 'PENDIENTE'),
-      ),
-    )
-  const [cxpRow] = await tx
-    .select({
-      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
-    })
-    .from(cuentasPendientes)
-    .where(
-      and(
-        eq(cuentasPendientes.tenantId, tenantId),
-        eq(cuentasPendientes.empresaId, empresaId),
-        eq(cuentasPendientes.tipo, 'POR_PAGAR'),
-        eq(cuentasPendientes.estado, 'PENDIENTE'),
+        eq(ventasBmcorp.tenantId, tenantId),
+        eq(ventasBmcorp.empresaId, empresaId),
+        notInArray(ventasBmcorp.estadoVenta, [
+          'FINALIZADA',
+          'FINALIZADO_Y_LIQUIDADO',
+          'CANCELADA',
+          'RECHAZADO',
+        ]),
       ),
     )
 
@@ -260,7 +252,7 @@ async function kpisComercialBmcorp(
     egresos,
     neto: ingresos - egresos,
     cxc: Number(cxcRow?.total ?? 0),
-    cxp: Number(cxpRow?.total ?? 0),
+    cxp: 0,
     parcial: ingresosVentas === 0,
   }
 }

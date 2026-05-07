@@ -25,7 +25,7 @@ export async function FlujoBmcorpView({ empresaId, tenantId }: Props) {
   const totalNeto = totalIngresos - totalEgresos
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-foreground text-2xl font-bold">Flujo de Caja</h1>

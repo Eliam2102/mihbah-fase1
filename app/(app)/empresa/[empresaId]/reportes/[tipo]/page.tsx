@@ -47,7 +47,7 @@ export default async function ReporteDetallePage({
   const pdfDisponible = !esBmcorp && tipo === 'flujo'
 
   return (
-    <section className="space-y-6 p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
@@ -111,7 +111,7 @@ async function FlujoContent({
   const totalEgresos = flujo.reduce((s, m) => s + m.egresos, 0)
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="border-border bg-card rounded-xl border p-4 shadow-sm">
           <p className="text-muted-foreground text-xs font-semibold uppercase">Ingresos</p>
           <p className="text-foreground mt-1 text-2xl font-bold tabular-nums">
@@ -229,7 +229,7 @@ async function CuentasContent({ empresaId, tenantId }: { empresaId: string; tena
   const { cxc, cxp, totalCxc, totalCxp } = await getCuentasExcel(empresaId, tenantId)
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="border-border bg-card rounded-xl border p-4 shadow-sm">
           <p className="text-muted-foreground text-xs font-semibold uppercase">Total CXC</p>
           <p className="mt-1 text-2xl font-bold text-emerald-600 tabular-nums dark:text-emerald-400">

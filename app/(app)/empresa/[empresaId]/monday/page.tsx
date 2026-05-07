@@ -20,7 +20,7 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
   const configured = hasBoardId && hasApiKey
 
   return (
-    <section className="space-y-6 p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -112,7 +112,7 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
             </p>
           </div>
         ) : (
-          <div className="border-border bg-card overflow-hidden rounded-xl border">
+          <div className="border-border bg-card overflow-hidden overflow-x-auto rounded-xl border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-border bg-muted/50 border-b">

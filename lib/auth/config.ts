@@ -18,6 +18,11 @@ const superAdminRole = ac.newRole({
   user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
   session: ['list', 'revoke', 'delete'],
 })
+// SaaS owner — cross-tenant, full control
+const superAdminDevRole = ac.newRole({
+  user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
+  session: ['list', 'revoke', 'delete'],
+})
 import { db } from '@/lib/db'
 import { accounts, sessions, users, verifications } from '@/lib/db/schema'
 
@@ -92,9 +97,14 @@ export const auth = betterAuth({
   plugins: [
     admin({
       ac,
-      roles: { user: userRole, admin: adminRole, super_admin: superAdminRole },
+      roles: {
+        user: userRole,
+        admin: adminRole,
+        super_admin: superAdminRole,
+        super_admin_dev: superAdminDevRole,
+      },
       defaultRole: 'user',
-      adminRoles: ['admin', 'super_admin'],
+      adminRoles: ['admin', 'super_admin', 'super_admin_dev'],
     } as never),
     nextCookies(),
   ] as never,

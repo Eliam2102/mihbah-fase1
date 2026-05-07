@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { empresas, userEmpresaAccess } from '@/lib/db/schema'
+import { empresas, userEmpresaAccess, tenants } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
 import type { EmpresaBasic } from './empresas.types'
@@ -25,6 +25,15 @@ export async function getEmpresasForUser(
       .from(empresas)
       .where(eq(empresas.tenantId, tenantId))
   })
+}
+
+export async function getTenantName(tenantId: string): Promise<string> {
+  const rows = await db
+    .select({ name: tenants.name })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1)
+  return rows[0]?.name ?? 'SIG Jade'
 }
 
 export async function getEmpresaById(

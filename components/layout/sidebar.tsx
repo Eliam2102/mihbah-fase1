@@ -8,16 +8,27 @@ import { getModulesForEmpresa } from '@/lib/modules'
 import { EmpresaSelector, type EmpresaOption } from './empresa-selector'
 import { signOut } from '@/lib/auth/client'
 import { cn } from '@/lib/utils'
-import { LogOut, User, Leaf, ChevronLeft, ChevronRight } from 'lucide-react'
+import Image from 'next/image'
+import { LogOut, User, ChevronLeft, ChevronRight, X, Settings, Shield } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface SidebarProps {
   empresas: EmpresaOption[]
   userName: string
   userEmail: string
+  tenantName: string
+  userRole?: string | null | undefined
+  onMobileClose?: () => void
 }
 
-export function Sidebar({ empresas, userName, userEmail }: SidebarProps) {
+export function Sidebar({
+  empresas,
+  userName,
+  userEmail,
+  tenantName,
+  userRole,
+  onMobileClose,
+}: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { empresaActiva } = useEmpresaStore()
@@ -37,30 +48,48 @@ export function Sidebar({ empresas, userName, userEmail }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'border-border bg-sidebar flex h-full flex-col border-r transition-all duration-300',
+        'border-border bg-sidebar relative flex h-full flex-col border-r transition-all duration-300',
         isCollapsed ? 'w-16' : 'w-64',
       )}
     >
       {/* Logo */}
       <div className="border-border flex h-16 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="bg-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-            <Leaf className="text-primary-foreground h-4 w-4" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-900">
+            <Image
+              src="/logo_jade.png"
+              alt="Jade logo"
+              width={24}
+              height={24}
+              className="object-contain"
+            />
           </div>
           {!isCollapsed && (
-            <span className="text-foreground text-base font-bold tracking-tight">MIHBAH</span>
+            <span className="text-foreground truncate text-base font-bold tracking-tight">
+              {tenantName}
+            </span>
           )}
         </div>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
-            'text-muted-foreground hover:bg-muted/50 flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+            'text-muted-foreground hover:bg-muted/50 hidden h-6 w-6 items-center justify-center rounded-md transition-colors lg:flex',
             isCollapsed &&
               'border-border bg-background absolute top-5 -right-3 z-20 border shadow-sm',
           )}
         >
           {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
+        {/* Mobile close button */}
+        {onMobileClose && (
+          <button
+            onClick={onMobileClose}
+            className="text-muted-foreground hover:bg-muted/50 flex h-6 w-6 items-center justify-center rounded-md transition-colors lg:hidden"
+            aria-label="Cerrar menú"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Empresa selector */}
@@ -131,6 +160,76 @@ export function Sidebar({ empresas, userName, userEmail }: SidebarProps) {
           })}
         </ul>
       </nav>
+
+      {/* Admin items — solo super_admin y super_admin_dev */}
+      {(userRole === 'super_admin' || userRole === 'super_admin_dev') && (
+        <div className="border-border border-t px-2 py-3">
+          {!isCollapsed && (
+            <p className="text-muted-foreground mb-2 px-2 text-[10px] font-semibold tracking-widest uppercase">
+              Admin
+            </p>
+          )}
+          <ul className="space-y-1">
+            <li>
+              <Link
+                href="/configuracion"
+                title={isCollapsed ? 'Administración' : undefined}
+                className={cn(
+                  'group flex items-center rounded-lg transition-all',
+                  isCollapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2 text-sm font-medium',
+                  pathname.startsWith('/configuracion')
+                    ? isCollapsed
+                      ? 'bg-sidebar-accent text-sidebar-primary'
+                      : 'border-l-jade-600 bg-sidebar-accent text-sidebar-primary border-l-2 pl-[10px]'
+                    : isCollapsed
+                      ? 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border-l-2 border-l-transparent pl-[10px]',
+                )}
+                aria-current={pathname.startsWith('/configuracion') ? 'page' : undefined}
+              >
+                <Settings
+                  className={cn(
+                    'shrink-0 transition-colors',
+                    isCollapsed ? 'h-5 w-5' : 'h-4 w-4',
+                    pathname.startsWith('/configuracion')
+                      ? 'text-sidebar-primary'
+                      : 'text-muted-foreground group-hover:text-sidebar-accent-foreground',
+                  )}
+                />
+                {!isCollapsed && 'Administración'}
+              </Link>
+            </li>
+            {userRole === 'super_admin_dev' && (
+              <li>
+                <Link
+                  href="/super-admin"
+                  title={isCollapsed ? 'Panel SaaS' : undefined}
+                  className={cn(
+                    'group flex items-center rounded-lg transition-all',
+                    isCollapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2 text-sm font-medium',
+                    pathname.startsWith('/super-admin')
+                      ? isCollapsed
+                        ? 'bg-sidebar-accent text-sidebar-primary'
+                        : 'border-l-jade-600 bg-sidebar-accent text-sidebar-primary border-l-2 pl-[10px]'
+                      : isCollapsed
+                        ? 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border-l-2 border-l-transparent pl-[10px]',
+                  )}
+                  aria-current={pathname.startsWith('/super-admin') ? 'page' : undefined}
+                >
+                  <Shield
+                    className={cn(
+                      'shrink-0 text-purple-600 transition-colors',
+                      isCollapsed ? 'h-5 w-5' : 'h-4 w-4',
+                    )}
+                  />
+                  {!isCollapsed && 'Panel SaaS'}
+                </Link>
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {/* User section at bottom */}
       <div className="border-border border-t p-2">

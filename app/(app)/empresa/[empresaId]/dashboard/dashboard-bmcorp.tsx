@@ -14,8 +14,8 @@ import {
   getRemanentesPorAfiliado,
   getComisionamientoConciliado,
   getUltimaSync,
+  countVentasTotal,
 } from '@/lib/services/dashboard-bmcorp.service'
-import { KpiCard } from '@/components/dashboard/kpi-card'
 import { BmcorpRanking } from '@/components/dashboard/bmcorp-ranking'
 import { BmcorpFlujoSemanal } from '@/components/dashboard/bmcorp-flujo-semanal'
 import { BmcorpEmptyState } from '@/components/dashboard/bmcorp-empty-state'
@@ -62,6 +62,7 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
     remanentes,
     comisionamiento,
     ultimaSync,
+    totalSinFiltro,
   ] = await Promise.all([
     getKpisBmcorp(empresaId, tenantId, period),
     getRankingAfiliados(empresaId, tenantId, period, 10),
@@ -71,14 +72,24 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
     getRemanentesPorAfiliado(empresaId, tenantId, 5),
     getComisionamientoConciliado(empresaId, tenantId),
     getUltimaSync(empresaId, tenantId),
+    countVentasTotal(empresaId, tenantId),
   ])
 
-  if (kpis.totalVentas === 0) {
+  // Sin datos en DB → pedir sincronización
+  if (totalSinFiltro === 0) {
     return <BmcorpEmptyState empresaId={empresaId} />
   }
 
   return (
     <div className="space-y-6">
+      {/* Banner cuando hay datos pero el período no tiene ventas */}
+      {kpis.totalVentas === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+          Sin ventas en el período seleccionado. Hay {totalSinFiltro} registros sincronizados en
+          otros períodos — cambia el filtro de año.
+        </div>
+      )}
+
       {/* Semáforo arriba — placeholder hasta criterios cliente */}
       <BmcorpSemaforo />
 

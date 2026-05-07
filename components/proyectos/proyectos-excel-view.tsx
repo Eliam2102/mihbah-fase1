@@ -140,7 +140,7 @@ export async function ProyectosExcelView({ empresaId, tenantId, empresaNombre }:
                   </td>
                   <td className="px-6 py-4">
                     <Link
-                      href={`proyectos/${p.id}`}
+                      href={`proyectos/${encodeURIComponent(p.id)}`}
                       className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 text-xs font-medium transition-colors"
                     >
                       Ver <ChevronRight className="h-3.5 w-3.5" />

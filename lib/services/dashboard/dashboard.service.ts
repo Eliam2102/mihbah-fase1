@@ -1,9 +1,14 @@
 import { db } from '@/lib/db'
-import { movimientos, proyectos, cuentasPendientes } from '@/lib/db/schema'
-import { and, eq, gte, lte, sql } from 'drizzle-orm'
+import { movimientos, cuentasPendientes } from '@/lib/db/schema'
+import { and, eq, gte, isNotNull, lte, sql } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
 import { MESES_LABEL } from '../_shared/date.helpers'
 import type { AvanceProyecto, FlujoMensual, KpisMihbah } from './dashboard.types'
+
+// ─── M1-M5: KPIs MIHBAH ──────────────────────────────────────────────────────
+// M1: INGRESO | M2: SALIDA + EGRESO + PRESTAMO | M3: M1-M2
+// M4: CXC desde cuentas_pendientes | M5: CXP desde cuentas_pendientes
+// INTERNO excluido de ambos (solo movimiento interno de caja)
 
 export async function getKpisMihbah(
   empresaId: string,
@@ -29,6 +34,7 @@ export async function getKpisMihbah(
       .from(movimientos)
       .where(
         and(
+          eq(movimientos.tenantId, tenantId),
           eq(movimientos.empresaId, empresaId),
           gte(movimientos.fecha, fechaInicio),
           lte(movimientos.fecha, fechaFin),
@@ -41,7 +47,8 @@ export async function getKpisMihbah(
     for (const r of movRows) {
       const v = Number(r.total)
       if (r.tipo === 'INGRESO') ingresos += v
-      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA') egresos += v
+      // M2: SALIDA + EGRESO + PRESTAMO; INTERNO excluded
+      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += v
     }
 
     const cxRows = await tx
@@ -51,7 +58,11 @@ export async function getKpisMihbah(
       })
       .from(cuentasPendientes)
       .where(
-        and(eq(cuentasPendientes.empresaId, empresaId), eq(cuentasPendientes.estado, 'PENDIENTE')),
+        and(
+          eq(cuentasPendientes.tenantId, tenantId),
+          eq(cuentasPendientes.empresaId, empresaId),
+          eq(cuentasPendientes.estado, 'PENDIENTE'),
+        ),
       )
       .groupBy(cuentasPendientes.tipo)
 
@@ -66,6 +77,9 @@ export async function getKpisMihbah(
     return { ingresos, egresos, neto: ingresos - egresos, cxc, cxp }
   })
 }
+
+// ─── M7: Flujo mensual MIHBAH ─────────────────────────────────────────────────
+// Egresos = SALIDA + EGRESO + PRESTAMO; INTERNO excluded
 
 export async function getFlujoMensual(
   empresaId: string,
@@ -82,7 +96,13 @@ export async function getFlujoMensual(
         total: sql<string>`COALESCE(SUM(${movimientos.monto}), '0')`,
       })
       .from(movimientos)
-      .where(and(eq(movimientos.empresaId, empresaId), eq(movimientos.anio, String(anio))))
+      .where(
+        and(
+          eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, empresaId),
+          eq(movimientos.anio, String(anio)),
+        ),
+      )
       .groupBy(movimientos.mes, movimientos.tipo)
 
     const byMes: { ingresos: number; egresos: number }[] = Array.from({ length: 12 }, () => ({
@@ -96,7 +116,8 @@ export async function getFlujoMensual(
       const v = Number(r.total)
       const entry = byMes[m - 1]!
       if (r.tipo === 'INGRESO') entry.ingresos += v
-      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA') entry.egresos += v
+      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO')
+        entry.egresos += v
     }
 
     return byMes.map((entry, i) => ({
@@ -109,6 +130,10 @@ export async function getFlujoMensual(
   })
 }
 
+// ─── M8: Avance por proyecto ──────────────────────────────────────────────────
+// Usa proyectoNombre (texto del Excel) — no FK a tabla proyectos
+// Tipos egresos: SALIDA + EGRESO (PRESTAMO excluido de avance de obra)
+
 export async function getAvancePorProyecto(
   empresaId: string,
   tenantId: string,
@@ -117,34 +142,70 @@ export async function getAvancePorProyecto(
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
 
-    const proyRows = await tx
-      .select({ id: proyectos.id, name: proyectos.name })
-      .from(proyectos)
-      .where(and(eq(proyectos.empresaId, empresaId), eq(proyectos.activo, true)))
-
-    if (proyRows.length === 0) return []
-
-    const gastadoRows = await tx
+    const rows = await tx
       .select({
-        proyectoId: movimientos.proyectoId,
-        total: sql<string>`COALESCE(SUM(${movimientos.monto}), '0')`,
+        proyectoNombre: movimientos.proyectoNombre,
+        gastado: sql<string>`COALESCE(SUM(${movimientos.monto}), '0')`,
+        ingresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), '0')`,
       })
       .from(movimientos)
       .where(
         and(
+          eq(movimientos.tenantId, tenantId),
           eq(movimientos.empresaId, empresaId),
           eq(movimientos.anio, String(anio)),
-          eq(movimientos.tipo, 'EGRESO'),
+          isNotNull(movimientos.proyectoNombre),
+          sql`${movimientos.tipo} IN ('EGRESO','SALIDA')`,
         ),
       )
-      .groupBy(movimientos.proyectoId)
+      .groupBy(movimientos.proyectoNombre)
+      .orderBy(sql`SUM(${movimientos.monto}) DESC`)
 
-    const gastadoMap = new Map(gastadoRows.map((r) => [r.proyectoId, Number(r.total)]))
+    return rows
+      .filter((r) => r.proyectoNombre)
+      .map((r) => ({
+        id: r.proyectoNombre!,
+        nombre: r.proyectoNombre!,
+        gastado: Number(r.gastado),
+        ingresos: Number(r.ingresos),
+      }))
+  })
+}
 
-    return proyRows.map((p) => ({
-      id: p.id,
-      nombre: p.name,
-      gastado: gastadoMap.get(p.id) ?? 0,
+// ─── M10: Avance por actividad dentro de un proyecto ─────────────────────────
+// Agrupa por categoriaNombre (columna CATEGORÍA del Excel)
+// Sub-detalle por grupoNombre (columna GRUPO del Excel)
+
+export async function getAvancePorActividad(
+  empresaId: string,
+  tenantId: string,
+  proyectoNombre: string,
+): Promise<{ categoria: string; grupo: string | null; gastado: number }[]> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const rows = await tx
+      .select({
+        categoria: movimientos.categoriaNombre,
+        grupo: movimientos.grupoNombre,
+        gastado: sql<string>`COALESCE(SUM(${movimientos.monto}), '0')`,
+      })
+      .from(movimientos)
+      .where(
+        and(
+          eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, empresaId),
+          eq(movimientos.proyectoNombre, proyectoNombre),
+          sql`${movimientos.tipo} IN ('EGRESO','SALIDA')`,
+        ),
+      )
+      .groupBy(movimientos.categoriaNombre, movimientos.grupoNombre)
+      .orderBy(sql`SUM(${movimientos.monto}) DESC`)
+
+    return rows.map((r) => ({
+      categoria: r.categoria ?? 'Sin categoría',
+      grupo: r.grupo,
+      gastado: Number(r.gastado),
     }))
   })
 }

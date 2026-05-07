@@ -37,6 +37,32 @@ export async function requireTenant(): Promise<string> {
   return user.tenantId
 }
 
+// ─── Role helpers ─────────────────────────────────────────────────────────────
+
+export function isSuperAdminDev(role?: string | null): boolean {
+  return role === 'super_admin_dev'
+}
+
+export function isSuperAdminOrAbove(role?: string | null): boolean {
+  return role === 'super_admin_dev' || role === 'super_admin'
+}
+
+export function isAdminOrAbove(role?: string | null): boolean {
+  return role === 'super_admin_dev' || role === 'super_admin' || role === 'admin'
+}
+
+export async function requireSuperAdminDev(): Promise<AuthUser> {
+  const user = await requireUser()
+  if (!isSuperAdminDev(user.role)) throw new Error('Acceso denegado — se requiere super_admin_dev')
+  return user
+}
+
+export async function requireSuperAdminOrAbove(): Promise<AuthUser> {
+  const user = await requireUser()
+  if (!isSuperAdminOrAbove(user.role)) throw new Error('Acceso denegado')
+  return user
+}
+
 // ─── canAccessEmpresa ─────────────────────────────────────────────────────────
 
 export async function canAccessEmpresa(userId: string, empresaId: string): Promise<boolean> {

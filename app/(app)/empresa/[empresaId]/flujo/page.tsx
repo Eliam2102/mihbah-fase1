@@ -30,7 +30,7 @@ export default async function FlujoPage({
   // BM CORP: vista semanal, sin filtros adicionales
   if (empresa.tipo === 'COMERCIAL') {
     return (
-      <section className="p-6">
+      <section className="p-4 sm:p-6">
         <div className="mb-6">
           <h1 className="text-foreground text-2xl font-bold">Flujo de Caja</h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -49,7 +49,7 @@ export default async function FlujoPage({
   const mes = mesStr ? Number(mesStr) : null
 
   return (
-    <section className="space-y-6 p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       {/* Header + Filtros */}
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>

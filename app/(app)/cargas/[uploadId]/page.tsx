@@ -56,7 +56,7 @@ export default async function DetalleCargaGlobalPage({
   const empresaMap = new Map(empresasList.map((e) => [e.id, e.name]))
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <div className="mb-6">
         <Link
           href="/cargas"
@@ -116,7 +116,7 @@ export default async function DetalleCargaGlobalPage({
           <h2 className="text-foreground mb-3 flex items-center gap-2 text-lg font-semibold">
             <Building2 className="h-5 w-5" /> Desglose por empresa
           </h2>
-          <div className="border-border bg-card overflow-hidden rounded-xl border">
+          <div className="border-border bg-card overflow-hidden overflow-x-auto rounded-xl border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-border bg-muted/50 border-b">
@@ -165,7 +165,7 @@ export default async function DetalleCargaGlobalPage({
           No hay movimientos vinculados a esta carga.
         </p>
       ) : (
-        <div className="border-border bg-card overflow-hidden rounded-xl border">
+        <div className="border-border bg-card overflow-hidden overflow-x-auto rounded-xl border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-border bg-muted/50 border-b">

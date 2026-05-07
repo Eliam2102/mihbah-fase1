@@ -16,7 +16,7 @@ import {
   desarrollos,
   sincronizacionesMonday,
 } from '@/lib/db/schema'
-import { and, eq, gte, lte, sql, desc } from 'drizzle-orm'
+import { and, eq, gte, lte, sql, desc, notInArray } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
 import type {
   BmcorpKpis,
@@ -54,7 +54,7 @@ export async function getKpisBmcorp(
     await setTenant(tx, tenantId)
 
     const range = periodRange(period)
-    const fecha = ventasBmcorp.fechaApertura
+    const fecha = ventasBmcorp.fecha
     const where = range
       ? and(
           eq(ventasBmcorp.tenantId, tenantId),
@@ -86,8 +86,12 @@ export async function getKpisBmcorp(
     for (const r of rows) {
       const monto = Number(r.monto)
       const count = Number(r.count)
-      result.totalVendido += monto
-      result.totalVentas += count
+
+      // B1: exclude CANCELADA/RECHAZADO from totalVendido
+      if (r.estado !== 'CANCELADA' && r.estado !== 'RECHAZADO') {
+        result.totalVendido += monto
+        result.totalVentas += count
+      }
 
       switch (r.estado) {
         case 'EN_PROCESO':
@@ -128,7 +132,7 @@ export async function getRankingAfiliados(
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
     const range = periodRange(period)
-    const fecha = ventasBmcorp.fechaApertura
+    const fecha = ventasBmcorp.fecha
 
     const where = range
       ? and(
@@ -136,8 +140,13 @@ export async function getRankingAfiliados(
           eq(ventasBmcorp.empresaId, empresaId),
           gte(fecha, range.from),
           lte(fecha, range.to),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
         )
-      : and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId))
+      : and(
+          eq(ventasBmcorp.tenantId, tenantId),
+          eq(ventasBmcorp.empresaId, empresaId),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
+        )
 
     const rows = await tx
       .select({
@@ -173,7 +182,7 @@ export async function getRankingDesarrollos(
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
     const range = periodRange(period)
-    const fecha = ventasBmcorp.fechaApertura
+    const fecha = ventasBmcorp.fecha
 
     const where = range
       ? and(
@@ -181,8 +190,13 @@ export async function getRankingDesarrollos(
           eq(ventasBmcorp.empresaId, empresaId),
           gte(fecha, range.from),
           lte(fecha, range.to),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
         )
-      : and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId))
+      : and(
+          eq(ventasBmcorp.tenantId, tenantId),
+          eq(ventasBmcorp.empresaId, empresaId),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
+        )
 
     const rows = await tx
       .select({
@@ -442,6 +456,16 @@ export async function getRepartosSplit(
     }
     return result
   })
+}
+
+// ─── Total ventas sin filtro de período (para empty state inteligente) ───────
+
+export async function countVentasTotal(empresaId: string, tenantId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(ventasBmcorp)
+    .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+  return Number(row?.count ?? 0)
 }
 
 // ─── Comisionamiento conciliado ───────────────────────────────────────────────

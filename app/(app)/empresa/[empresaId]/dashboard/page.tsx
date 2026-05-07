@@ -44,7 +44,7 @@ export default async function DashboardEmpresaPage({ params, searchParams }: Pag
   const tipo = empresa?.tipo ?? 'CONSTRUCTORA'
 
   return (
-    <section className="space-y-6 p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

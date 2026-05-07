@@ -6,11 +6,11 @@ export default async function NuevaCargaPage({
 }: {
   params: Promise<{ empresaId: string }>
 }) {
-  const { empresaId } = await params
+  await params
   await requireUser()
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <div className="mb-8">
         <h1 className="text-foreground text-2xl font-bold">Nueva carga Excel</h1>
         <p className="text-muted-foreground mt-1 text-sm">

@@ -27,7 +27,17 @@ export async function triggerSync(empresaId: string): Promise<TriggerSyncResult>
 
     const stats = await syncBoard(empresaId, tenantId, user.id)
 
+    // Revalidate all paths that read ventas_bmcorp / repartos_bmcorp data
     revalidatePath(`/empresa/${empresaId}/monday`)
+    revalidatePath(`/empresa/${empresaId}/dashboard`)
+    revalidatePath(`/empresa/${empresaId}/cuentas`)
+    revalidatePath(`/empresa/${empresaId}/flujo-caja`)
+    revalidatePath(`/empresa/${empresaId}/proyectos`)
+    revalidatePath(`/empresa/${empresaId}/reportes`)
+    revalidatePath('/dashboard')
+    revalidatePath('/cuentas')
+    revalidatePath('/proyectos')
+    revalidatePath('/flujo')
 
     return {
       ok: true,

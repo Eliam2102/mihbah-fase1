@@ -2,19 +2,18 @@
 
 import { useTheme } from 'next-themes'
 import { signOut } from '@/lib/auth/client'
-import { EmpresaSelector, type EmpresaOption } from './empresa-selector'
-import { Sun, Moon, Monitor, Bell, ChevronDown, User, LogOut, Settings } from 'lucide-react'
+import { Sun, Moon, Monitor, Bell, ChevronDown, User, LogOut, Settings, Menu } from 'lucide-react'
 import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 
 interface TopbarProps {
-  empresas: EmpresaOption[]
   userName: string
   userEmail: string
+  onMobileMenuClick?: () => void
 }
 
-export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
+export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) {
   const { theme, setTheme } = useTheme()
   const router = useRouter()
   const [notifOpen, setNotifOpen] = useState(false)
@@ -60,11 +59,15 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
     : Monitor
 
   return (
-    <header className="border-border bg-background/80 flex h-16 shrink-0 items-center gap-4 border-b px-6 backdrop-blur-sm">
-      {/* Empresa selector — compact mode in topbar */}
-      <div className="hidden w-64 md:block">
-        <EmpresaSelector empresas={empresas} compact />
-      </div>
+    <header className="border-border bg-background/80 flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-sm sm:px-6">
+      {/* Mobile hamburger */}
+      <button
+        onClick={onMobileMenuClick}
+        className="text-muted-foreground hover:bg-muted flex h-9 w-9 items-center justify-center rounded-lg transition-colors lg:hidden"
+        aria-label="Abrir menú"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
 
       {/* Spacer */}
       <div className="flex-1" />

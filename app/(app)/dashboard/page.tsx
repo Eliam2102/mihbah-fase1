@@ -66,7 +66,7 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
   const periodoLabel = sp.mes ? `${MESES[mesActual - 1]} ${anio}` : `Año ${anio} — Acumulado`
 
   return (
-    <section className="space-y-6 p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div>
         <h1 className="text-foreground text-2xl font-bold">Dashboard General — Universo Jade</h1>
@@ -279,28 +279,30 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
             <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
               Por cobrar (CXC)
             </p>
-            <table className="w-full text-sm">
-              <tbody>
-                {cuentas.cxcPorEmpresa.map((c) => (
-                  <tr key={c.empresaId} className="border-border border-b last:border-0">
-                    <td className="py-2 font-medium">{c.nombre}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <tbody>
+                  {cuentas.cxcPorEmpresa.map((c) => (
+                    <tr key={c.empresaId} className="border-border border-b last:border-0">
+                      <td className="py-2 font-medium">{c.nombre}</td>
+                      <td className="text-foreground py-2 text-right tabular-nums">
+                        {formatMXN(c.total)}
+                      </td>
+                      <td className="py-2 pl-3 text-right text-xs text-red-600 tabular-nums dark:text-red-400">
+                        {c.vencidas > 0 ? `${formatMXN(c.vencidas)} venc.` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-muted/30 font-bold">
+                    <td className="py-2">TOTAL</td>
                     <td className="text-foreground py-2 text-right tabular-nums">
-                      {formatMXN(c.total)}
+                      {formatMXN(cuentas.totalCxc)}
                     </td>
-                    <td className="py-2 pl-3 text-right text-xs text-red-600 tabular-nums dark:text-red-400">
-                      {c.vencidas > 0 ? `${formatMXN(c.vencidas)} venc.` : '—'}
-                    </td>
+                    <td className="py-2 pl-3"></td>
                   </tr>
-                ))}
-                <tr className="bg-muted/30 font-bold">
-                  <td className="py-2">TOTAL</td>
-                  <td className="text-foreground py-2 text-right tabular-nums">
-                    {formatMXN(cuentas.totalCxc)}
-                  </td>
-                  <td className="py-2 pl-3"></td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* CXP */}
@@ -308,28 +310,30 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
             <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
               Por pagar (CXP)
             </p>
-            <table className="w-full text-sm">
-              <tbody>
-                {cuentas.cxpPorEmpresa.map((c) => (
-                  <tr key={c.empresaId} className="border-border border-b last:border-0">
-                    <td className="py-2 font-medium">{c.nombre}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <tbody>
+                  {cuentas.cxpPorEmpresa.map((c) => (
+                    <tr key={c.empresaId} className="border-border border-b last:border-0">
+                      <td className="py-2 font-medium">{c.nombre}</td>
+                      <td className="text-foreground py-2 text-right tabular-nums">
+                        {formatMXN(c.total)}
+                      </td>
+                      <td className="py-2 pl-3 text-right text-xs text-red-600 tabular-nums dark:text-red-400">
+                        {c.vencidas > 0 ? `${formatMXN(c.vencidas)} venc.` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-muted/30 font-bold">
+                    <td className="py-2">TOTAL</td>
                     <td className="text-foreground py-2 text-right tabular-nums">
-                      {formatMXN(c.total)}
+                      {formatMXN(cuentas.totalCxp)}
                     </td>
-                    <td className="py-2 pl-3 text-right text-xs text-red-600 tabular-nums dark:text-red-400">
-                      {c.vencidas > 0 ? `${formatMXN(c.vencidas)} venc.` : '—'}
-                    </td>
+                    <td className="py-2 pl-3"></td>
                   </tr>
-                ))}
-                <tr className="bg-muted/30 font-bold">
-                  <td className="py-2">TOTAL</td>
-                  <td className="text-foreground py-2 text-right tabular-nums">
-                    {formatMXN(cuentas.totalCxp)}
-                  </td>
-                  <td className="py-2 pl-3"></td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

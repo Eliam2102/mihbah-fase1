@@ -75,6 +75,9 @@ export async function importMovimientos(
               concepto: d.concepto,
               comentarios: d.comentarios ?? null,
               descripcion: d.concepto,
+              proyectoNombre: d.proyecto ?? null,
+              categoriaNombre: d.categoria ?? null,
+              grupoNombre: d.grupo ?? null,
               uploadId,
             }
           }),
@@ -233,6 +236,9 @@ export async function importMaestro(
               concepto: d.concepto,
               comentarios: d.comentarios ?? null,
               descripcion: d.concepto,
+              proyectoNombre: d.proyecto ?? null,
+              categoriaNombre: d.categoria ?? null,
+              grupoNombre: d.grupo ?? null,
               uploadId,
             }
           }),

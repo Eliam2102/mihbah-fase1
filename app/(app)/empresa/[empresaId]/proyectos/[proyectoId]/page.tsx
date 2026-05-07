@@ -73,7 +73,7 @@ export default async function ProyectoDetallePage({
     if (!detalle) notFound()
 
     return (
-      <section className="space-y-6 p-6">
+      <section className="space-y-6 p-4 sm:p-6">
         <div className="flex items-center gap-3">
           <Link
             href={`/empresa/${empresaId}/proyectos`}
@@ -214,7 +214,7 @@ export default async function ProyectoDetallePage({
       : 0
 
   return (
-    <section className="space-y-6 p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <Link
           href={`/empresa/${empresaId}/proyectos`}

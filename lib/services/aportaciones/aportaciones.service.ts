@@ -5,7 +5,7 @@
  */
 
 import { db } from '@/lib/db'
-import { movimientos } from '@/lib/db/schema'
+import { movimientos, cuentasPendientes } from '@/lib/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
 import type {
@@ -14,6 +14,13 @@ import type {
   IngresadoVsFaltante,
   TablaConceptoProyecto,
 } from './aportaciones.types'
+
+// Accionista filter: grupoNombre codes OR concepto contains 'aportaci'
+const ACCIONISTA_GRUPOS =
+  "'T224','T006','T112','T124','T012','T024','ACCIONISTA','T106','T212','T018','T118','APORTACIONES','T000','T100','T324','T306','T200','T312','NIVEL 1','NIVEL 2','NIVEL 3'"
+
+const accionistaFilter = (m: typeof movimientos) =>
+  sql`(${m.grupoNombre} IN (${sql.raw(ACCIONISTA_GRUPOS)}) OR LOWER(${m.concepto}) LIKE '%aportaci%')`
 
 // ─── KPIs YCDI ─────────────────────────────────────────────────────────────────
 
@@ -26,23 +33,54 @@ export async function getKpisYcdi(empresaId: string, tenantId: string): Promise<
         totalIngresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), 0)`,
         totalEgresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'SALIDA' THEN ${movimientos.monto} ELSE 0 END), 0)`,
         prestamos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'PRESTAMO' THEN ${movimientos.monto} ELSE 0 END), 0)`,
-        capitalAportado: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' AND LOWER(${movimientos.concepto}) LIKE '%aportaci%' THEN ${movimientos.monto} ELSE 0 END), 0)`,
-        acuerdosActivos: sql<string>`COUNT(DISTINCT CASE WHEN ${movimientos.tipo} = 'INGRESO' AND LOWER(${movimientos.concepto}) LIKE '%aportaci%' THEN ${movimientos.nombre} END)`,
+        capitalAportado: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' AND (${movimientos.grupoNombre} IN (${sql.raw(ACCIONISTA_GRUPOS)}) OR LOWER(${movimientos.concepto}) LIKE '%aportaci%') THEN ${movimientos.monto} ELSE 0 END), 0)`,
+        acuerdosActivos: sql<string>`COUNT(DISTINCT CASE WHEN ${movimientos.tipo} = 'INGRESO' AND (${movimientos.grupoNombre} IN (${sql.raw(ACCIONISTA_GRUPOS)}) OR LOWER(${movimientos.concepto}) LIKE '%aportaci%') THEN ${movimientos.nombre} END)`,
       })
       .from(movimientos)
-      .where(eq(movimientos.empresaId, empresaId))
+      .where(and(eq(movimientos.tenantId, tenantId), eq(movimientos.empresaId, empresaId)))
+
+    // Y4: CXC from cuentas_pendientes POR_COBRAR PENDIENTE
+    const [cxcRow] = await tx
+      .select({
+        total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto} - ${cuentasPendientes.montoPagado}), '0')`,
+      })
+      .from(cuentasPendientes)
+      .where(
+        and(
+          eq(cuentasPendientes.tenantId, tenantId),
+          eq(cuentasPendientes.empresaId, empresaId),
+          eq(cuentasPendientes.tipo, 'POR_COBRAR'),
+          eq(cuentasPendientes.estado, 'PENDIENTE'),
+        ),
+      )
+
+    // Y5: CXP from cuentas_pendientes POR_PAGAR PENDIENTE
+    const [cxpRow] = await tx
+      .select({
+        total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto} - ${cuentasPendientes.montoPagado}), '0')`,
+      })
+      .from(cuentasPendientes)
+      .where(
+        and(
+          eq(cuentasPendientes.tenantId, tenantId),
+          eq(cuentasPendientes.empresaId, empresaId),
+          eq(cuentasPendientes.tipo, 'POR_PAGAR'),
+          eq(cuentasPendientes.estado, 'PENDIENTE'),
+        ),
+      )
 
     const totalIngresos = Number(totals?.totalIngresos ?? 0)
     const totalEgresos = Number(totals?.totalEgresos ?? 0)
     const prestamos = Number(totals?.prestamos ?? 0)
     const totalCapitalAportado = Number(totals?.capitalAportado ?? 0)
     const acuerdosActivos = Number(totals?.acuerdosActivos ?? 0)
+    const cxc = Number(cxcRow?.total ?? 0)
+    const cxp = Number(cxpRow?.total ?? 0)
 
     const saldo = totalIngresos - totalEgresos
-    const porcentajeLevantamiento =
-      totalEgresos > 0
-        ? Math.min((totalIngresos / (totalIngresos + Math.abs(Math.min(saldo, 0)))) * 100, 100)
-        : 100
+
+    // Y9: no meta en DB → porcentajeLevantamiento = 0 hasta que se defina
+    const porcentajeLevantamiento = 0
 
     return {
       totalIngresos,
@@ -57,7 +95,8 @@ export async function getKpisYcdi(empresaId: string, tenantId: string): Promise<
       metaTotal: totalIngresos,
       totalAcciones: acuerdosActivos,
       precioPromedioAccion: acuerdosActivos > 0 ? totalCapitalAportado / acuerdosActivos : 0,
-      cxc: prestamos,
+      cxc,
+      cxp,
     }
   })
 }
@@ -79,7 +118,7 @@ export async function getFlujomensualYcdi(
         egresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'SALIDA' THEN ${movimientos.monto} ELSE 0 END), 0)`,
       })
       .from(movimientos)
-      .where(eq(movimientos.empresaId, empresaId))
+      .where(and(eq(movimientos.tenantId, tenantId), eq(movimientos.empresaId, empresaId)))
       .groupBy(movimientos.anio, movimientos.mes)
       .orderBy(movimientos.anio, movimientos.mes)
 
@@ -116,8 +155,10 @@ export async function getTopAccionistas(
       .from(movimientos)
       .where(
         and(
+          eq(movimientos.tenantId, tenantId),
           eq(movimientos.empresaId, empresaId),
-          sql`${movimientos.tipo} = 'INGRESO' AND LOWER(${movimientos.concepto}) LIKE '%aportaci%'`,
+          eq(movimientos.tipo, 'INGRESO'),
+          accionistaFilter(movimientos),
         ),
       )
       .groupBy(movimientos.nombre)
@@ -165,7 +206,13 @@ export async function getTablaConceptosProyectos(
         monto: sql<string>`COALESCE(SUM(${movimientos.monto}), 0)`,
       })
       .from(movimientos)
-      .where(and(eq(movimientos.empresaId, empresaId), sql`${movimientos.tipo} = 'INGRESO'`))
+      .where(
+        and(
+          eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, empresaId),
+          sql`${movimientos.tipo} = 'INGRESO'`,
+        ),
+      )
       .groupBy(movimientos.nombre, movimientos.concepto)
       .orderBy(sql`SUM(${movimientos.monto}) DESC`)
 

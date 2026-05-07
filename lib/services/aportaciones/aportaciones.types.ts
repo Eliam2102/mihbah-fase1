@@ -12,6 +12,7 @@ export interface KpisYcdi {
   totalAcciones: number
   precioPromedioAccion: number
   cxc: number
+  cxp: number
 }
 
 export interface FlujomensualYcdi {

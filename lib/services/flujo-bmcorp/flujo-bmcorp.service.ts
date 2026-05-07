@@ -6,9 +6,11 @@
 
 import { db } from '@/lib/db'
 import { ventasBmcorp, repartosBmcorp } from '@/lib/db/schema'
-import { eq, sql, and } from 'drizzle-orm'
+import { eq, gte, lte, sql, and } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
+import { MESES_LABEL } from '../_shared/date.helpers'
 import type { FlujoSemanaBmcorp } from './flujo-bmcorp.types'
+import type { FlujoMes } from '../flujo/flujo.types'
 
 export async function getFlujoBmcorp(
   empresaId: string,
@@ -81,6 +83,71 @@ export async function getFlujoBmcorp(
       })
     }
 
+    return result
+  })
+}
+
+export async function getFlujoBmcorpMensual(
+  empresaId: string,
+  tenantId: string,
+  anio: number,
+): Promise<FlujoMes[]> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const ventasRows = await tx
+      .select({
+        mes: sql<number>`EXTRACT(MONTH FROM ${ventasBmcorp.fechaApertura})::int`,
+        ingresos: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
+      })
+      .from(ventasBmcorp)
+      .where(
+        and(
+          eq(ventasBmcorp.tenantId, tenantId),
+          eq(ventasBmcorp.empresaId, empresaId),
+          sql`${ventasBmcorp.fechaApertura} IS NOT NULL`,
+          gte(ventasBmcorp.fechaApertura, `${anio}-01-01`),
+          lte(ventasBmcorp.fechaApertura, `${anio}-12-31`),
+        ),
+      )
+      .groupBy(sql`EXTRACT(MONTH FROM ${ventasBmcorp.fechaApertura})`)
+
+    const repartosRows = await tx
+      .select({
+        mes: sql<number>`EXTRACT(MONTH FROM ${repartosBmcorp.fecha})::int`,
+        egresos: sql<string>`COALESCE(SUM(${repartosBmcorp.monto}), 0)::text`,
+      })
+      .from(repartosBmcorp)
+      .where(
+        and(
+          eq(repartosBmcorp.tenantId, tenantId),
+          eq(repartosBmcorp.empresaId, empresaId),
+          sql`${repartosBmcorp.fecha} IS NOT NULL`,
+          gte(repartosBmcorp.fecha, `${anio}-01-01`),
+          lte(repartosBmcorp.fecha, `${anio}-12-31`),
+        ),
+      )
+      .groupBy(sql`EXTRACT(MONTH FROM ${repartosBmcorp.fecha})`)
+
+    const result: FlujoMes[] = []
+    let acumulado = 0
+    for (let m = 1; m <= 12; m++) {
+      const v = ventasRows.find((r) => Number(r.mes) === m)
+      const r = repartosRows.find((x) => Number(x.mes) === m)
+      const ingresos = Number(v?.ingresos ?? 0)
+      const egresos = Number(r?.egresos ?? 0)
+      const neto = ingresos - egresos
+      acumulado += neto
+      result.push({
+        anio,
+        mes: m,
+        mesLabel: MESES_LABEL[m - 1]!,
+        ingresos,
+        egresos,
+        neto,
+        acumulado,
+      })
+    }
     return result
   })
 }
