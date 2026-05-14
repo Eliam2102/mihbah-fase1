@@ -2,15 +2,14 @@ databases:
   - name: mihbah-postgres
     databaseName: mihbah_prod
     user: mihbah
-    plan: free         # $7/mo — cambia a free para probar (no persiste en sleep)
 
 services:
   - type: web
     name: mihbah-fase1
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
-    startCommand: npm run db:migrate && tsx scripts/apply-rls-prod.ts && npm start
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run db:migrate && npx tsx scripts/apply-rls-prod.ts && npm start
     envVars:
       - key: DATABASE_URL
         fromDatabase:
