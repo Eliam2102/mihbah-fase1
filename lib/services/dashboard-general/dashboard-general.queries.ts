@@ -70,14 +70,14 @@ async function kpisConstructora(
   for (const r of movs) {
     const monto = Number(r.total)
     if (r.tipo === 'INGRESO') ingresos += monto
-    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += monto
+    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA') egresos += monto
   }
 
-  // CXC / CXP
+  // CXC / CXP — saldo pendiente (monto - montoPagado), igual que dashboard MIHBAH
   const pendientes = await tx
     .select({
       tipo: cuentasPendientes.tipo,
-      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto}), 0)::text`,
+      total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto} - ${cuentasPendientes.montoPagado}), 0)::text`,
     })
     .from(cuentasPendientes)
     .where(
@@ -128,7 +128,7 @@ async function kpisCapitalYcdi(
   for (const r of movs) {
     const monto = Number(r.total)
     if (r.tipo === 'INGRESO') ingresos += monto
-    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += monto
+    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA') egresos += monto
   }
 
   // CXC desde pagos_aportacion
@@ -222,7 +222,7 @@ async function kpisComercialBmcorp(
   for (const r of movs) {
     const monto = Number(r.total)
     if (r.tipo === 'INGRESO') ingresosMov += monto
-    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += monto
+    else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA') egresos += monto
   }
 
   const ingresosVentas = Number(ventasRow?.total ?? 0)
@@ -238,12 +238,7 @@ async function kpisComercialBmcorp(
       and(
         eq(ventasBmcorp.tenantId, tenantId),
         eq(ventasBmcorp.empresaId, empresaId),
-        notInArray(ventasBmcorp.estadoVenta, [
-          'FINALIZADA',
-          'FINALIZADO_Y_LIQUIDADO',
-          'CANCELADA',
-          'RECHAZADO',
-        ]),
+        notInArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO', 'CANCELADA']),
       ),
     )
 

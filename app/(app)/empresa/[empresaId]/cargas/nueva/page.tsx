@@ -1,4 +1,5 @@
 import { requireUser } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { UploadWizard } from '@/components/excel/upload-wizard'
 
 export default async function NuevaCargaPage({
@@ -6,8 +7,9 @@ export default async function NuevaCargaPage({
 }: {
   params: Promise<{ empresaId: string }>
 }) {
-  await params
-  await requireUser()
+  const { empresaId } = await params
+  const user = await requireUser()
+  await requireEmpresaAccess(user, empresaId, 'cargas')
 
   return (
     <section className="p-4 sm:p-6">

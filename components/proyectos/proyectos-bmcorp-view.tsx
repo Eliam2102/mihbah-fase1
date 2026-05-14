@@ -1,14 +1,11 @@
 import { getProyectosBmcorp } from '@/lib/services/proyectos-bmcorp.service'
 import { Building2, TrendingUp, CheckCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export async function ProyectosBmcorpView({ empresaId, tenantId }: Props) {

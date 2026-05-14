@@ -13,6 +13,21 @@ import { setTenant } from '../_shared/db.helpers'
 import { MESES_LABEL } from '../_shared/date.helpers'
 import type { FlujoMes, FlujoTrimestre, MovimientoDetalle } from './flujo.types'
 
+/** Años distintos con datos en movimientos para una empresa. Orden DESC. */
+export async function getAñosConDatos(empresaId: string, tenantId: string): Promise<number[]> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    const rows = await tx
+      .selectDistinct({ anio: sql<number>`EXTRACT(YEAR FROM ${movimientos.fecha})::int` })
+      .from(movimientos)
+      .where(and(eq(movimientos.tenantId, tenantId), eq(movimientos.empresaId, empresaId)))
+    return rows
+      .map((r) => r.anio)
+      .filter((a): a is number => a != null)
+      .sort((a, b) => b - a)
+  })
+}
+
 // ─── Flujo mensual ────────────────────────────────────────────────────────────
 
 /**
@@ -30,7 +45,7 @@ export async function getFlujoMensual(
       .select({
         mes: sql<number>`EXTRACT(MONTH FROM ${movimientos.fecha})::int`,
         ingresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
-        egresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA','PRESTAMO') THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
+        egresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA') THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
       })
       .from(movimientos)
       .where(
@@ -109,7 +124,7 @@ export async function getFlujoAnual(
       .select({
         anio: sql<number>`EXTRACT(YEAR FROM ${movimientos.fecha})::int`,
         ingresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
-        egresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA','PRESTAMO') THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
+        egresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA') THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
       })
       .from(movimientos)
       .where(

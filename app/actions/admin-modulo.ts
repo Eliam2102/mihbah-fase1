@@ -1,6 +1,6 @@
 'use server'
 
-import { requireSuperAdminOrAbove } from '@/lib/auth/helpers'
+import { requireSuperAdminDev } from '@/lib/auth/helpers'
 import {
   upsertModuloPermiso,
   resetModulosToDefault,
@@ -22,7 +22,7 @@ export async function actionSetModuloPermiso(
   puedeEditar: boolean,
 ): Promise<ModuloActionResult> {
   try {
-    await requireSuperAdminOrAbove()
+    await requireSuperAdminDev()
     await upsertModuloPermiso(tenantId, userId, empresaId, modulo, puedeVer, puedeEditar)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }
@@ -36,7 +36,7 @@ export async function actionResetModulos(
   empresaId: string,
 ): Promise<ModuloActionResult> {
   try {
-    await requireSuperAdminOrAbove()
+    await requireSuperAdminDev()
     await resetModulosToDefault(userId, empresaId)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }

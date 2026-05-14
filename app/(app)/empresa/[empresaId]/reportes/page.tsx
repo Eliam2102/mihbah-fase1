@@ -1,6 +1,5 @@
 import { requireUser } from '@/lib/auth/helpers'
-import { getEmpresaById } from '@/lib/services/empresas'
-import { notFound } from 'next/navigation'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import Link from 'next/link'
 import { TrendingUp, FolderOpen, Receipt, BarChart3, ChevronRight, Download } from 'lucide-react'
 
@@ -72,17 +71,21 @@ function getReports(tipo: string): ReportCard[] {
   ]
 }
 
-export default async function ReportesPage({ params }: { params: Promise<{ empresaId: string }> }) {
+export default async function ReportesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ empresaId: string }>
+  searchParams: Promise<{ anio?: string }>
+}) {
   const { empresaId } = await params
+  const { anio: anioStr } = await searchParams
   const user = await requireUser()
-  const tenantId = user.tenantId
-  if (!tenantId) throw new Error('Tenant ID is required')
-
-  const empresa = await getEmpresaById(empresaId, tenantId)
-  if (!empresa) notFound()
+  const empresa = await requireEmpresaAccess(user, empresaId, 'reportes')
+  const tenantId = user.tenantId!
 
   const reports = getReports(empresa.tipo)
-  const anio = new Date().getFullYear()
+  const anio = Number(anioStr) || new Date().getFullYear()
 
   return (
     <section className="p-4 sm:p-6">
@@ -123,7 +126,7 @@ export default async function ReportesPage({ params }: { params: Promise<{ empre
               </div>
               <div className="border-border border-t px-5 py-3">
                 <Link
-                  href={`/empresa/${empresaId}/reportes/${r.tipo}`}
+                  href={`/empresa/${empresaId}/reportes/${r.tipo}?anio=${anio}`}
                   className="text-primary group-hover:text-primary/80 flex items-center gap-1.5 text-sm font-medium transition-colors"
                 >
                   Ver reporte <ChevronRight className="h-4 w-4" />

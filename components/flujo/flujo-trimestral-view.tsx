@@ -1,15 +1,12 @@
 // Server Component — Vista trimestral de flujo de caja
 import { getFlujoTrimestral } from '@/lib/services/flujo.service'
 import { ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
   anio: number
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export async function FlujoTrimestralView({ empresaId, tenantId, anio }: Props) {

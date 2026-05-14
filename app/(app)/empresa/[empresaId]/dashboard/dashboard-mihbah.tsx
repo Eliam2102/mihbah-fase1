@@ -43,22 +43,22 @@ export async function DashboardMihbah({ empresaId, tenantId, anio, mes }: Props)
         <KpiCard label="CxC" value={kpis.cxc} variant="warning" />
       </div>
 
-      {/* Row 2: CxP + semáforo + gráfica */}
+      {/* Row 2: CxP + gráfica */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="space-y-4">
-          <KpiCard
-            label="Cuentas por pagar"
-            value={kpis.cxp}
-            variant={kpis.cxp > kpis.ingresos * 0.5 ? 'critical' : 'warning'}
-          />
-          <Semaforo result={semaforo} />
-        </div>
+        <KpiCard
+          label="Cuentas por pagar"
+          value={kpis.cxp}
+          variant={kpis.cxp > kpis.ingresos * 0.5 ? 'critical' : 'warning'}
+        />
         <div className="lg:col-span-2">
           <FlowChart data={flujo} />
         </div>
       </div>
 
-      {/* Row 3: Proyectos */}
+      {/* Row 3: Semáforo 4 sub-indicadores */}
+      <Semaforo result={semaforo} />
+
+      {/* Row 4: Proyectos */}
       <ProyectosCard proyectos={proyectos} />
     </div>
   )

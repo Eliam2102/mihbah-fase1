@@ -6,7 +6,7 @@ import { MESES_LABEL } from '../_shared/date.helpers'
 import type { AvanceProyecto, FlujoMensual, KpisMihbah } from './dashboard.types'
 
 // ─── M1-M5: KPIs MIHBAH ──────────────────────────────────────────────────────
-// M1: INGRESO | M2: SALIDA + EGRESO + PRESTAMO | M3: M1-M2
+// M1: INGRESO | M2: SALIDA + EGRESO | M3: M1-M2  (INTERNO y PRESTAMO excluidos)
 // M4: CXC desde cuentas_pendientes | M5: CXP desde cuentas_pendientes
 // INTERNO excluido de ambos (solo movimiento interno de caja)
 
@@ -47,8 +47,8 @@ export async function getKpisMihbah(
     for (const r of movRows) {
       const v = Number(r.total)
       if (r.tipo === 'INGRESO') ingresos += v
-      // M2: SALIDA + EGRESO + PRESTAMO; INTERNO excluded
-      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO') egresos += v
+      // M2: SALIDA + EGRESO; INTERNO y PRESTAMO excluidos
+      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA') egresos += v
     }
 
     const cxRows = await tx
@@ -79,7 +79,7 @@ export async function getKpisMihbah(
 }
 
 // ─── M7: Flujo mensual MIHBAH ─────────────────────────────────────────────────
-// Egresos = SALIDA + EGRESO + PRESTAMO; INTERNO excluded
+// Egresos = SALIDA + EGRESO; INTERNO y PRESTAMO excluidos
 
 export async function getFlujoMensual(
   empresaId: string,
@@ -116,8 +116,7 @@ export async function getFlujoMensual(
       const v = Number(r.total)
       const entry = byMes[m - 1]!
       if (r.tipo === 'INGRESO') entry.ingresos += v
-      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA' || r.tipo === 'PRESTAMO')
-        entry.egresos += v
+      else if (r.tipo === 'EGRESO' || r.tipo === 'SALIDA') entry.egresos += v
     }
 
     return byMes.map((entry, i) => ({

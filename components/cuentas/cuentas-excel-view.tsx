@@ -1,14 +1,11 @@
 import { getCuentasExcel } from '@/lib/services/cuentas-excel.service'
 import { Receipt, WalletCards, AlertCircle } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
   empresaNombre: string
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 function EstadoBadge({ estado }: { estado: string }) {
@@ -84,12 +81,19 @@ function CuentasTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-border bg-muted/50 border-b">
-                {['Tercero', 'Monto', 'Pagado', 'Saldo', 'Vencimiento', 'Estado'].map((h) => (
+                {[
+                  { label: 'Tercero', align: 'text-left' },
+                  { label: 'Monto', align: 'text-right' },
+                  { label: 'Pagado', align: 'text-right' },
+                  { label: 'Saldo', align: 'text-right' },
+                  { label: 'Vencimiento', align: 'text-left' },
+                  { label: 'Estado', align: 'text-center' },
+                ].map((h) => (
                   <th
-                    key={h}
-                    className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                    key={h.label}
+                    className={`text-muted-foreground px-6 py-3 ${h.align} text-xs font-semibold tracking-wider whitespace-nowrap uppercase`}
                   >
-                    {h}
+                    {h.label}
                   </th>
                 ))}
               </tr>
@@ -136,7 +140,7 @@ function CuentasTable({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center">
                     <EstadoBadge estado={c.estado} />
                   </td>
                 </tr>

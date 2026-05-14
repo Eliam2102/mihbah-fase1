@@ -6,6 +6,7 @@ import { Sun, Moon, Monitor, Bell, ChevronDown, User, LogOut, Settings, Menu } f
 import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { BmcorpSyncBadge } from '@/components/dashboard/bmcorp-sync-badge'
 
 interface TopbarProps {
   userName: string
@@ -74,19 +75,21 @@ export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) 
 
       {/* Right cluster */}
       <div className="flex items-center gap-1">
+        {/* BM Corp sync badge — solo visible en dashboard BM Corp */}
+        <BmcorpSyncBadge />
         {/* Theme switcher */}
-        <button
+        {/* <button
           id="topbar-theme-switcher"
           onClick={() => setTheme(nextTheme)}
           title={`Cambiar a modo ${nextTheme}`}
           className="text-muted-foreground hover:bg-surface hover:text-foreground flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
         >
           <ThemeIcon className="h-4.5 w-4.5" />
-        </button>
+        </button> */}
 
         {/* Notifications */}
         <div ref={notifRef} className="relative">
-          <button
+          {/* <button
             id="topbar-notifications-btn"
             onClick={() => setNotifOpen((v) => !v)}
             className="text-muted-foreground hover:bg-surface hover:text-foreground relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
@@ -94,8 +97,7 @@ export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) 
             aria-expanded={notifOpen}
           >
             <Bell className="h-4.5 w-4.5" />
-            {/* Badge placeholder — empty for now */}
-          </button>
+          </button> */}
 
           {notifOpen && (
             <div className="border-border bg-popover absolute top-full right-0 z-50 mt-1 w-80 rounded-xl border shadow-lg">
@@ -113,7 +115,7 @@ export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) 
 
         {/* User avatar + menu */}
         <div ref={userRef} className="relative ml-1">
-          <button
+          {/* <button
             id="topbar-user-menu-btn"
             onClick={() => setUserMenuOpen((v) => !v)}
             className="text-foreground hover:bg-surface flex h-9 items-center gap-2 rounded-lg px-2 text-sm font-medium transition-colors"
@@ -130,7 +132,7 @@ export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) 
                 userMenuOpen && 'rotate-180',
               )}
             />
-          </button>
+          </button> */}
 
           {userMenuOpen && (
             <div className="border-border bg-popover absolute top-full right-0 z-50 mt-1 w-56 rounded-xl border py-1 shadow-lg">

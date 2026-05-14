@@ -17,7 +17,7 @@ export async function getProyectosExcel(
       .select({
         proyectoNombre: movimientos.proyectoNombre,
         totalIngresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
-        totalEgresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA','PRESTAMO') THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
+        totalEgresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA') THEN ${movimientos.monto} ELSE 0 END), 0)::text`,
         totalMovimientos: sql<number>`COUNT(${movimientos.id})::int`,
       })
       .from(movimientos)
@@ -87,7 +87,7 @@ export async function getProyectoDetalle(
       .filter((m) => m.tipo === 'INGRESO')
       .reduce((s, m) => s + m.monto, 0)
     const totalEgresos = movList
-      .filter((m) => ['EGRESO', 'SALIDA', 'PRESTAMO'].includes(m.tipo))
+      .filter((m) => ['EGRESO', 'SALIDA'].includes(m.tipo))
       .reduce((s, m) => s + m.monto, 0)
 
     return {

@@ -24,22 +24,34 @@ const accionistaFilter = (m: typeof movimientos) =>
 
 // ─── KPIs YCDI ─────────────────────────────────────────────────────────────────
 
-export async function getKpisYcdi(empresaId: string, tenantId: string): Promise<KpisYcdi> {
+export async function getKpisYcdi(
+  empresaId: string,
+  tenantId: string,
+  anio?: number,
+  mes?: number,
+): Promise<KpisYcdi> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
 
     const [totals] = await tx
       .select({
         totalIngresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), 0)`,
-        totalEgresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'SALIDA' THEN ${movimientos.monto} ELSE 0 END), 0)`,
+        totalEgresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA') THEN ${movimientos.monto} ELSE 0 END), 0)`,
         prestamos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'PRESTAMO' THEN ${movimientos.monto} ELSE 0 END), 0)`,
         capitalAportado: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' AND (${movimientos.grupoNombre} IN (${sql.raw(ACCIONISTA_GRUPOS)}) OR LOWER(${movimientos.concepto}) LIKE '%aportaci%') THEN ${movimientos.monto} ELSE 0 END), 0)`,
         acuerdosActivos: sql<string>`COUNT(DISTINCT CASE WHEN ${movimientos.tipo} = 'INGRESO' AND (${movimientos.grupoNombre} IN (${sql.raw(ACCIONISTA_GRUPOS)}) OR LOWER(${movimientos.concepto}) LIKE '%aportaci%') THEN ${movimientos.nombre} END)`,
       })
       .from(movimientos)
-      .where(and(eq(movimientos.tenantId, tenantId), eq(movimientos.empresaId, empresaId)))
+      .where(
+        and(
+          eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, empresaId),
+          anio ? eq(movimientos.anio, String(anio)) : undefined,
+          mes ? eq(movimientos.mes, String(mes)) : undefined,
+        ),
+      )
 
-    // Y4: CXC from cuentas_pendientes POR_COBRAR PENDIENTE
+    // Y4: CXC from cuentas_pendientes POR_COBRAR PENDIENTE (siempre acumulado — no filtra por periodo)
     const [cxcRow] = await tx
       .select({
         total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto} - ${cuentasPendientes.montoPagado}), '0')`,
@@ -54,7 +66,7 @@ export async function getKpisYcdi(empresaId: string, tenantId: string): Promise<
         ),
       )
 
-    // Y5: CXP from cuentas_pendientes POR_PAGAR PENDIENTE
+    // Y5: CXP from cuentas_pendientes POR_PAGAR PENDIENTE (siempre acumulado)
     const [cxpRow] = await tx
       .select({
         total: sql<string>`COALESCE(SUM(${cuentasPendientes.monto} - ${cuentasPendientes.montoPagado}), '0')`,
@@ -106,6 +118,7 @@ export async function getKpisYcdi(empresaId: string, tenantId: string): Promise<
 export async function getFlujomensualYcdi(
   empresaId: string,
   tenantId: string,
+  anio?: number,
 ): Promise<FlujomensualYcdi[]> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
@@ -115,10 +128,16 @@ export async function getFlujomensualYcdi(
         anio: movimientos.anio,
         mes: movimientos.mes,
         ingresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'INGRESO' THEN ${movimientos.monto} ELSE 0 END), 0)`,
-        egresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} = 'SALIDA' THEN ${movimientos.monto} ELSE 0 END), 0)`,
+        egresos: sql<string>`COALESCE(SUM(CASE WHEN ${movimientos.tipo} IN ('EGRESO','SALIDA') THEN ${movimientos.monto} ELSE 0 END), 0)`,
       })
       .from(movimientos)
-      .where(and(eq(movimientos.tenantId, tenantId), eq(movimientos.empresaId, empresaId)))
+      .where(
+        and(
+          eq(movimientos.tenantId, tenantId),
+          eq(movimientos.empresaId, empresaId),
+          anio ? eq(movimientos.anio, String(anio)) : undefined,
+        ),
+      )
       .groupBy(movimientos.anio, movimientos.mes)
       .orderBy(movimientos.anio, movimientos.mes)
 
@@ -142,6 +161,8 @@ export async function getTopAccionistas(
   empresaId: string,
   tenantId: string,
   limit = 15,
+  anio?: number,
+  mes?: number,
 ): Promise<{ nombre: string; aportado: number; movimientos: number }[]> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
@@ -159,6 +180,8 @@ export async function getTopAccionistas(
           eq(movimientos.empresaId, empresaId),
           eq(movimientos.tipo, 'INGRESO'),
           accionistaFilter(movimientos),
+          anio ? eq(movimientos.anio, String(anio)) : undefined,
+          mes ? eq(movimientos.mes, String(mes)) : undefined,
         ),
       )
       .groupBy(movimientos.nombre)
@@ -178,8 +201,10 @@ export async function getTopAccionistas(
 export async function getIngresadoVsFaltante(
   empresaId: string,
   tenantId: string,
+  anio?: number,
+  mes?: number,
 ): Promise<IngresadoVsFaltante[]> {
-  const accionistas = await getTopAccionistas(empresaId, tenantId, 10)
+  const accionistas = await getTopAccionistas(empresaId, tenantId, 10, anio, mes)
   const total = accionistas.reduce((s, a) => s + a.aportado, 0)
 
   return accionistas.map((a, i) => ({
@@ -195,6 +220,8 @@ export async function getIngresadoVsFaltante(
 export async function getTablaConceptosProyectos(
   empresaId: string,
   tenantId: string,
+  anio?: number,
+  mes?: number,
 ): Promise<{ filas: TablaConceptoProyecto[]; proyectosNames: string[]; grandTotal: number }> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
@@ -210,7 +237,9 @@ export async function getTablaConceptosProyectos(
         and(
           eq(movimientos.tenantId, tenantId),
           eq(movimientos.empresaId, empresaId),
-          sql`${movimientos.tipo} = 'INGRESO'`,
+          eq(movimientos.tipo, 'INGRESO'),
+          anio ? eq(movimientos.anio, String(anio)) : undefined,
+          mes ? eq(movimientos.mes, String(mes)) : undefined,
         ),
       )
       .groupBy(movimientos.nombre, movimientos.concepto)

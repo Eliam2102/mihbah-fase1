@@ -6,7 +6,12 @@ import { Building2, FolderOpen, TrendingUp, TrendingDown } from 'lucide-react'
 import Link from 'next/link'
 
 function fmt(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+  return n.toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 export default async function ProyectosConsolidadoPage() {
@@ -114,7 +119,7 @@ export default async function ProyectosConsolidadoPage() {
                       >
                         <td className="px-6 py-3">
                           <Link
-                            href={`/empresa/${empresa.id}/proyectos/${encodeURIComponent(p.id)}`}
+                            href={`/empresa/${empresa.id}/proyectos/${p.id}?from=consolidated`}
                             className="text-foreground hover:text-primary font-medium transition-colors"
                           >
                             {p.name}

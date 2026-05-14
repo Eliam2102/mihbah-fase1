@@ -2,6 +2,7 @@
 import { getMovimientosMes } from '@/lib/services/flujo.service'
 import { X } from 'lucide-react'
 import Link from 'next/link'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
@@ -32,10 +33,6 @@ const TIPO_COLOR: Record<string, string> = {
   SALIDA: 'text-red-600 dark:text-red-400',
   PRESTAMO: 'text-amber-600 dark:text-amber-400',
   INTERNO: 'text-muted-foreground',
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export async function MovimientosMesPanel({ empresaId, tenantId, anio, mes, vistaActual }: Props) {

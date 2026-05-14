@@ -15,7 +15,12 @@ interface Props {
 }
 
 function fmt(n: number) {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+  return n.toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 export function MondaySyncButton({ empresaId }: Props) {

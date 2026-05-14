@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { getUploadById } from '@/lib/services/excel.service'
 import { db } from '@/lib/db'
 import { movimientos } from '@/lib/db/schema'
@@ -14,6 +15,7 @@ export default async function DetalleCargaPage({
 }) {
   const { empresaId, uploadId } = await params
   const user = await requireUser()
+  await requireEmpresaAccess(user, empresaId, 'cargas')
   const tenantId = user.tenantId!
 
   const upload = await getUploadById(uploadId, tenantId)

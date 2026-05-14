@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { requireUser, isSuperAdminOrAbove } from '@/lib/auth/helpers'
+import { requireUser, isAdminOrAbove } from '@/lib/auth/helpers'
 import { getUserById } from '@/lib/services/admin/user.service'
 import { listEmpresasForAdmin } from '@/lib/services/admin/empresa.service'
 import { getPermisosUsuario } from '@/lib/services/admin/modulo-access.service'
@@ -34,7 +34,7 @@ export default async function UsuarioDetailPage({ params }: PageProps) {
   } catch {
     redirect('/login')
   }
-  if (!isSuperAdminOrAbove(viewer.role)) redirect('/dashboard')
+  if (!isAdminOrAbove(viewer.role)) redirect('/dashboard')
   if (!viewer.tenantId) redirect('/dashboard')
 
   const [targetUser, empresas, permisos] = await Promise.all([

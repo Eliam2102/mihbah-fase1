@@ -87,8 +87,8 @@ export async function getKpisBmcorp(
       const monto = Number(r.monto)
       const count = Number(r.count)
 
-      // B1: exclude CANCELADA/RECHAZADO from totalVendido
-      if (r.estado !== 'CANCELADA' && r.estado !== 'RECHAZADO') {
+      // exclude only CANCELADA (venta caída definitiva); RECHAZADO = error admin subsanable, se incluye
+      if (r.estado !== 'CANCELADA') {
         result.totalVendido += monto
         result.totalVentas += count
       }
@@ -97,6 +97,7 @@ export async function getKpisBmcorp(
         case 'EN_PROCESO':
         case 'APROBADO_VENTAS':
         case 'ESPERANDO_AUTORIZACION':
+        case 'RECHAZADO': // error admin subsanable, sigue en proceso
           result.enProceso.count += count
           result.enProceso.monto += monto
           break
@@ -111,7 +112,6 @@ export async function getKpisBmcorp(
           result.finalizada.monto += monto
           break
         case 'CANCELADA':
-        case 'RECHAZADO':
           result.cancelada.count += count
           result.cancelada.monto += monto
           break
@@ -140,12 +140,12 @@ export async function getRankingAfiliados(
           eq(ventasBmcorp.empresaId, empresaId),
           gte(fecha, range.from),
           lte(fecha, range.to),
-          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
         )
       : and(
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
-          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
         )
 
     const rows = await tx
@@ -190,12 +190,12 @@ export async function getRankingDesarrollos(
           eq(ventasBmcorp.empresaId, empresaId),
           gte(fecha, range.from),
           lte(fecha, range.to),
-          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
         )
       : and(
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
-          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA', 'RECHAZADO']),
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
         )
 
     const rows = await tx
@@ -233,7 +233,7 @@ export async function getFlujoSemanal(
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
 
-    // Ingresos: ventas con fechaCierre dentro del periodo, agrupadas por semana ISO
+    // Ingresos confirmados: ventas con fechaCierre, agrupadas por semana ISO
     const ingresoRows = await tx
       .select({
         semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaCierre}), 'YYYY-MM-DD')`,
@@ -246,10 +246,31 @@ export async function getFlujoSemanal(
           eq(ventasBmcorp.empresaId, empresaId),
           sql`${ventasBmcorp.fechaCierre} IS NOT NULL`,
           sql`${ventasBmcorp.fechaCierre} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
         ),
       )
       .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
       .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
+
+    // Ingresos proyectados: ventas abiertas (sin fechaCierre), por fechaApertura
+    const proyectadoRows = await tx
+      .select({
+        semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaApertura}), 'YYYY-MM-DD')`,
+        monto: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
+      })
+      .from(ventasBmcorp)
+      .where(
+        and(
+          eq(ventasBmcorp.tenantId, tenantId),
+          eq(ventasBmcorp.empresaId, empresaId),
+          sql`${ventasBmcorp.fechaCierre} IS NULL`,
+          sql`${ventasBmcorp.fechaApertura} IS NOT NULL`,
+          sql`${ventasBmcorp.fechaApertura} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
+          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
+        ),
+      )
+      .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
+      .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
 
     // Egresos = repartos pagados a alianzas
     const egresoRows = await tx
@@ -271,7 +292,28 @@ export async function getFlujoSemanal(
     const map = new Map<string, FlujoSemana>()
     for (const r of ingresoRows) {
       const monto = Number(r.monto)
-      map.set(r.semana, { semana: r.semana, ingresos: monto, egresos: 0, neto: monto })
+      map.set(r.semana, {
+        semana: r.semana,
+        ingresos: monto,
+        ingresosProyectados: 0,
+        egresos: 0,
+        neto: monto,
+      })
+    }
+    for (const r of proyectadoRows) {
+      const monto = Number(r.monto)
+      const existing = map.get(r.semana)
+      if (existing) {
+        existing.ingresosProyectados = monto
+      } else {
+        map.set(r.semana, {
+          semana: r.semana,
+          ingresos: 0,
+          ingresosProyectados: monto,
+          egresos: 0,
+          neto: 0,
+        })
+      }
     }
     for (const r of egresoRows) {
       const monto = Number(r.monto)
@@ -280,7 +322,13 @@ export async function getFlujoSemanal(
         existing.egresos = monto
         existing.neto = existing.ingresos - monto
       } else {
-        map.set(r.semana, { semana: r.semana, ingresos: 0, egresos: monto, neto: -monto })
+        map.set(r.semana, {
+          semana: r.semana,
+          ingresos: 0,
+          ingresosProyectados: 0,
+          egresos: monto,
+          neto: -monto,
+        })
       }
     }
 
@@ -461,11 +509,14 @@ export async function getRepartosSplit(
 // ─── Total ventas sin filtro de período (para empty state inteligente) ───────
 
 export async function countVentasTotal(empresaId: string, tenantId: string): Promise<number> {
-  const [row] = await db
-    .select({ count: sql<number>`COUNT(*)::int` })
-    .from(ventasBmcorp)
-    .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
-  return Number(row?.count ?? 0)
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    const [row] = await tx
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(ventasBmcorp)
+      .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+    return Number(row?.count ?? 0)
+  })
 }
 
 // ─── Comisionamiento conciliado ───────────────────────────────────────────────
@@ -520,6 +571,85 @@ export async function getComisionamientoConciliado(
       pendiente,
       porcentajeConciliado,
       sinDatos: pagoRows.length === 0,
+    }
+  })
+}
+
+// ─── Semáforo BM CORP — comisión generada mes actual ──────────────────────────
+// Umbral definido por cliente (PDF Semáforos V1, may-2026):
+//   Verde  > $500,000 MXN/mes
+//   Amarillo $300,000–$500,000
+//   Rojo   < $300,000
+
+export type SemaforoBmcorpEstado = 'VERDE' | 'AMARILLO' | 'ROJO'
+
+export interface SemaforoBmcorpResult {
+  estado: SemaforoBmcorpEstado
+  comisionesMes: number
+  label: string
+  descripcion: string
+  color: string
+  bgColor: string
+}
+
+export async function getSemaforoBmcorp(
+  empresaId: string,
+  tenantId: string,
+): Promise<SemaforoBmcorpResult> {
+  const hoy = new Date()
+  const anio = hoy.getFullYear()
+  const mes = hoy.getMonth() + 1
+  const mesStr = String(mes).padStart(2, '0')
+  const lastDay = new Date(anio, mes, 0).getDate()
+  const from = `${anio}-${mesStr}-01`
+  const to = `${anio}-${mesStr}-${String(lastDay).padStart(2, '0')}`
+
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+
+    const [row] = await tx
+      .select({
+        total: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+      })
+      .from(ventasBmcorp)
+      .where(
+        and(
+          eq(ventasBmcorp.tenantId, tenantId),
+          eq(ventasBmcorp.empresaId, empresaId),
+          gte(ventasBmcorp.fechaApertura, from),
+          lte(ventasBmcorp.fechaApertura, to),
+        ),
+      )
+
+    const comisionesMes = Number(row?.total ?? 0)
+
+    if (comisionesMes > 500_000) {
+      return {
+        estado: 'VERDE',
+        comisionesMes,
+        label: 'Saludable',
+        descripcion: 'Comisión generada supera la meta mensual de $500K.',
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bgColor: 'bg-emerald-500',
+      }
+    }
+    if (comisionesMes >= 300_000) {
+      return {
+        estado: 'AMARILLO',
+        comisionesMes,
+        label: 'Alerta',
+        descripcion: 'Comisión entre $300K y $500K. Por debajo de la meta.',
+        color: 'text-amber-600 dark:text-amber-400',
+        bgColor: 'bg-amber-400',
+      }
+    }
+    return {
+      estado: 'ROJO',
+      comisionesMes,
+      label: 'Crítico',
+      descripcion: 'Comisión por debajo de $300K. Revisar pipeline de ventas.',
+      color: 'text-red-600 dark:text-red-400',
+      bgColor: 'bg-red-500',
     }
   })
 }

@@ -4,37 +4,22 @@
 
 import { getFlujoBmcorp } from '@/lib/services/flujo-bmcorp.service'
 import { LineChart, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
+  anio?: number
 }
 
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
-}
-
-export async function FlujoBmcorpView({ empresaId, tenantId }: Props) {
-  const flujo = await getFlujoBmcorp(empresaId, tenantId)
+export async function FlujoBmcorpView({ empresaId, tenantId, anio }: Props) {
+  const flujo = await getFlujoBmcorp(empresaId, tenantId, anio)
   const totalIngresos = flujo.reduce((acc, f) => acc + f.ingresos, 0)
   const totalEgresos = flujo.reduce((acc, f) => acc + f.egresos, 0)
   const totalNeto = totalIngresos - totalEgresos
 
   return (
-    <section className="p-4 sm:p-6">
-      <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold">Flujo de Caja</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            BM CORP · Histórico semanal de ingresos y egresos (comisiones/repartos).
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="border-border bg-card rounded-xl border p-5 shadow-sm">
           <div className="mb-2 flex items-center gap-2">
@@ -137,6 +122,6 @@ export async function FlujoBmcorpView({ empresaId, tenantId }: Props) {
           </div>
         )}
       </div>
-    </section>
+    </div>
   )
 }

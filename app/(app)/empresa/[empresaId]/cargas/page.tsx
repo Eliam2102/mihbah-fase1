@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { listUploads } from '@/lib/services/excel.service'
 import { Upload, Plus, CheckCircle, AlertCircle, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -7,6 +8,7 @@ import { cn } from '@/lib/utils'
 export default async function CargasPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = await params
   const user = await requireUser()
+  await requireEmpresaAccess(user, empresaId, 'cargas')
   const tenantId = user.tenantId!
 
   const uploads = await listUploads(empresaId, tenantId)

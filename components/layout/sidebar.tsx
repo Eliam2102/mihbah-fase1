@@ -1,16 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEmpresaStore } from '@/stores/empresa-store'
+import { usePeriodStore } from '@/stores/period-store'
 import { getModulesForEmpresa } from '@/lib/modules'
 import { EmpresaSelector, type EmpresaOption } from './empresa-selector'
 import { signOut } from '@/lib/auth/client'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
-import { LogOut, User, ChevronLeft, ChevronRight, X, Settings, Shield } from 'lucide-react'
+import {
+  LogOut,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Settings,
+  Shield,
+  Sun,
+  Moon,
+  Monitor,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 
 interface SidebarProps {
   empresas: EmpresaOption[]
@@ -32,7 +45,30 @@ export function Sidebar({
   const pathname = usePathname()
   const router = useRouter()
   const { empresaActiva } = useEmpresaStore()
+  const { anio } = usePeriodStore()
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const { theme, setTheme } = useTheme()
+
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
+
+  const nextTheme = mounted
+    ? theme === 'dark'
+      ? 'light'
+      : theme === 'light'
+        ? 'system'
+        : 'dark'
+    : 'system'
+  const ThemeIcon = mounted
+    ? theme === 'dark'
+      ? Moon
+      : theme === 'light'
+        ? Sun
+        : Monitor
+    : Monitor
 
   // Find the active empresa name for module resolution
   const activeEmpresa = empresas.find((e) => e.id === empresaActiva)
@@ -126,10 +162,11 @@ export function Sidebar({
         <ul className="space-y-1">
           {modules.map((mod) => {
             const isActive = pathname.startsWith(mod.href)
+            const modHref = `${mod.href}?anio=${anio}`
             return (
               <li key={mod.href}>
                 <Link
-                  href={mod.href}
+                  href={modHref}
                   title={isCollapsed ? mod.label : undefined}
                   className={cn(
                     'group flex items-center rounded-lg transition-all',
@@ -161,8 +198,8 @@ export function Sidebar({
         </ul>
       </nav>
 
-      {/* Admin items — solo super_admin y super_admin_dev */}
-      {(userRole === 'super_admin' || userRole === 'super_admin_dev') && (
+      {/* Admin items — super_admin_dev, super_admin, admin (no viewer) */}
+      {(userRole === 'super_admin_dev' || userRole === 'super_admin' || userRole === 'admin') && (
         <div className="border-border border-t px-2 py-3">
           {!isCollapsed && (
             <p className="text-muted-foreground mb-2 px-2 text-[10px] font-semibold tracking-widest uppercase">
@@ -203,7 +240,7 @@ export function Sidebar({
               <li>
                 <Link
                   href="/super-admin"
-                  title={isCollapsed ? 'Panel SaaS' : undefined}
+                  title={isCollapsed ? 'Panel Super A.' : undefined}
                   className={cn(
                     'group flex items-center rounded-lg transition-all',
                     isCollapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2 text-sm font-medium',
@@ -223,7 +260,7 @@ export function Sidebar({
                       isCollapsed ? 'h-5 w-5' : 'h-4 w-4',
                     )}
                   />
-                  {!isCollapsed && 'Panel SaaS'}
+                  {!isCollapsed && 'Panel Super A.'}
                 </Link>
               </li>
             )}
@@ -250,12 +287,22 @@ export function Sidebar({
             </div>
           )}
           <button
+            onClick={() => setTheme(nextTheme)}
+            title={`Tema: ${nextTheme}`}
+            className={cn(
+              'text-muted-foreground hover:bg-muted hover:text-foreground flex shrink-0 items-center justify-center rounded-md transition-colors',
+              isCollapsed ? 'h-8 w-8' : 'h-7 w-7',
+            )}
+          >
+            <ThemeIcon className="h-4 w-4" />
+          </button>
+          <button
             id="sidebar-logout-btn"
             onClick={handleLogout}
             title="Cerrar sesión"
             className={cn(
               'text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex shrink-0 items-center justify-center rounded-md transition-colors',
-              isCollapsed ? 'mt-2 h-8 w-8' : 'h-7 w-7',
+              isCollapsed ? 'h-8 w-8' : 'h-7 w-7',
             )}
           >
             <LogOut className="h-4 w-4" />

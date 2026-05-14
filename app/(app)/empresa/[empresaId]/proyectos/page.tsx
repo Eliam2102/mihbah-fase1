@@ -1,8 +1,7 @@
 import { requireUser } from '@/lib/auth/helpers'
-import { getEmpresaById } from '@/lib/services/empresas'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { ProyectosBmcorpView } from '@/components/proyectos/proyectos-bmcorp-view'
 import { ProyectosExcelView } from '@/components/proyectos/proyectos-excel-view'
-import { notFound } from 'next/navigation'
 
 export default async function ProyectosPage({
   params,
@@ -11,11 +10,8 @@ export default async function ProyectosPage({
 }) {
   const { empresaId } = await params
   const user = await requireUser()
-  const tenantId = user.tenantId
-  if (!tenantId) throw new Error('Tenant ID is required')
-
-  const empresa = await getEmpresaById(empresaId, tenantId)
-  if (!empresa) notFound()
+  const empresa = await requireEmpresaAccess(user, empresaId, 'proyectos')
+  const tenantId = user.tenantId!
 
   return (
     <section className="p-4 sm:p-6">

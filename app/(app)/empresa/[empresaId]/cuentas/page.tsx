@@ -1,14 +1,10 @@
 import { requireUser } from '@/lib/auth/helpers'
-import { getEmpresaById } from '@/lib/services/empresas'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { getCuentasBmcorp } from '@/lib/services/cuentas-bmcorp.service'
 import { getCuentasExcel } from '@/lib/services/cuentas-excel.service'
 import { CuentasTabs } from '@/components/cuentas/cuentas-tabs'
-import { notFound } from 'next/navigation'
 import { AlertCircle, Receipt, WalletCards } from 'lucide-react'
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
-}
+import { formatMXN } from '@/lib/utils'
 
 function AgingBadge({ dias }: { dias: number | null }) {
   if (dias === null) return null
@@ -93,11 +89,8 @@ export default async function CuentasPage({
   const { tab = 'cxc' } = await searchParams
 
   const user = await requireUser()
-  const tenantId = user.tenantId
-  if (!tenantId) throw new Error('Tenant ID is required')
-
-  const empresa = await getEmpresaById(empresaId, tenantId)
-  if (!empresa) notFound()
+  const empresa = await requireEmpresaAccess(user, empresaId, 'cuentas')
+  const tenantId = user.tenantId!
 
   const esBmcorp = empresa.tipo === 'COMERCIAL'
 
@@ -215,27 +208,30 @@ export default async function CuentasPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-border bg-muted/50 border-b">
-                    {esBmcorp
-                      ? ['Cliente / Desarrollo', 'Monto Total', 'Enganche', 'Saldo', 'Estado'].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )
-                      : ['Tercero', 'Monto', 'Pagado', 'Saldo', 'Vencimiento', 'Estado'].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )}
+                    {(esBmcorp
+                      ? [
+                          { label: 'Cliente / Desarrollo', align: 'text-left' },
+                          { label: 'Monto Total', align: 'text-right' },
+                          { label: 'Enganche', align: 'text-right' },
+                          { label: 'Saldo', align: 'text-right' },
+                          { label: 'Estado', align: 'text-center' },
+                        ]
+                      : [
+                          { label: 'Tercero', align: 'text-left' },
+                          { label: 'Monto', align: 'text-right' },
+                          { label: 'Pagado', align: 'text-right' },
+                          { label: 'Saldo', align: 'text-right' },
+                          { label: 'Vencimiento', align: 'text-left' },
+                          { label: 'Estado', align: 'text-center' },
+                        ]
+                    ).map((h) => (
+                      <th
+                        key={h.label}
+                        className={`text-muted-foreground px-6 py-3 ${h.align} text-xs font-semibold tracking-wider whitespace-nowrap uppercase`}
+                      >
+                        {h.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -260,7 +256,7 @@ export default async function CuentasPage({
                           <td className="px-6 py-4 text-right font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
                             {formatMXN(c.saldoPendiente)}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 text-center">
                             <EstadoBadge estado={c.estadoVenta} />
                           </td>
                         </tr>
@@ -297,7 +293,7 @@ export default async function CuentasPage({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
                           <EstadoBadge estado={c.estado} />
                         </td>
                       </tr>
@@ -326,27 +322,30 @@ export default async function CuentasPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-border bg-muted/50 border-b">
-                    {esBmcorp
-                      ? ['Asesor', 'Venta Asociada', 'Comisión (15%)', 'Saldo', 'Estado'].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )
-                      : ['Tercero', 'Monto', 'Pagado', 'Saldo', 'Vencimiento', 'Estado'].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )}
+                    {(esBmcorp
+                      ? [
+                          { label: 'Asesor', align: 'text-left' },
+                          { label: 'Venta Asociada', align: 'text-left' },
+                          { label: 'Comisión (15%)', align: 'text-right' },
+                          { label: 'Saldo', align: 'text-right' },
+                          { label: 'Estado', align: 'text-center' },
+                        ]
+                      : [
+                          { label: 'Tercero', align: 'text-left' },
+                          { label: 'Monto', align: 'text-right' },
+                          { label: 'Pagado', align: 'text-right' },
+                          { label: 'Saldo', align: 'text-right' },
+                          { label: 'Vencimiento', align: 'text-left' },
+                          { label: 'Estado', align: 'text-center' },
+                        ]
+                    ).map((h) => (
+                      <th
+                        key={h.label}
+                        className={`text-muted-foreground px-6 py-3 ${h.align} text-xs font-semibold tracking-wider whitespace-nowrap uppercase`}
+                      >
+                        {h.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -373,7 +372,7 @@ export default async function CuentasPage({
                           <td className="px-6 py-4 text-right font-bold text-red-600 tabular-nums dark:text-red-400">
                             {formatMXN(c.saldoPendiente)}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 text-center">
                             <EstadoBadge estado={c.estadoVenta} />
                           </td>
                         </tr>
@@ -410,7 +409,7 @@ export default async function CuentasPage({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
                           <EstadoBadge estado={c.estado} />
                         </td>
                       </tr>

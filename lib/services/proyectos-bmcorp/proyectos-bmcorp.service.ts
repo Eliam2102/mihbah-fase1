@@ -112,7 +112,7 @@ export async function getDesarrolloDetalle(
       'LIBERADO',
     ]
     const finalizados = ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']
-    const cancelados = ['CANCELADA', 'RECHAZADO']
+    const cancelados = ['CANCELADA']
 
     return {
       ...dev,

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
+import { cn, formatMXN } from '@/lib/utils'
 import { Trophy, Medal, ChevronRight } from 'lucide-react'
 
 export interface RankingRow {
@@ -18,14 +18,6 @@ interface Props {
   drillDownHref?: string
   /** Cuando se da, prefija la primera letra del nombre como avatar. */
   showAvatar?: boolean
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
 }
 
 function avatarColor(name: string): string {

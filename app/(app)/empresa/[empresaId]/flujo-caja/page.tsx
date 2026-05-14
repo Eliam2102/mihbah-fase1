@@ -1,14 +1,8 @@
 import { requireUser } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { getFlujoBmcorp } from '@/lib/services/flujo-bmcorp.service'
 import { LineChart, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react'
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
-}
+import { formatMXN } from '@/lib/utils'
 
 export default async function FlujoCajaPage({
   params,
@@ -17,9 +11,8 @@ export default async function FlujoCajaPage({
 }) {
   const { empresaId } = await params
   const user = await requireUser()
-  const tenantId = user.tenantId
-
-  if (!tenantId) throw new Error('Tenant ID is required')
+  await requireEmpresaAccess(user, empresaId, 'flujo')
+  const tenantId = user.tenantId!
 
   const flujo = await getFlujoBmcorp(empresaId, tenantId)
 

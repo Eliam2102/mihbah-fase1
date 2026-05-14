@@ -1,13 +1,10 @@
 import { getCuentasBmcorp } from '@/lib/services/cuentas-bmcorp.service'
 import { WalletCards, Receipt } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -77,17 +74,17 @@ export async function CuentasBmcorpView({ empresaId, tenantId }: Props) {
               <thead>
                 <tr className="border-border bg-muted/50 border-b">
                   {[
-                    'Cliente / Desarrollo',
-                    'Monto Total',
-                    'Enganche',
-                    'Saldo Pendiente',
-                    'Estado Pipeline',
+                    { label: 'Cliente / Desarrollo', align: 'text-left' },
+                    { label: 'Monto Total', align: 'text-right' },
+                    { label: 'Enganche', align: 'text-right' },
+                    { label: 'Saldo Pendiente', align: 'text-right' },
+                    { label: 'Estado Pipeline', align: 'text-center' },
                   ].map((h) => (
                     <th
-                      key={h}
-                      className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                      key={h.label}
+                      className={`text-muted-foreground px-6 py-3 ${h.align} text-xs font-semibold tracking-wider whitespace-nowrap uppercase`}
                     >
-                      {h}
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -146,17 +143,17 @@ export async function CuentasBmcorpView({ empresaId, tenantId }: Props) {
               <thead>
                 <tr className="border-border bg-muted/50 border-b">
                   {[
-                    'Asesor',
-                    'Venta Asociada',
-                    'Comisión Total (15%)',
-                    'Saldo Pendiente',
-                    'Estado Pipeline',
+                    { label: 'Asesor', align: 'text-left' },
+                    { label: 'Venta Asociada', align: 'text-left' },
+                    { label: 'Comisión Total (2%)', align: 'text-right' },
+                    { label: 'Saldo Pendiente', align: 'text-right' },
+                    { label: 'Estado Pipeline', align: 'text-center' },
                   ].map((h) => (
                     <th
-                      key={h}
-                      className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                      key={h.label}
+                      className={`text-muted-foreground px-6 py-3 ${h.align} text-xs font-semibold tracking-wider whitespace-nowrap uppercase`}
                     >
-                      {h}
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -171,7 +168,7 @@ export async function CuentasBmcorpView({ empresaId, tenantId }: Props) {
                       <p className="text-foreground font-medium">{c.asesor || 'Sin asignar'}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-foreground">{c.cliente}</p>
+                      <p className="text-foreground font-medium">{c.cliente}</p>
                       <p className="text-muted-foreground text-xs">{c.desarrollo || '—'}</p>
                     </td>
                     <td className="text-foreground px-6 py-4 text-right tabular-nums">

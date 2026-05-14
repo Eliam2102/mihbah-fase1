@@ -1,14 +1,11 @@
 import { getMovimientosReporte } from '@/lib/services/reportes-excel.service'
 import { FileText, Download } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
   empresaNombre: string
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 const TIPO_COLOR: Record<string, string> = {
@@ -49,16 +46,21 @@ export async function ReportesExcelView({ empresaId, tenantId, empresaNombre }: 
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-border bg-muted/50 border-b">
-                  {['Fecha', 'Tipo', 'Concepto / Nombre', 'Proyecto', 'Monto', 'Comentarios'].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
-                      >
-                        {h}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    { label: 'Fecha', align: 'text-left' },
+                    { label: 'Tipo', align: 'text-left' },
+                    { label: 'Concepto / Nombre', align: 'text-left' },
+                    { label: 'Proyecto', align: 'text-left' },
+                    { label: 'Monto', align: 'text-right' },
+                    { label: 'Comentarios', align: 'text-left' },
+                  ].map((h) => (
+                    <th
+                      key={h.label}
+                      className={`text-muted-foreground px-4 py-3 ${h.align} text-xs font-semibold tracking-wider whitespace-nowrap uppercase`}
+                    >
+                      {h.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>

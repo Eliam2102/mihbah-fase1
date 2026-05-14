@@ -28,12 +28,15 @@ export async function getEmpresasForUser(
 }
 
 export async function getTenantName(tenantId: string): Promise<string> {
-  const rows = await db
-    .select({ name: tenants.name })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .limit(1)
-  return rows[0]?.name ?? 'SIG Jade'
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    const rows = await tx
+      .select({ name: tenants.name })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1)
+    return rows[0]?.name ?? 'SIG Jade'
+  })
 }
 
 export async function getEmpresaById(

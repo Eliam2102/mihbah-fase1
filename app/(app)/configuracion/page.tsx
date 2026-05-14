@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
-import { requireUser, isSuperAdminOrAbove, isSuperAdminDev } from '@/lib/auth/helpers'
+import { requireUser, isAdminOrAbove, isSuperAdminDev } from '@/lib/auth/helpers'
 import { listEmpresasForAdmin } from '@/lib/services/admin/empresa.service'
 import { listUsersForTenant } from '@/lib/services/admin/user.service'
 import Link from 'next/link'
-import { Building2, Users, Settings, Shield, Plus, ChevronRight } from 'lucide-react'
+import { Building2, Users, Shield, Plus, ChevronRight } from 'lucide-react'
 
 const TIPO_LABEL: Record<string, string> = {
   CONSTRUCTORA: 'Constructora',
@@ -32,7 +32,7 @@ export default async function ConfiguracionPage() {
     redirect('/login')
   }
 
-  if (!isSuperAdminOrAbove(user.role)) redirect('/dashboard')
+  if (!isAdminOrAbove(user.role)) redirect('/dashboard')
   if (!user.tenantId) redirect('/dashboard')
 
   const [empresas, usuarios] = await Promise.all([
@@ -71,13 +71,15 @@ export default async function ConfiguracionPage() {
               {empresas.length}
             </span>
           </div>
-          <Link
-            href="/configuracion/empresas/nueva"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Nueva empresa
-          </Link>
+          {isSuperAdminDev(user.role) && (
+            <Link
+              href="/configuracion/empresas/nueva"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nueva empresa
+            </Link>
+          )}
         </div>
 
         {empresas.length === 0 ? (
@@ -186,33 +188,6 @@ export default async function ConfiguracionPage() {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Info card */}
-      <div className="border-border bg-muted/30 rounded-xl border p-4">
-        <div className="flex items-start gap-3">
-          <Settings className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
-          <div className="text-muted-foreground text-xs">
-            <p className="font-semibold">Jerarquía de roles</p>
-            <ul className="mt-1 space-y-0.5">
-              <li>
-                <span className="font-medium text-purple-600">SaaS Owner</span> — acceso completo a
-                todos los tenants
-              </li>
-              <li>
-                <span className="font-medium text-blue-600">Super Admin</span> — control total de
-                este tenant
-              </li>
-              <li>
-                <span className="font-medium text-emerald-600">Admin</span> — puede cargar Excel y
-                sincronizar Monday
-              </li>
-              <li>
-                <span className="text-muted-foreground font-medium">Viewer</span> — solo lectura
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
     </section>
   )

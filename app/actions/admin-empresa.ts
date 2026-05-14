@@ -1,6 +1,6 @@
 'use server'
 
-import { requireSuperAdminOrAbove } from '@/lib/auth/helpers'
+import { requireSuperAdminDev } from '@/lib/auth/helpers'
 import { createEmpresa } from '@/lib/services/admin/empresa.service'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -20,7 +20,7 @@ export interface AdminEmpresaResult {
 
 export async function actionCreateEmpresa(raw: unknown): Promise<AdminEmpresaResult> {
   try {
-    const user = await requireSuperAdminOrAbove()
+    const user = await requireSuperAdminDev()
     if (!user.tenantId) throw new Error('Usuario sin tenant')
 
     const input = CreateEmpresaSchema.parse(raw)

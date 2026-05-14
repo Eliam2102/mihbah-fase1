@@ -1,4 +1,5 @@
 import { requireUser } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { listSyncHistory, getLastSuccessfulSync } from '@/lib/services/monday.service'
 import { MondaySyncButton } from '@/components/monday/sync-button'
 import { CheckCircle, XCircle, AlertCircle, Clock, Wifi, WifiOff, RefreshCw } from 'lucide-react'
@@ -8,6 +9,7 @@ export const metadata = { title: 'Sincronización Monday · BM CORP' }
 export default async function MondayPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = await params
   const user = await requireUser()
+  await requireEmpresaAccess(user, empresaId, 'monday')
   const tenantId = user.tenantId!
 
   const [history, lastSync] = await Promise.all([
@@ -117,19 +119,19 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
               <thead>
                 <tr className="border-border bg-muted/50 border-b">
                   {[
-                    'Iniciada',
-                    'Duración',
-                    'Estado',
-                    'Creados',
-                    'Actualizados',
-                    'Errores',
-                    'Tablero',
+                    { label: 'Iniciada', align: 'text-left' },
+                    { label: 'Duración', align: 'text-right' },
+                    { label: 'Estado', align: 'text-left' },
+                    { label: 'Creados', align: 'text-right' },
+                    { label: 'Actualizados', align: 'text-right' },
+                    { label: 'Errores', align: 'text-right' },
+                    { label: 'Tablero', align: 'text-left' },
                   ].map((h) => (
                     <th
-                      key={h}
-                      className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wide uppercase"
+                      key={h.label}
+                      className={`text-muted-foreground px-4 py-3 ${h.align} text-xs font-semibold tracking-wide uppercase`}
                     >
-                      {h}
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -158,7 +160,9 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
                           minute: '2-digit',
                         })}
                       </td>
-                      <td className="text-muted-foreground px-4 py-3 tabular-nums">{duration}</td>
+                      <td className="text-muted-foreground px-4 py-3 text-right tabular-nums">
+                        {duration}
+                      </td>
                       <td className="px-4 py-3">
                         {s.estado === 'COMPLETADO' ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
@@ -174,13 +178,13 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center font-semibold text-green-600 tabular-nums">
+                      <td className="px-4 py-3 text-right font-semibold text-green-600 tabular-nums">
                         {s.registrosCreados}
                       </td>
-                      <td className="px-4 py-3 text-center font-semibold text-blue-500 tabular-nums">
+                      <td className="px-4 py-3 text-right font-semibold text-blue-500 tabular-nums">
                         {s.registrosActualizados}
                       </td>
-                      <td className="text-destructive px-4 py-3 text-center font-semibold tabular-nums">
+                      <td className="text-destructive px-4 py-3 text-right font-semibold tabular-nums">
                         {s.registrosErrores}
                       </td>
                       <td className="text-muted-foreground px-4 py-3 font-mono text-xs">

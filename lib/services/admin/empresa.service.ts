@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { empresas, organizaciones, userEmpresaAccess } from '@/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import type { TipoEmpresa, FuenteDatos } from './tenant.service'
 
 export interface CreateEmpresaInput {
@@ -47,26 +47,30 @@ export interface EmpresaAdminRow {
 
 export async function listEmpresasForAdmin(tenantId: string): Promise<EmpresaAdminRow[]> {
   const rows = await db
-    .select()
+    .select({
+      id: empresas.id,
+      name: empresas.name,
+      tipo: empresas.tipo,
+      fuenteDatos: empresas.fuenteDatos,
+      rfc: empresas.rfc,
+      createdAt: empresas.createdAt,
+      totalAccesos: sql<number>`COUNT(${userEmpresaAccess.id})::int`,
+    })
     .from(empresas)
+    .leftJoin(
+      userEmpresaAccess,
+      and(eq(userEmpresaAccess.empresaId, empresas.id), eq(userEmpresaAccess.tenantId, tenantId)),
+    )
     .where(eq(empresas.tenantId, tenantId))
+    .groupBy(
+      empresas.id,
+      empresas.name,
+      empresas.tipo,
+      empresas.fuenteDatos,
+      empresas.rfc,
+      empresas.createdAt,
+    )
     .orderBy(empresas.createdAt)
 
-  const result: EmpresaAdminRow[] = []
-  for (const e of rows) {
-    const [accCount] = await db
-      .select({ count: db.$count(userEmpresaAccess) })
-      .from(userEmpresaAccess)
-      .where(and(eq(userEmpresaAccess.empresaId, e.id), eq(userEmpresaAccess.tenantId, tenantId)))
-    result.push({
-      id: e.id,
-      name: e.name,
-      tipo: e.tipo,
-      fuenteDatos: e.fuenteDatos,
-      rfc: e.rfc,
-      createdAt: e.createdAt,
-      totalAccesos: Number(accCount?.count ?? 0),
-    })
-  }
-  return result
+  return rows
 }

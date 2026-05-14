@@ -227,13 +227,13 @@ export function mapItemToVenta(item: MondayItem): MappedVenta {
     pipelineGroup: item.group?.title || null,
     operativoApertura: byId(COLS.operativoApertura)?.text?.trim() || null,
     operativoCierre: byId(COLS.operativoCierre)?.text?.trim() || null,
-    // Comisión BM CORP es formula "Monto total × 0.15" — calculamos manualmente
-    // si Monday devuelve text vacío.
+    // BM Corp recibe 2% operativo del precio de venta (1% BM Corp + 1% YesYucan).
+    // Si Monday ya tiene el valor calculado lo usamos; fallback = precio × 2%.
     comisionBmcorp:
       parseMondayNumber(byId(COLS.comisionBmcorp)?.text) !== '0'
         ? parseMondayNumber(byId(COLS.comisionBmcorp)?.text)
         : montoTotalNum > 0
-          ? (montoTotalNum * 0.15).toFixed(2)
+          ? (montoTotalNum * 0.02).toFixed(2)
           : '0',
 
     telefono: byId(COLS.telefono)?.text?.trim() || null,

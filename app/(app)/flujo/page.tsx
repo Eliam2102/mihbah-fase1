@@ -1,8 +1,9 @@
 import React from 'react'
 import { requireUser } from '@/lib/auth/helpers'
 import { getEmpresasForUser } from '@/lib/services/empresas'
-import { getFlujoMensual } from '@/lib/services/flujo.service'
-import { getFlujoBmcorpMensual } from '@/lib/services/flujo-bmcorp.service'
+import { getFlujoMensual, getAñosConDatos } from '@/lib/services/flujo.service'
+import { getFlujoBmcorpMensual, getAñosConDatosBmcorp } from '@/lib/services/flujo-bmcorp.service'
+import { FlujoFiltros } from '@/components/flujo/flujo-filtros'
 import { TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 import type { FlujoMes } from '@/lib/services/flujo/flujo.types'
 
@@ -22,7 +23,12 @@ const MESES = [
 ]
 
 function fmt(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+  return n.toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 interface EmpresaFlujo {
@@ -40,9 +46,22 @@ export default async function FlujoConsolidadoPage({
   const sp = await searchParams
   const user = await requireUser()
   const tenantId = user.tenantId!
-  const anio = Number(sp.anio) || new Date().getFullYear()
 
   const allEmpresas = await getEmpresasForUser(user.id, tenantId)
+
+  // Años con datos: unión de todas las empresas
+  const añosSets = await Promise.all(
+    allEmpresas.map((e) =>
+      e.tipo === 'COMERCIAL'
+        ? getAñosConDatosBmcorp(e.id, tenantId)
+        : getAñosConDatos(e.id, tenantId),
+    ),
+  )
+  const currentYear = new Date().getFullYear()
+  const añosUnion = [...new Set(añosSets.flat())].sort((a, b) => b - a)
+  const años = añosUnion.length > 0 ? añosUnion : [currentYear]
+  const defaultAnio = años[0]!
+  const anio = sp.anio ? Number(sp.anio) : defaultAnio
 
   const empresasFlujo: EmpresaFlujo[] = await Promise.all(
     allEmpresas.map(async (e) => {
@@ -73,9 +92,12 @@ export default async function FlujoConsolidadoPage({
 
   return (
     <section className="space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-foreground text-2xl font-bold">Flujo de Caja</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Vista consolidada — Año {anio}</p>
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-foreground text-2xl font-bold">Flujo de Caja</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Vista consolidada — Año {anio}</p>
+        </div>
+        <FlujoFiltros showVista={false} años={años} defaultAnio={defaultAnio} />
       </div>
 
       {/* KPIs */}

@@ -1,16 +1,9 @@
 import type { ComisionamientoConciliado } from '@/lib/services/dashboard-bmcorp.service'
 import { Wallet, AlertCircle } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   data: ComisionamientoConciliado
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
 }
 
 export function BmcorpComisionamiento({ data }: Props) {

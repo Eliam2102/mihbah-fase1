@@ -41,7 +41,6 @@ export async function getCuentasBmcorp(
             'FINALIZADA',
             'FINALIZADO_Y_LIQUIDADO',
             'CANCELADA',
-            'RECHAZADO',
           ]),
         ),
       )
@@ -70,6 +69,13 @@ export async function getCuentasBmcorp(
         desarrollo: desarrollos.nombre,
         comisionBmcorp: ventasBmcorp.comisionBmcorp,
         estadoVenta: ventasBmcorp.estadoVenta,
+        // Suma de pagos COMISION_ASESOR ya realizados (PAGADO + PARCIAL)
+        comisionPagada: sql<string>`COALESCE((
+          SELECT SUM(r.monto) FROM repartos_bmcorp r
+          WHERE r.venta_id = ${ventasBmcorp.id}
+            AND r.tipo = 'COMISION_ASESOR'
+            AND r.estado IN ('PAGADO','PARCIAL')
+        ), 0)::text`,
       })
       .from(ventasBmcorp)
       .leftJoin(desarrollos, eq(desarrollos.id, ventasBmcorp.desarrolloId))
@@ -81,7 +87,6 @@ export async function getCuentasBmcorp(
             'FINALIZADA',
             'FINALIZADO_Y_LIQUIDADO',
             'CANCELADA',
-            'RECHAZADO',
           ]),
         ),
       )
@@ -89,13 +94,14 @@ export async function getCuentasBmcorp(
 
     const cxpAsesores: CuentaPorPagarAsesor[] = cxpRows.map((r) => {
       const comisionTotal = Number(r.comisionBmcorp ?? 0)
+      const comisionPagada = Number(r.comisionPagada ?? 0)
       return {
         id: r.id,
         asesor: r.asesor,
         cliente: r.cliente,
         desarrollo: r.desarrollo,
         comisionTotal,
-        saldoPendiente: comisionTotal,
+        saldoPendiente: Math.max(0, comisionTotal - comisionPagada),
         estadoVenta: r.estadoVenta,
       }
     })

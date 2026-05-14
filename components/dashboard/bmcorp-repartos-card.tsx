@@ -1,16 +1,9 @@
 import type { RepartosSplit } from '@/lib/services/dashboard-bmcorp.service'
 import { Coins, AlertCircle } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   data: RepartosSplit
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
 }
 
 export function BmcorpRepartosCard({ data }: Props) {

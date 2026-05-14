@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { cn, formatMXN } from '@/lib/utils'
 
 interface ProgressCardProps {
   label: string
@@ -9,10 +9,6 @@ interface ProgressCardProps {
   suffix?: string
   loading?: boolean
   variant?: 'default' | 'warning' | 'critical'
-}
-
-function formatMXN(n: number) {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export function ProgressCard({

@@ -7,7 +7,7 @@ import {
   accounts,
   userEmpresaAccess,
 } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { hash } from '@node-rs/argon2'
 
@@ -113,11 +113,11 @@ export async function listAllTenants(): Promise<TenantRow[]> {
   const result: TenantRow[] = []
   for (const t of rows) {
     const [empCount] = await db
-      .select({ count: db.$count(empresas) })
+      .select({ count: sql<number>`count(*)::int` })
       .from(empresas)
       .where(eq(empresas.tenantId, t.id))
     const [userCount] = await db
-      .select({ count: db.$count(users) })
+      .select({ count: sql<number>`count(*)::int` })
       .from(users)
       .where(eq(users.tenantId, t.id))
 

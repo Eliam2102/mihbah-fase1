@@ -1,15 +1,12 @@
 import { getProyectosExcel } from '@/lib/services/proyectos-excel.service'
 import { FolderOpen, ArrowUpRight, ArrowDownRight, Wallet, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
   empresaNombre: string
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export async function ProyectosExcelView({ empresaId, tenantId, empresaNombre }: Props) {
@@ -89,16 +86,24 @@ export async function ProyectosExcelView({ empresaId, tenantId, empresaNombre }:
           <table className="w-full text-sm">
             <thead>
               <tr className="border-border bg-muted/50 border-b">
-                {['Proyecto', 'Ingresos', 'Egresos', 'Neto', 'Movimientos', 'Estado', ''].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="text-muted-foreground px-6 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
+                {(
+                  [
+                    { label: 'Proyecto', align: 'text-left' },
+                    { label: 'Ingresos', align: 'text-right' },
+                    { label: 'Egresos', align: 'text-right' },
+                    { label: 'Neto', align: 'text-right' },
+                    { label: 'Movimientos', align: 'text-right' },
+                    { label: 'Estado', align: 'text-left' },
+                    { label: '', align: 'text-right' },
+                  ] as const
+                ).map((col) => (
+                  <th
+                    key={col.label}
+                    className={`text-muted-foreground px-6 py-3 text-xs font-semibold tracking-wider whitespace-nowrap uppercase ${col.align}`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -140,7 +145,7 @@ export async function ProyectosExcelView({ empresaId, tenantId, empresaNombre }:
                   </td>
                   <td className="px-6 py-4">
                     <Link
-                      href={`proyectos/${encodeURIComponent(p.id)}`}
+                      href={`/empresa/${empresaId}/proyectos/${p.id}`}
                       className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 text-xs font-medium transition-colors"
                     >
                       Ver <ChevronRight className="h-3.5 w-3.5" />

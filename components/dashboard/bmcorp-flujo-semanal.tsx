@@ -11,12 +11,7 @@ import {
   Legend,
 } from 'recharts'
 import type { FlujoSemana } from '@/lib/services/dashboard-bmcorp.service'
-
-function formatMXN(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-  if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}k`
-  return `$${value.toFixed(0)}`
-}
+import { formatMXNCompact } from '@/lib/utils'
 
 function formatSemanaLabel(iso: string): string {
   // ISO YYYY-MM-DD → "12 may"
@@ -45,7 +40,8 @@ const CustomTooltip = ({
             {p.value.toLocaleString('es-MX', {
               style: 'currency',
               currency: 'MXN',
-              maximumFractionDigits: 0,
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
             })}
           </span>
         </div>
@@ -82,16 +78,16 @@ export function BmcorpFlujoSemanal({ data }: Props) {
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis
               dataKey="semanaLabel"
-              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tickFormatter={formatMXN}
-              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+              tickFormatter={formatMXNCompact}
+              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
               axisLine={false}
               tickLine={false}
               width={56}
@@ -99,9 +95,21 @@ export function BmcorpFlujoSemanal({ data }: Props) {
             <Tooltip content={<CustomTooltip />} />
             <Legend
               wrapperStyle={{ fontSize: '12px', paddingTop: '8px' }}
-              formatter={(v) => (v === 'ingresos' ? 'Ingresos' : 'Egresos')}
+              formatter={(v) =>
+                v === 'ingresos'
+                  ? 'Confirmado'
+                  : v === 'ingresosProyectados'
+                    ? 'Proyectado'
+                    : 'Egresos'
+              }
             />
             <Bar dataKey="ingresos" name="ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
+            <Bar
+              dataKey="ingresosProyectados"
+              name="ingresosProyectados"
+              fill="#3b82f6"
+              radius={[4, 4, 0, 0]}
+            />
             <Bar dataKey="egresos" name="egresos" fill="#f43f5e" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

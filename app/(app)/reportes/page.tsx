@@ -58,7 +58,13 @@ const REPORTS_BMCORP: ReportDef[] = [
   },
 ]
 
-export default async function ReportesConsolidadoPage() {
+export default async function ReportesConsolidadoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ anio?: string }>
+}) {
+  const { anio: anioStr } = await searchParams
+  const anio = Number(anioStr) || new Date().getFullYear()
   const user = await requireUser()
   const tenantId = user.tenantId!
 
@@ -75,7 +81,6 @@ export default async function ReportesConsolidadoPage() {
 
       {allEmpresas.map((empresa) => {
         const reports = empresa.tipo === 'COMERCIAL' ? REPORTS_BMCORP : REPORTS_EXCEL
-        const anio = new Date().getFullYear()
 
         return (
           <div key={empresa.id} className="space-y-3">
@@ -116,7 +121,7 @@ export default async function ReportesConsolidadoPage() {
                     </div>
                     <div className="border-border border-t px-5 py-3">
                       <Link
-                        href={`/empresa/${empresa.id}/reportes/${r.tipo}`}
+                        href={`/empresa/${empresa.id}/reportes/${r.tipo}?from=consolidated&anio=${anio}`}
                         className="text-primary group-hover:text-primary/80 flex items-center gap-1.5 text-sm font-medium transition-colors"
                       >
                         Ver reporte <ChevronRight className="h-4 w-4" />

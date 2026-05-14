@@ -6,7 +6,7 @@ interface Props {
   flows: CorrelacionFlow[]
 }
 
-function formatMXN(n: number): string {
+function formatCompact(n: number): string {
   if (Math.abs(n) >= 1_000_000) {
     return `$${(n / 1_000_000).toFixed(1)}M`
   }
@@ -16,7 +16,8 @@ function formatMXN(n: number): string {
   return n.toLocaleString('es-MX', {
     style: 'currency',
     currency: 'MXN',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   })
 }
 
@@ -82,7 +83,7 @@ export function CorrelacionEmpresas({ flows }: Props) {
               {/* Flecha + monto */}
               <div className="flex flex-col items-center gap-0.5">
                 <span className="text-foreground text-sm font-bold tabular-nums">
-                  {formatMXN(f.monto)}
+                  {formatCompact(f.monto)}
                 </span>
                 <ArrowRight className="text-muted-foreground h-4 w-4" />
                 <span className="text-muted-foreground hidden text-[10px] tracking-wide uppercase sm:block">

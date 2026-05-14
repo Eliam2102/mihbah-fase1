@@ -1,5 +1,5 @@
 import { requireUser } from '@/lib/auth/helpers'
-import { getEmpresaById } from '@/lib/services/empresas'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { getProyectoDetalle } from '@/lib/services/proyectos-excel.service'
 import { getDesarrolloDetalle } from '@/lib/services/proyectos-bmcorp.service'
 import { notFound } from 'next/navigation'
@@ -14,10 +14,8 @@ import {
   Clock,
   XCircle,
 } from 'lucide-react'
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
-}
+import { Breadcrumb } from '@/components/ui/breadcrumb'
+import { formatMXN } from '@/lib/utils'
 
 const TIPO_COLOR: Record<string, string> = {
   INGRESO: 'text-emerald-600 dark:text-emerald-400',
@@ -56,16 +54,18 @@ function StatusBadge({ estado }: { estado: string }) {
 
 export default async function ProyectoDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ empresaId: string; proyectoId: string }>
+  searchParams: Promise<{ from?: string }>
 }) {
-  const { empresaId, proyectoId } = await params
+  const { empresaId, proyectoId: rawProyectoId } = await params
+  const proyectoId = decodeURIComponent(rawProyectoId)
+  const { from } = await searchParams
   const user = await requireUser()
-  const tenantId = user.tenantId
-  if (!tenantId) throw new Error('Tenant ID is required')
-
-  const empresa = await getEmpresaById(empresaId, tenantId)
-  if (!empresa) notFound()
+  const empresa = await requireEmpresaAccess(user, empresaId, 'proyectos')
+  const tenantId = user.tenantId!
+  const backHref = from === 'consolidated' ? '/proyectos' : `/empresa/${empresaId}/proyectos`
 
   if (empresa.tipo === 'COMERCIAL') {
     // BM CORP: proyectoId = desarrolloId
@@ -74,15 +74,20 @@ export default async function ProyectoDetallePage({
 
     return (
       <section className="space-y-6 p-4 sm:p-6">
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/empresa/${empresaId}/proyectos`}
-            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Proyectos
-          </Link>
-        </div>
+        <Breadcrumb
+          items={
+            from === 'consolidated'
+              ? [
+                  { label: 'Todas las empresas', href: '/proyectos' },
+                  { label: empresa.name, href: `/empresa/${empresaId}/proyectos` },
+                  { label: detalle.nombre },
+                ]
+              : [
+                  { label: empresa.name, href: `/empresa/${empresaId}/proyectos` },
+                  { label: detalle.nombre },
+                ]
+          }
+        />
 
         <div>
           <h1 className="text-foreground text-2xl font-bold">{detalle.nombre}</h1>
@@ -215,15 +220,20 @@ export default async function ProyectoDetallePage({
 
   return (
     <section className="space-y-6 p-4 sm:p-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href={`/empresa/${empresaId}/proyectos`}
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Proyectos
-        </Link>
-      </div>
+      <Breadcrumb
+        items={
+          from === 'consolidated'
+            ? [
+                { label: 'Todas las empresas', href: '/proyectos' },
+                { label: empresa.name, href: `/empresa/${empresaId}/proyectos` },
+                { label: detalle.name },
+              ]
+            : [
+                { label: empresa.name, href: `/empresa/${empresaId}/proyectos` },
+                { label: detalle.name },
+              ]
+        }
+      />
 
       <div>
         <h1 className="text-foreground text-2xl font-bold">{detalle.name}</h1>
@@ -268,22 +278,41 @@ export default async function ProyectoDetallePage({
         </div>
       </div>
 
-      {/* Avance de obra por gasto (proxy: egresos/ingresos) */}
+      {/* Avance medido por gasto acumulado vs ingresos */}
       {empresa.tipo === 'CONSTRUCTORA' && (
         <div className="border-border bg-card rounded-xl border p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-foreground text-sm font-semibold">Avance de obra por gasto</h3>
-            <span className="text-foreground font-bold tabular-nums">{pctGasto}%</span>
+          <div className="mb-1 flex items-center justify-between">
+            <div>
+              <h3 className="text-foreground text-sm font-semibold">
+                Avance de obra — medido por gasto
+              </h3>
+              <p className="text-muted-foreground text-[11px]">
+                Proxy: egresos acumulados ÷ ingresos del proyecto
+              </p>
+            </div>
+            <span className="text-foreground text-2xl font-bold tabular-nums">{pctGasto}%</span>
           </div>
-          <div className="bg-muted h-3 overflow-hidden rounded-full">
+          <div className="bg-muted mt-3 h-3 overflow-hidden rounded-full">
             <div
               className={`h-3 rounded-full transition-all ${pctGasto > 80 ? 'bg-red-500' : pctGasto > 60 ? 'bg-amber-500' : 'bg-emerald-500'}`}
               style={{ width: `${pctGasto}%` }}
             />
           </div>
-          <p className="text-muted-foreground mt-2 text-xs">
-            Egresos respecto a ingresos del proyecto. {formatMXN(detalle.totalEgresos)} gastado de{' '}
-            {formatMXN(detalle.totalIngresos)} ingresado.
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              Gastado:{' '}
+              <span className="text-foreground font-medium">{formatMXN(detalle.totalEgresos)}</span>
+            </span>
+            <span className="text-muted-foreground">
+              Ingresado:{' '}
+              <span className="text-foreground font-medium">
+                {formatMXN(detalle.totalIngresos)}
+              </span>
+            </span>
+          </div>
+          <p className="text-muted-foreground mt-1.5 text-[10px]">
+            * Este indicador no mide avance físico de obra. Refleja qué porcentaje del dinero
+            ingresado al proyecto ya se gastó.
           </p>
         </div>
       )}

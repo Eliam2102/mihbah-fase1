@@ -176,43 +176,57 @@ export const categorias = pgTable('categorias', {
 
 // ─── Movimientos ─────────────────────────────────────────────────────────────
 
-export const movimientos = pgTable('movimientos', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenants.id, { onDelete: 'cascade' }),
-  empresaId: uuid('empresa_id')
-    .notNull()
-    .references(() => empresas.id, { onDelete: 'cascade' }),
-  proyectoId: uuid('proyecto_id').references(() => proyectos.id, {
-    onDelete: 'set null',
+export const movimientos = pgTable(
+  'movimientos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id, { onDelete: 'cascade' }),
+    proyectoId: uuid('proyecto_id').references(() => proyectos.id, {
+      onDelete: 'set null',
+    }),
+    cuentaBancariaId: uuid('cuenta_bancaria_id').references(() => cuentasBancarias.id, {
+      onDelete: 'set null',
+    }),
+    categoriaId: uuid('categoria_id').references(() => categorias.id, {
+      onDelete: 'set null',
+    }),
+    grupoId: uuid('grupo_id').references(() => grupos.id, {
+      onDelete: 'set null',
+    }),
+    fecha: date('fecha').notNull(),
+    anio: numeric('anio', { precision: 4, scale: 0 }),
+    mes: numeric('mes', { precision: 2, scale: 0 }),
+    tipo: tipoMovimientoEnum('tipo').notNull(),
+    monto: numeric('monto', { precision: 18, scale: 2 }).notNull(),
+    nombre: text('nombre'),
+    concepto: text('concepto'),
+    comentarios: text('comentarios'),
+    descripcion: text('descripcion'),
+    proyectoNombre: text('proyecto_nombre'),
+    categoriaNombre: text('categoria_nombre'),
+    grupoNombre: text('grupo_nombre'),
+    referencia: text('referencia'),
+    uploadId: uuid('upload_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    tenantEmpresaIdx: index('mov_tenant_empresa_idx').on(t.tenantId, t.empresaId),
+    tenantFechaIdx: index('mov_tenant_fecha_idx').on(t.tenantId, t.fecha),
+    tenantEmpresaFechaIdx: index('mov_tenant_empresa_fecha_idx').on(
+      t.tenantId,
+      t.empresaId,
+      t.fecha,
+    ),
+    uploadIdx: index('mov_upload_idx').on(t.uploadId),
+    tipoIdx: index('mov_tipo_idx').on(t.tipo),
   }),
-  cuentaBancariaId: uuid('cuenta_bancaria_id').references(() => cuentasBancarias.id, {
-    onDelete: 'set null',
-  }),
-  categoriaId: uuid('categoria_id').references(() => categorias.id, {
-    onDelete: 'set null',
-  }),
-  grupoId: uuid('grupo_id').references(() => grupos.id, {
-    onDelete: 'set null',
-  }),
-  fecha: date('fecha').notNull(),
-  anio: numeric('anio', { precision: 4, scale: 0 }),
-  mes: numeric('mes', { precision: 2, scale: 0 }),
-  tipo: tipoMovimientoEnum('tipo').notNull(),
-  monto: numeric('monto', { precision: 18, scale: 2 }).notNull(),
-  nombre: text('nombre'),
-  concepto: text('concepto'),
-  comentarios: text('comentarios'),
-  descripcion: text('descripcion'),
-  proyectoNombre: text('proyecto_nombre'),
-  categoriaNombre: text('categoria_nombre'),
-  grupoNombre: text('grupo_nombre'),
-  referencia: text('referencia'),
-  uploadId: uuid('upload_id'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+)
 
 // ─── Excel Uploads ───────────────────────────────────────────────────────────
 
@@ -374,18 +388,27 @@ export const repartosBmcorp = pgTable(
 
 // ─── User Empresa Access ─────────────────────────────────────────────────────
 
-export const userEmpresaAccess = pgTable('user_empresa_access', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenants.id, { onDelete: 'cascade' }),
-  userId: text('user_id').notNull(),
-  empresaId: uuid('empresa_id')
-    .notNull()
-    .references(() => empresas.id, { onDelete: 'cascade' }),
-  rol: text('rol').notNull().default('VIEWER'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const userEmpresaAccess = pgTable(
+  'user_empresa_access',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id, { onDelete: 'cascade' }),
+    rol: text('rol').notNull().default('VIEWER'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userEmpresaUnique: uniqueIndex('user_empresa_access_user_empresa_unique').on(
+      t.userId,
+      t.empresaId,
+    ),
+  }),
+)
 
 // ─── User Módulo Access ──────────────────────────────────────────────────────
 // Granular per-user, per-empresa, per-module permissions.

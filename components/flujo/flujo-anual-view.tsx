@@ -1,14 +1,11 @@
 // Server Component — Vista anual (year-over-year) de flujo de caja
 import { getFlujoAnual } from '@/lib/services/flujo.service'
 import { ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export async function FlujoAnualView({ empresaId, tenantId }: Props) {

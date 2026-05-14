@@ -22,7 +22,8 @@ export interface RankingItem {
 
 export interface FlujoSemana {
   semana: string // ISO week start (YYYY-MM-DD)
-  ingresos: number
+  ingresos: number // ventas con fechaCierre confirmada
+  ingresosProyectados: number // ventas abiertas sin fechaCierre (por fechaApertura)
   egresos: number
   neto: number
 }

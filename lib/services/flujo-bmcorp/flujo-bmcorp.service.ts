@@ -12,12 +12,38 @@ import { MESES_LABEL } from '../_shared/date.helpers'
 import type { FlujoSemanaBmcorp } from './flujo-bmcorp.types'
 import type { FlujoMes } from '../flujo/flujo.types'
 
+/** Años distintos con ventas registradas en BM CORP. Orden DESC. */
+export async function getAñosConDatosBmcorp(
+  empresaId: string,
+  tenantId: string,
+): Promise<number[]> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    const rows = await tx
+      .selectDistinct({ anio: sql<number>`EXTRACT(YEAR FROM ${ventasBmcorp.fechaApertura})::int` })
+      .from(ventasBmcorp)
+      .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+    return rows
+      .map((r) => r.anio)
+      .filter((a): a is number => a != null)
+      .sort((a, b) => b - a)
+  })
+}
+
 export async function getFlujoBmcorp(
   empresaId: string,
   tenantId: string,
+  anio?: number,
 ): Promise<FlujoSemanaBmcorp[]> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
+
+    const yearFilter = anio
+      ? sql`EXTRACT(YEAR FROM ${ventasBmcorp.fechaApertura}) = ${anio}`
+      : sql`TRUE`
+    const yearFilterRepartos = anio
+      ? sql`EXTRACT(YEAR FROM ${repartosBmcorp.fecha}) = ${anio}`
+      : sql`TRUE`
 
     const ventas = await tx
       .select({
@@ -30,6 +56,7 @@ export async function getFlujoBmcorp(
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
           sql`${ventasBmcorp.fechaApertura} IS NOT NULL`,
+          yearFilter,
         ),
       )
       .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
@@ -46,6 +73,7 @@ export async function getFlujoBmcorp(
           eq(repartosBmcorp.tenantId, tenantId),
           eq(repartosBmcorp.empresaId, empresaId),
           sql`${repartosBmcorp.fecha} IS NOT NULL`,
+          yearFilterRepartos,
         ),
       )
       .groupBy(sql`DATE_TRUNC('week', ${repartosBmcorp.fecha})`)

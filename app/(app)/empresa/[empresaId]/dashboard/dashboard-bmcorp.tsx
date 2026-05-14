@@ -4,7 +4,6 @@
 //   - 50/50 — Izquierda: KPI vendido + Ranking afiliados + Ranking proyectos
 //   - 50/50 — Derecha: Repartos + Flujo semanal + Comisionamiento conciliado
 
-import Link from 'next/link'
 import {
   getKpisBmcorp,
   getRankingAfiliados,
@@ -15,6 +14,7 @@ import {
   getComisionamientoConciliado,
   getUltimaSync,
   countVentasTotal,
+  getSemaforoBmcorp,
 } from '@/lib/services/dashboard-bmcorp.service'
 import { BmcorpRanking } from '@/components/dashboard/bmcorp-ranking'
 import { BmcorpFlujoSemanal } from '@/components/dashboard/bmcorp-flujo-semanal'
@@ -22,32 +22,15 @@ import { BmcorpEmptyState } from '@/components/dashboard/bmcorp-empty-state'
 import { BmcorpSemaforo } from '@/components/dashboard/bmcorp-semaforo'
 import { BmcorpComisionamiento } from '@/components/dashboard/bmcorp-comisionamiento'
 import { BmcorpRepartosCard } from '@/components/dashboard/bmcorp-repartos-card'
-import { Cloud, RefreshCw, AlertTriangle, CheckCircle, TrendingUp } from 'lucide-react'
+import { BmcorpSyncProvider } from '@/components/dashboard/bmcorp-sync-provider'
+import { Cloud, TrendingUp } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
   anio: number
   mes?: number
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
-}
-
-function formatAbsoluteDate(iso: string | null): string {
-  if (!iso) return 'nunca'
-  return new Date(iso).toLocaleDateString('es-MX', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props) {
@@ -63,6 +46,7 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
     comisionamiento,
     ultimaSync,
     totalSinFiltro,
+    semaforo,
   ] = await Promise.all([
     getKpisBmcorp(empresaId, tenantId, period),
     getRankingAfiliados(empresaId, tenantId, period, 10),
@@ -73,6 +57,7 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
     getComisionamientoConciliado(empresaId, tenantId),
     getUltimaSync(empresaId, tenantId),
     countVentasTotal(empresaId, tenantId),
+    getSemaforoBmcorp(empresaId, tenantId),
   ])
 
   // Sin datos en DB → pedir sincronización
@@ -82,6 +67,9 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
 
   return (
     <div className="space-y-6">
+      {/* Inyecta sync status al topbar via store */}
+      <BmcorpSyncProvider fecha={ultimaSync.fecha} stale={ultimaSync.stale} empresaId={empresaId} />
+
       {/* Banner cuando hay datos pero el período no tiene ventas */}
       {kpis.totalVentas === 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
@@ -90,41 +78,8 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
         </div>
       )}
 
-      {/* Semáforo arriba — placeholder hasta criterios cliente */}
-      <BmcorpSemaforo />
-
-      {/* Sync banner */}
-      <div
-        className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
-          ultimaSync.stale
-            ? 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
-            : 'border-border bg-card'
-        }`}
-      >
-        <div className="flex items-center gap-3 text-sm">
-          {ultimaSync.stale ? (
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          ) : (
-            <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          )}
-          <div>
-            <p className="text-foreground font-medium">
-              Última sincronización Monday: {formatAbsoluteDate(ultimaSync.fecha)}
-            </p>
-            <p className="text-muted-foreground text-xs">
-              {ultimaSync.creados} creados · {ultimaSync.actualizados} actualizados ·{' '}
-              {ultimaSync.errores} errores
-            </p>
-          </div>
-        </div>
-        <Link
-          href={`/empresa/${empresaId}/monday`}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Sincronizar
-        </Link>
-      </div>
+      {/* Semáforo — comisión generada mes actual vs umbrales PDF V1 */}
+      <BmcorpSemaforo data={semaforo} />
 
       {/* 50 / 50 layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

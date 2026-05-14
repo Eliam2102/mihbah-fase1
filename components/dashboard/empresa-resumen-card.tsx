@@ -1,18 +1,10 @@
 import Link from 'next/link'
 import type { EmpresaResumen } from '@/lib/services/dashboard-general.service'
 import { ArrowRight, Building2, Banknote, ShoppingBag, AlertCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatMXN } from '@/lib/utils'
 
 interface Props {
   empresa: EmpresaResumen
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
 }
 
 const TIPO_META = {

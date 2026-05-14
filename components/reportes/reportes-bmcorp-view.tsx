@@ -1,13 +1,10 @@
 import { getVentasReporteBmcorp } from '@/lib/services/reportes-bmcorp.service'
 import { Download, FileText, Calendar } from 'lucide-react'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -92,20 +89,20 @@ export async function ReportesBmcorpView({ empresaId, tenantId }: Props) {
               <thead>
                 <tr className="border-border bg-muted/50 border-b">
                   {[
-                    'Cliente',
-                    'Lote/Acción',
-                    'Desarrollo',
-                    'Alianza',
-                    'Monto Total',
-                    'Comisión (15%)',
-                    'Apertura',
-                    'Estado',
+                    { label: 'Cliente', align: 'text-left' },
+                    { label: 'Lote/Acción', align: 'text-left' },
+                    { label: 'Desarrollo', align: 'text-left' },
+                    { label: 'Alianza', align: 'text-left' },
+                    { label: 'Monto Total', align: 'text-right' },
+                    { label: 'Comisión (15%)', align: 'text-right' },
+                    { label: 'Apertura', align: 'text-left' },
+                    { label: 'Estado', align: 'text-center' },
                   ].map((h) => (
                     <th
-                      key={h}
-                      className="text-muted-foreground px-4 py-3 text-left text-xs font-semibold tracking-wider whitespace-nowrap uppercase"
+                      key={h.label}
+                      className={`text-muted-foreground px-4 py-3 ${h.align} text-xs font-semibold tracking-wider whitespace-nowrap uppercase`}
                     >
-                      {h}
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -125,10 +122,10 @@ export async function ReportesBmcorpView({ empresaId, tenantId }: Props) {
                     <td className="text-foreground px-4 py-3 font-medium">{v.lote || '—'}</td>
                     <td className="text-foreground px-4 py-3 font-medium">{v.desarrollo || '—'}</td>
                     <td className="text-foreground px-4 py-3">{v.afiliado || '—'}</td>
-                    <td className="text-foreground px-4 py-3 font-semibold whitespace-nowrap tabular-nums">
+                    <td className="text-foreground px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums">
                       {formatMXN(v.monto)}
                     </td>
-                    <td className="px-4 py-3 font-medium whitespace-nowrap text-emerald-600 tabular-nums dark:text-emerald-400">
+                    <td className="px-4 py-3 text-right font-medium whitespace-nowrap text-emerald-600 tabular-nums dark:text-emerald-400">
                       {formatMXN(v.comision)}
                     </td>
                     <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
@@ -141,7 +138,7 @@ export async function ReportesBmcorpView({ empresaId, tenantId }: Props) {
                         '—'
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       <StatusBadge status={v.estadoVenta} />
                     </td>
                   </tr>

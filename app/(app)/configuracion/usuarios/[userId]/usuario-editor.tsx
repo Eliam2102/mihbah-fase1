@@ -68,11 +68,12 @@ export function UsuarioEditor({
   const [error, setError] = useState<string | null>(null)
 
   const role = currentRole ?? 'user'
-  const canEdit = !isSelf && !isSaasDev
+  const canEditRole = !isSelf && !isSaasDev
+  const canEdit = !isSaasDev
 
   // ── Role change ──────────────────────────────────────────────────────────────
   function handleRoleChange(newRole: UserRole) {
-    if (!canEdit || newRole === role) return
+    if (!canEditRole || newRole === role) return
     setError(null)
     startTransition(async () => {
       const res = await actionUpdateUserRole(userId, newRole)
@@ -147,10 +148,11 @@ export function UsuarioEditor({
 
   return (
     <div className="space-y-8">
+      {/* Loading indicator — fixed position so it never shifts layout */}
       {isPending && (
-        <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="fixed right-6 bottom-6 z-50 flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Guardando cambios...
+          Guardando...
         </div>
       )}
       {error && (
@@ -210,21 +212,21 @@ export function UsuarioEditor({
                   type="button"
                   disabled={isPending || !canEdit}
                   onClick={() => handleToggleEmpresa(emp.id, hasAccess)}
-                  className={`flex items-center justify-between rounded-xl border-2 p-4 text-left transition-all disabled:cursor-default ${
+                  className={`flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 text-left transition-colors disabled:cursor-default ${
                     hasAccess
                       ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
                       : 'border-border hover:border-slate-400'
                   }`}
                 >
                   <div>
-                    <p
-                      className={`text-sm font-semibold ${hasAccess ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground'}`}
-                    >
-                      {emp.name}
-                    </p>
+                    <p className="text-foreground text-sm font-semibold">{emp.name}</p>
                     <p className="text-muted-foreground text-xs">
                       {emp.tipo.charAt(0) + emp.tipo.slice(1).toLowerCase()}
-                      {hasAccess && ` · ${access.rol}`}
+                      <span
+                        className={`transition-opacity ${hasAccess ? 'opacity-100' : 'opacity-0'}`}
+                      >
+                        {access ? ` · ${access.rol}` : ' · VIEWER'}
+                      </span>
                     </p>
                   </div>
                   {hasAccess ? (
@@ -326,7 +328,7 @@ export function UsuarioEditor({
                               type="button"
                               disabled={isPending || !canEdit}
                               onClick={() => handleToggleVer(emp.empresaId, moduloKey, row)}
-                              className={`flex h-9 w-9 items-center justify-center rounded-lg transition-all disabled:cursor-default disabled:opacity-60 ${
+                              className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-colors disabled:cursor-default disabled:opacity-60 ${
                                 row.puedeVer
                                   ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300'
                                   : 'bg-muted text-muted-foreground hover:bg-muted/70'
@@ -350,7 +352,7 @@ export function UsuarioEditor({
                                 type="button"
                                 disabled={isPending || !canEdit || !row.puedeVer}
                                 onClick={() => handleToggleEditar(emp.empresaId, moduloKey, row)}
-                                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-all disabled:cursor-default disabled:opacity-40 ${
+                                className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-colors disabled:cursor-default disabled:opacity-40 ${
                                   row.puedeEditar
                                     ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300'
                                     : 'bg-muted text-muted-foreground hover:bg-muted/70'

@@ -1,5 +1,13 @@
 export type SemaforoEstado = 'SALUDABLE' | 'PRECAUCION' | 'EN_RIESGO' | 'CRITICO'
 
+export type SubIndicadorEstado = 'VERDE' | 'AMARILLO' | 'ROJO' | 'SIN_DATOS'
+
+export interface SubIndicador {
+  estado: SubIndicadorEstado
+  label: string
+  valor: string | null
+}
+
 export interface SemaforoResult {
   estado: SemaforoEstado
   label: string
@@ -7,11 +15,10 @@ export interface SemaforoResult {
   color: string
   bgColor: string
   pulseColor: string
-}
-
-export interface SemaforoConfig {
-  colchonSaludable: number
-  colchonPrecaucion: number
-  colchonRiesgo: number
-  cxpCritico: number
+  subIndicadores: {
+    flujoNeto: SubIndicador
+    cobranza: SubIndicador
+    avanceFisico: SubIndicador
+    pipeline: SubIndicador
+  }
 }

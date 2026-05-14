@@ -3,16 +3,13 @@ import { getFlujoMensual } from '@/lib/services/flujo.service'
 import { FlowChart } from '@/components/dashboard/flow-chart'
 import { ArrowUpRight, ArrowDownRight, Wallet, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { formatMXN } from '@/lib/utils'
 
 interface Props {
   empresaId: string
   tenantId: string
   anio: number
   mesSel?: number | null
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export async function FlujoMensualView({ empresaId, tenantId, anio, mesSel }: Props) {

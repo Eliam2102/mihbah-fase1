@@ -18,17 +18,10 @@ import {
 import { EmpresaResumenCard } from '@/components/dashboard/empresa-resumen-card'
 import { CorrelacionEmpresas } from '@/components/dashboard/correlacion-empresas'
 import { Wallet, TrendingUp, TrendingDown, AlertTriangle, Target, Sparkles } from 'lucide-react'
+import { formatMXN, formatMXNCompact } from '@/lib/utils'
 
 interface PageProps {
   searchParams: Promise<{ anio?: string; mes?: string }>
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    maximumFractionDigits: 0,
-  })
 }
 
 const MESES = [
@@ -84,7 +77,7 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
               Total ingresos
             </span>
           </div>
-          <p className="text-foreground mt-2 text-2xl font-bold tabular-nums">
+          <p className="text-foreground mt-2 text-sm font-bold tabular-nums sm:text-base lg:text-lg">
             {formatMXN(resumen.totalIngresos)}
           </p>
           <p className="text-muted-foreground mt-1 text-xs">consolidado 3 empresas</p>
@@ -97,7 +90,7 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
               Total egresos
             </span>
           </div>
-          <p className="text-foreground mt-2 text-2xl font-bold tabular-nums">
+          <p className="text-foreground mt-2 text-sm font-bold tabular-nums sm:text-base lg:text-lg">
             {formatMXN(resumen.totalEgresos)}
           </p>
           <p className="text-muted-foreground mt-1 text-xs">consolidado 3 empresas</p>
@@ -110,7 +103,7 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
               Por cobrar (CXC)
             </span>
           </div>
-          <p className="text-foreground mt-2 text-2xl font-bold tabular-nums">
+          <p className="text-foreground mt-2 text-sm font-bold tabular-nums sm:text-base lg:text-lg">
             {formatMXN(cuentas.totalCxc)}
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
@@ -125,7 +118,7 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
               Por pagar (CXP)
             </span>
           </div>
-          <p className="text-foreground mt-2 text-2xl font-bold tabular-nums">
+          <p className="text-foreground mt-2 text-sm font-bold tabular-nums sm:text-base lg:text-lg">
             {formatMXN(cuentas.totalCxp)}
           </p>
           <p className="text-muted-foreground mt-1 text-xs">

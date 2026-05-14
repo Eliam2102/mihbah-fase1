@@ -1,6 +1,6 @@
 'use server'
 
-import { requireSuperAdminOrAbove } from '@/lib/auth/helpers'
+import { requireSuperAdminDev } from '@/lib/auth/helpers'
 import {
   createUser,
   updateUserRole,
@@ -26,7 +26,7 @@ export interface AdminUserResult {
 
 export async function actionCreateUser(raw: unknown): Promise<AdminUserResult> {
   try {
-    const user = await requireSuperAdminOrAbove()
+    const user = await requireSuperAdminDev()
     if (!user.tenantId) throw new Error('Usuario sin tenant')
 
     const input = CreateUserSchema.parse(raw)
@@ -43,7 +43,7 @@ export async function actionUpdateUserRole(
   role: 'super_admin' | 'admin' | 'user',
 ): Promise<AdminUserResult> {
   try {
-    await requireSuperAdminOrAbove()
+    await requireSuperAdminDev()
     await updateUserRole(userId, role)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }
@@ -59,7 +59,7 @@ export async function actionGrantAccess(
   rol: 'ADMIN' | 'VIEWER',
 ): Promise<AdminUserResult> {
   try {
-    await requireSuperAdminOrAbove()
+    await requireSuperAdminDev()
     await grantEmpresaAccess(tenantId, userId, empresaId, rol)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }
@@ -73,7 +73,7 @@ export async function actionRevokeAccess(
   empresaId: string,
 ): Promise<AdminUserResult> {
   try {
-    await requireSuperAdminOrAbove()
+    await requireSuperAdminDev()
     await revokeEmpresaAccess(userId, empresaId)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }
