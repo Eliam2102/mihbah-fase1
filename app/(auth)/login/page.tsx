@@ -1,12 +1,35 @@
 'use client'
 
-import { useActionState } from 'react'
-import { loginAction } from './actions'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { authClient } from '@/lib/auth/client'
 import Image from 'next/image'
 import { Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const [state, action, pending] = useActionState(loginAction, null)
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setError(null)
+    setPending(true)
+
+    const data = new FormData(e.currentTarget)
+    const email = data.get('email') as string
+    const password = data.get('password') as string
+
+    const result = await authClient.signIn.email({ email, password })
+
+    if (result.error) {
+      setError('Correo o contraseña incorrectos.')
+      setPending(false)
+      return
+    }
+
+    router.push('/dashboard')
+  }
 
   return (
     <div className="border-border bg-card rounded-2xl border p-8 shadow-sm">
@@ -27,7 +50,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <form action={action} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email" className="text-foreground mb-1.5 block text-sm font-medium">
             Correo electrónico
@@ -58,9 +81,9 @@ export default function LoginPage() {
           />
         </div>
 
-        {state?.error && (
+        {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
-            <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>
+            <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
           </div>
         )}
 
