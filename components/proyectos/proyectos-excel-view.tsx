@@ -93,7 +93,6 @@ export async function ProyectosExcelView({ empresaId, tenantId, empresaNombre }:
                     { label: 'Egresos', align: 'text-right' },
                     { label: 'Neto', align: 'text-right' },
                     { label: 'Movimientos', align: 'text-right' },
-                    { label: 'Estado', align: 'text-left' },
                     { label: '', align: 'text-right' },
                   ] as const
                 ).map((col) => (
@@ -131,17 +130,6 @@ export async function ProyectosExcelView({ empresaId, tenantId, empresaNombre }:
                   </td>
                   <td className="text-muted-foreground px-6 py-4 text-right tabular-nums">
                     {p.totalMovimientos}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
-                        p.activo
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                      }`}
-                    >
-                      {p.activo ? 'Activo' : 'Inactivo'}
-                    </span>
                   </td>
                   <td className="px-6 py-4">
                     <Link

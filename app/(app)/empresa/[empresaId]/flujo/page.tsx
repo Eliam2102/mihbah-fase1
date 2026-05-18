@@ -7,6 +7,7 @@ import { FlujoMensualView } from '@/components/flujo/flujo-mensual-view'
 import { FlujoTrimestralView } from '@/components/flujo/flujo-trimestral-view'
 import { FlujoAnualView } from '@/components/flujo/flujo-anual-view'
 import { MovimientosMesPanel } from '@/components/flujo/movimientos-mes-panel'
+import { MovimientosMesModal } from '@/components/flujo/movimientos-mes-modal'
 import { FlujoFiltros } from '@/components/flujo/flujo-filtros'
 
 type Vista = 'mensual' | 'trimestral' | 'anual'
@@ -80,15 +81,17 @@ export default async function FlujoPage({
       )}
       {vista === 'anual' && <FlujoAnualView empresaId={empresaId} tenantId={tenantId} />}
 
-      {/* Drill-down panel (solo en vista mensual) */}
+      {/* Drill-down modal (solo en vista mensual) */}
       {mes && vista === 'mensual' && (
-        <MovimientosMesPanel
-          empresaId={empresaId}
-          tenantId={tenantId}
-          anio={anio}
-          mes={mes}
-          vistaActual={vista}
-        />
+        <MovimientosMesModal closeHref={`?anio=${anio}&vista=${vista}`}>
+          <MovimientosMesPanel
+            empresaId={empresaId}
+            tenantId={tenantId}
+            anio={anio}
+            mes={mes}
+            closeHref={`?anio=${anio}&vista=${vista}`}
+          />
+        </MovimientosMesModal>
       )}
     </section>
   )
