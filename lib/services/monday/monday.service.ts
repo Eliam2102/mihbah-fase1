@@ -27,18 +27,30 @@ async function upsertAfiliado(
   tenantId: string,
 ): Promise<string> {
   const normalized = normalizeNombre(nombre)
+  // El chip exacto de Monday es lo que usamos como mondayLabel para mapear
+  // alianzas en futuras syncs (uppercase tal como llega).
+  const mondayLabel = nombre.trim()
 
   const [existing] = await tx
-    .select({ id: afiliados.id })
+    .select({ id: afiliados.id, mondayLabel: afiliados.mondayLabel })
     .from(afiliados)
     .where(and(eq(afiliados.tenantId, tenantId), ilike(afiliados.nombre, normalized)))
     .limit(1)
 
-  if (existing) return existing.id
+  if (existing) {
+    // Backfill mondayLabel si existe sin label (alianza creada manual antes del sync)
+    if (!existing.mondayLabel && mondayLabel) {
+      await tx
+        .update(afiliados)
+        .set({ mondayLabel, updatedAt: new Date() })
+        .where(eq(afiliados.id, existing.id))
+    }
+    return existing.id
+  }
 
   const [created] = await tx
     .insert(afiliados)
-    .values({ tenantId, nombre: normalized })
+    .values({ tenantId, nombre: normalized, mondayLabel })
     .returning({ id: afiliados.id })
 
   return created!.id
@@ -169,6 +181,10 @@ export async function syncBoard(
     stats.boardName = boardName
     stats.totalItems = items.length
 
+    // Recolectamos ventaIds (creados o actualizados) para procesar comisiones
+    // FUERA de la transacción principal del sync (cada cálculo abre su propia tx).
+    const ventaIdsProcesadas: string[] = []
+
     await db.transaction(async (tx) => {
       await setTenant(tx, tenantId)
 
@@ -247,6 +263,8 @@ export async function syncBoard(
             stats.creados++
           }
 
+          ventaIdsProcesadas.push(ventaId)
+
           if (mapped.pagos.length > 0) {
             await syncPagos(tx, mapped.pagos, {
               tenantId,
@@ -263,6 +281,29 @@ export async function syncBoard(
         }
       }
     })
+
+    // Post-procesamiento: calcular comisiones para cada venta sincronizada.
+    // Importante: NO bloquea el sync ante error individual. Cada error se loguea.
+    const { calcularYPersistirComision } =
+      await import('@/lib/services/comisiones/comisiones.service')
+    let comisionesOk = 0
+    let comisionesError = 0
+    for (const ventaId of ventaIdsProcesadas) {
+      try {
+        await calcularYPersistirComision(tenantId, ventaId, { userId })
+        comisionesOk++
+      } catch (calcErr) {
+        comisionesError++
+        stats.errorDetails.push(
+          `Comisión venta ${ventaId}: ${calcErr instanceof Error ? calcErr.message : String(calcErr)}`,
+        )
+      }
+    }
+    if (comisionesError > 0) {
+      console.warn(
+        `[monday sync] comisiones OK=${comisionesOk}, error=${comisionesError} de ${ventaIdsProcesadas.length}`,
+      )
+    }
 
     stats.duration = Date.now() - startedAt
     await db

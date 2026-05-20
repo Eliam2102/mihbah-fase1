@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:webpack": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -16,6 +17,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx lib/db/seed.ts",
+    "db:seed-comisiones": "tsx lib/db/seed-comisiones.ts",
+    "audit:comisiones": "tsx scripts/audit-comisiones.ts",
+    "audit:comisiones:fix": "tsx scripts/audit-comisiones.ts --fix",
     "db:rls": "tsx lib/db/apply-rls.ts",
     "db:rls-prod": "tsx scripts/apply-rls-prod.ts",
     "db:up": "docker-compose up -d",

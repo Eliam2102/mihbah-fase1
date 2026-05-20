@@ -63,6 +63,9 @@ monday-inspection.json
 *.local.json
 *.local.md
 
+# Markdown — documentación interna no se sube al repo
+*.md
+
 # test artifacts
 /test-results/
 /playwright-report/

@@ -6,6 +6,9 @@ import {
   BarChart3,
   FileSpreadsheet,
   RefreshCw,
+  Percent,
+  Users,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -47,6 +50,24 @@ const MONDAY_MODULE = (empresaId: string): ModuleItem => ({
   icon: RefreshCw,
 })
 
+const COMISIONES_MODULES = (empresaId: string): ModuleItem[] => [
+  {
+    label: 'Comisiones',
+    href: `/empresa/${empresaId}/comisiones`,
+    icon: Percent,
+  },
+  {
+    label: 'Alianzas y red',
+    href: `/empresa/${empresaId}/comisiones/alianzas`,
+    icon: Users,
+  },
+  {
+    label: 'Usuarios del portal',
+    href: `/empresa/${empresaId}/comisiones/portal-usuarios`,
+    icon: ShieldCheck,
+  },
+]
+
 // empresa name → slug mapping for known empresas
 export const EMPRESA_SLUGS: Record<string, string> = {
   MIHBAH: 'mihbah',
@@ -78,7 +99,7 @@ export function getModulesForEmpresa(
     const baseBmcorp = base.map((m) =>
       m.label === 'Flujo' ? { ...m, href: `/empresa/${id}/flujo-caja` } : m,
     )
-    return [...baseBmcorp, MONDAY_MODULE(id)]
+    return [...baseBmcorp, ...COMISIONES_MODULES(id), MONDAY_MODULE(id)]
   }
 
   return base

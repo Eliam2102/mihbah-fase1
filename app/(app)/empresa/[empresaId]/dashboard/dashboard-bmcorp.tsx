@@ -53,7 +53,7 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
     getRankingDesarrollos(empresaId, tenantId, period, 10),
     getFlujoSemanal(empresaId, tenantId, 12),
     getRepartosSplit(empresaId, tenantId),
-    getRemanentesPorAfiliado(empresaId, tenantId, 5),
+    getRemanentesPorAfiliado(empresaId, tenantId, 50),
     getComisionamientoConciliado(empresaId, tenantId),
     getUltimaSync(empresaId, tenantId),
     countVentasTotal(empresaId, tenantId),
@@ -81,8 +81,8 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
       {/* Semáforo — comisión generada mes actual vs umbrales PDF V1 */}
       <BmcorpSemaforo data={semaforo} />
 
-      {/* 50 / 50 layout */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* 50 / 50 layout — items-start asegura top alineado entre columnas */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         {/* IZQUIERDA — Ventas */}
         <div className="space-y-6">
           {/* KPI total vendido */}
@@ -154,62 +154,65 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
 
           {/* Comisionamiento conciliado */}
           <BmcorpComisionamiento data={comisionamiento} />
-        </div>
-      </div>
 
-      {/* Remanentes — full width abajo */}
-      <div className="border-border bg-card rounded-xl border p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Cloud className="text-jade-600 h-4 w-4" />
-          <h3 className="text-foreground text-sm font-semibold">
-            Remanentes por afiliado (vendido − repartos)
-          </h3>
-        </div>
+          {/* Remanentes por afiliado — debajo de Comisionamiento */}
+          <div className="border-border bg-card rounded-xl border p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Cloud className="text-jade-600 h-4 w-4" />
+              <h3 className="text-foreground text-sm font-semibold">Remanentes por afiliado</h3>
+              <span className="text-muted-foreground text-xs">(vendido − repartos)</span>
+            </div>
 
-        {remanentes.length === 0 ? (
-          <div className="text-muted-foreground py-8 text-center text-sm">
-            Sin afiliados registrados.
+            {remanentes.length === 0 ? (
+              <div className="text-muted-foreground py-8 text-center text-sm">
+                Sin afiliados registrados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-border border-b">
+                      <th className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase">
+                        Afiliado
+                      </th>
+                      <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
+                        Vendido
+                      </th>
+                      <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
+                        Repartos
+                      </th>
+                      <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
+                        Remanente
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {remanentes.map((r) => (
+                      <tr key={r.afiliadoId} className="border-border border-b last:border-0">
+                        <td className="text-foreground px-3 py-2.5 font-medium">{r.nombre}</td>
+                        <td className="text-foreground px-3 py-2.5 text-right tabular-nums">
+                          {formatMXN(r.vendido)}
+                        </td>
+                        <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
+                          {formatMXN(r.repartos)}
+                        </td>
+                        <td
+                          className={`px-3 py-2.5 text-right font-semibold tabular-nums ${
+                            r.remanente >= 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}
+                        >
+                          {formatMXN(r.remanente)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-border border-b">
-                  {['Afiliado', 'Vendido', 'Repartos', 'Remanente'].map((h) => (
-                    <th
-                      key={h}
-                      className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {remanentes.map((r) => (
-                  <tr key={r.afiliadoId} className="border-border border-b last:border-0">
-                    <td className="text-foreground px-3 py-2.5 font-medium">{r.nombre}</td>
-                    <td className="text-foreground px-3 py-2.5 tabular-nums">
-                      {formatMXN(r.vendido)}
-                    </td>
-                    <td className="text-muted-foreground px-3 py-2.5 tabular-nums">
-                      {formatMXN(r.repartos)}
-                    </td>
-                    <td
-                      className={`px-3 py-2.5 font-semibold tabular-nums ${
-                        r.remanente >= 0
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-red-600 dark:text-red-400'
-                      }`}
-                    >
-                      {formatMXN(r.remanente)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )

@@ -28,6 +28,18 @@ export default function LoginPage() {
       return
     }
 
+    // Si rol es portal, redirigir a portal. Detectado vía session API.
+    try {
+      const sess = await authClient.getSession()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const role = (sess?.data?.user as any)?.role
+      if (role === 'lider_alianza' || role === 'asesor') {
+        router.push('/portal/dashboard')
+        return
+      }
+    } catch {
+      // si falla, sigue al dashboard normal (guard del layout rebotará si aplica)
+    }
     router.push('/dashboard')
   }
 

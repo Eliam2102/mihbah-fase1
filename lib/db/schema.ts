@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   date,
@@ -67,6 +68,59 @@ export const tipoPagoBmcorpEnum = pgEnum('tipo_pago_bmcorp', ['REPARTO_ALIANZA',
 export const estadoCxEnum = pgEnum('estado_cx', ['AL_CORRIENTE', 'VENCIDA', 'PROXIMA', 'PAGADA'])
 
 export const estadoRepartoEnum = pgEnum('estado_reparto', ['PENDIENTE', 'REALIZADO'])
+
+// ─── Comisiones BM CORP (Épica 14) ───────────────────────────────────────────
+// Modelo basado en doc oficial: YESYUCAN_Esquema_de_Comisiones_v5.
+
+// TERRENO = venta de terrenos (Grupo ARKA y Grupo RH), comisión total 20%
+// ACCION = venta de acciones Yucandoit (Kooben/Huunal), comisión total 15%
+export const tipoProductoComisionEnum = pgEnum('tipo_producto_comision', ['TERRENO', 'ACCION'])
+
+// Tipo de esquema base
+export const tipoEsquemaEnum = pgEnum('tipo_esquema_comision', [
+  'ALIADOS_DEL_UNIVERSO', // Terrenos — 20% total, 15% bolsa comercial
+  'YUCAN_PARTNERS', // YCD — 15% total, 12% bolsa comercial, líder topado 10%
+])
+
+export const estadoDispersionEnum = pgEnum('estado_dispersion', [
+  'PENDIENTE',
+  'PARCIAL',
+  'PAGADO',
+  'DIFERIDO',
+])
+
+// 9 tipos de beneficiario según cascada del doc §4
+export const tipoBeneficiarioEnum = pgEnum('tipo_beneficiario_dispersion', [
+  'OP_BMCORP', // 1% terrenos
+  'OP_YESYUCAN', // 1% terrenos / 3% YCD
+  'ASESOR', // Comisión estándar (8% terrenos / 7% YCD)
+  'LIDER_SALDO', // Saldo del líder (afiliación − asesor)
+  'SOCIO_BOLSA_JORGE', // Parte de Jorge en bolsa comercial (acumula mes)
+  'SOCIO_BOLSA_KASS', // Parte de Kass en bolsa (libera ya)
+  'SOCIO_BOLSA_DIANA', // Parte de Diana en bolsa (libera ya)
+  'SOCIO_FIJO_JORGE', // 1.5% terrenos, pago mensual
+  'SOCIO_FIJO_KASS', // 1.5% terrenos, pago mensual
+])
+
+// Nivel del aliado/partner — afecta SOLO bono, no comisión base
+// Modelo HÍBRIDO: sistema calcula nivel_propuesto (promedio últimos 3 meses),
+// Joana confirma nivel_efectivo (puede override con motivo).
+// TODO: Confirmar con junta si hay override por vacaciones/post-parto.
+export const nivelAlianzaEnum = pgEnum('nivel_alianza', ['JADE', 'TURQUESA', 'ONIX_NEGRO'])
+
+// Modo de cálculo del bono — confirma cliente en junta
+// NUMERICO: cumplió meta = ventas >= umbral (automático)
+// MANUAL: cumplió meta = flag manual seteado por Joana o líder
+export const modoBonoEnum = pgEnum('modo_bono', ['NUMERICO_AUTO', 'MANUAL'])
+
+// Reglas especiales documentadas en §4
+export const reglaEspecialAlianzaEnum = pgEnum('regla_especial_alianza', [
+  'NINGUNA',
+  'FLAMINGO_DIRECTO', // YESYUCAN dispersa directo al asesor (sin líder)
+  'LGI_YCD_ACUMULA', // Comisiones YCD se acumulan, Kass define dispersión mes siguiente
+])
+
+export const rolPortalEnum = pgEnum('rol_portal', ['LIDER_ALIANZA', 'ASESOR'])
 
 // ─── Tenants ─────────────────────────────────────────────────────────────────
 
@@ -603,11 +657,18 @@ export const afiliados = pgTable(
       .references(() => tenants.id, { onDelete: 'cascade' }),
     nombre: text('nombre').notNull(),
     contacto: text('contacto'),
+    // Nombre exacto del chip "Afiliado/Alianza" en Monday — usado para mapear sync automático
+    mondayLabel: text('monday_label'),
+    // Plantilla de esquema sugerida cuando se crea un nuevo esquema para esta alianza
+    tipoEsquemaDefault: tipoEsquemaEnum('tipo_esquema_default'),
     activo: boolean('activo').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     tenantNombreUnique: uniqueIndex('afiliados_tenant_nombre_unique').on(t.tenantId, t.nombre),
+    mondayLabelIdx: index('afiliados_monday_label_idx').on(t.tenantId, t.mondayLabel),
   }),
 )
 
@@ -712,5 +773,542 @@ export const featureFlags = pgTable(
   },
   (t) => ({
     tenantFlagUnique: uniqueIndex('flags_tenant_flag_unique').on(t.tenantId, t.flag),
+  }),
+)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BM CORP — Módulo de Comisiones (Épica 14)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Líderes de Alianza ──────────────────────────────────────────────────────
+// Un líder representa a una alianza ante BM Corp. BM Corp paga directo al líder.
+
+export const lideresAlianza = pgTable(
+  'lideres_alianza',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    afiliadoId: uuid('afiliado_id')
+      .notNull()
+      .references(() => afiliados.id, { onDelete: 'restrict' }),
+    nombre: text('nombre').notNull(),
+    email: text('email'),
+    telefono: text('telefono'),
+    clabe: text('clabe'),
+    banco: text('banco'),
+    numeroCuenta: text('numero_cuenta'),
+    // Nivel del aliado/partner según promedio mensual de ventas (doc §1 y §2)
+    // Manual asignado por Joana hasta que se decida tracking automático (TODO cliente)
+    nivel: nivelAlianzaEnum('nivel'),
+    // Plan de pautas digitales asignado (informativo, NO entra al cálculo)
+    presupuestoPautasMensual: numeric('presupuesto_pautas_mensual', {
+      precision: 18,
+      scale: 2,
+    }).default('0'),
+    // Quién coordina el pago de las comisiones de esta alianza.
+    // OTTY: Grupo pagos LGI (LGI, KB, DREAM BIG, BM VIRTUAL)
+    // DIRECTO: pago directo al líder
+    // MAFF OCADIZ: alianzas de Jorge (SOMOS, IXCHE, ADARA, KUCHMOTS)
+    // Otro: texto libre por flexibilidad
+    coordinaPago: text('coordina_pago'),
+    activo: boolean('activo').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('lideres_tenant_idx').on(t.tenantId),
+    afiliadoIdx: index('lideres_afiliado_idx').on(t.afiliadoId),
+  }),
+)
+
+// ─── Asesores ────────────────────────────────────────────────────────────────
+// Un asesor trabaja bajo un líder. BM Corp NO le paga directo (el líder lo hace).
+// El asesor SÍ tiene acceso al portal para ver sus comisiones.
+
+export const asesores = pgTable(
+  'asesores',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    afiliadoId: uuid('afiliado_id')
+      .notNull()
+      .references(() => afiliados.id, { onDelete: 'restrict' }),
+    // Líder responsable. NULL permitido — asesor puede entrar al sistema desde
+    // Monday sync antes de que Joana asigne su líder. Cuenta portal requiere
+    // tener líder asignado (validación en UI).
+    liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'restrict' }),
+    nombre: text('nombre').notNull(),
+    email: text('email'),
+    telefono: text('telefono'),
+    // Cruce con la columna "Nombre"/asesor de Monday en ventas_bmcorp.asesor
+    mondayNombre: text('monday_nombre'),
+    activo: boolean('activo').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('asesores_tenant_idx').on(t.tenantId),
+    afiliadoIdx: index('asesores_afiliado_idx').on(t.afiliadoId),
+    liderIdx: index('asesores_lider_idx').on(t.liderId),
+    mondayNombreIdx: index('asesores_monday_nombre_idx').on(t.tenantId, t.mondayNombre),
+  }),
+)
+
+// ─── Esquemas de Comisión ────────────────────────────────────────────────────
+// Plantilla GLOBAL (no por alianza): 2 esquemas — TERRENOS y YCD.
+// Define costos operativos + estructura de bolsa comercial según doc §3.
+
+export const esquemasComision = pgTable(
+  'esquemas_comision',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    nombre: text('nombre').notNull(),
+    tipoEsquema: tipoEsquemaEnum('tipo_esquema').notNull(),
+    tipoProducto: tipoProductoComisionEnum('tipo_producto').notNull(),
+    // % total que paga el cliente (20 terrenos / 15 YCD)
+    porcentajeTotalCliente: numeric('porcentaje_total_cliente', {
+      precision: 5,
+      scale: 2,
+    }).notNull(),
+    // Comisión operativa
+    porcentajeOpBmcorp: numeric('porcentaje_op_bmcorp', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    porcentajeOpYesyucan: numeric('porcentaje_op_yesyucan', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    // Participación fija de socios (solo terrenos)
+    porcentajeSocioFijoJorge: numeric('porcentaje_socio_fijo_jorge', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    porcentajeSocioFijoKass: numeric('porcentaje_socio_fijo_kass', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    // Bolsa comercial (15% terrenos / 12% YCD) — se reparte vía matrizAlianzaProducto
+    porcentajeBolsaComercial: numeric('porcentaje_bolsa_comercial', {
+      precision: 5,
+      scale: 2,
+    }).notNull(),
+    // Comisión estándar del asesor (8% terrenos / 7% YCD)
+    porcentajeAsesorEstandar: numeric('porcentaje_asesor_estandar', {
+      precision: 5,
+      scale: 2,
+    }).notNull(),
+    // Tope del líder en YCD (10% según doc; null para terrenos)
+    porcentajeLiderTope: numeric('porcentaje_lider_tope', { precision: 5, scale: 2 }),
+    // Razón social que factura (informativo)
+    razonSocial: text('razon_social'),
+    fechaInicio: date('fecha_inicio').notNull(),
+    fechaFin: date('fecha_fin'),
+    observaciones: text('observaciones'),
+    activo: boolean('activo').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('esquemas_tenant_idx').on(t.tenantId),
+    tipoProductoIdx: index('esquemas_tipo_producto_idx').on(t.tenantId, t.tipoProducto, t.activo),
+    // Un solo esquema activo por (tenant, tipoProducto). Previene duplicados de seed.
+    tenantTipoProductoActivoUnique: uniqueIndex('esquemas_tenant_tipo_activo_unique')
+      .on(t.tenantId, t.tipoProducto)
+      .where(sql`${t.activo} = true AND ${t.deletedAt} IS NULL`),
+  }),
+)
+
+// ─── Matriz Alianza × Producto ───────────────────────────────────────────────
+// Reemplaza reglasEsquema. Define, por (alianza, tipoProducto), cómo se reparte
+// la bolsa comercial entre líder y socios (Jorge/Kass/Diana). Doc §3.1 y §3.2.
+
+export const matrizAlianzaProducto = pgTable(
+  'matriz_alianza_producto',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    afiliadoId: uuid('afiliado_id')
+      .notNull()
+      .references(() => afiliados.id, { onDelete: 'restrict' }),
+    tipoProducto: tipoProductoComisionEnum('tipo_producto').notNull(),
+    // Líder responsable de la alianza para este tipo de producto
+    liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'set null' }),
+    // % afiliación = lo que recibe el líder de la bolsa comercial (de ahí paga al asesor)
+    porcentajeAfiliacion: numeric('porcentaje_afiliacion', { precision: 5, scale: 2 }).notNull(),
+    // Reparto a socios (parte de la bolsa que NO va al líder)
+    porcentajeJorgeBolsa: numeric('porcentaje_jorge_bolsa', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    porcentajeKassBolsa: numeric('porcentaje_kass_bolsa', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    porcentajeDianaBolsa: numeric('porcentaje_diana_bolsa', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    reglaEspecial: reglaEspecialAlianzaEnum('regla_especial').notNull().default('NINGUNA'),
+    // Si la alianza requiere configuración manual (e.g. está en Monday pero no en doc)
+    requiereConfig: boolean('requiere_config').notNull().default(false),
+    activo: boolean('activo').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('matriz_tenant_idx').on(t.tenantId),
+    afiliadoIdx: index('matriz_afiliado_idx').on(t.afiliadoId),
+    liderIdx: index('matriz_lider_idx').on(t.liderId),
+    // Una alianza tiene UN solo registro por tipoProducto
+    afiliadoProductoUnique: uniqueIndex('matriz_afiliado_producto_unique').on(
+      t.tenantId,
+      t.afiliadoId,
+      t.tipoProducto,
+    ),
+  }),
+)
+
+// ─── Comisiones Calculadas ───────────────────────────────────────────────────
+// Snapshot del cálculo de comisión para una venta. Se recalcula si cambia enganchePagado.
+
+export const comisionesCalculadas = pgTable(
+  'comisiones_calculadas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    ventaId: uuid('venta_id')
+      .notNull()
+      .references(() => ventasBmcorp.id, { onDelete: 'restrict' }),
+    esquemaId: uuid('esquema_id').references(() => esquemasComision.id, { onDelete: 'set null' }),
+    matrizId: uuid('matriz_id').references(() => matrizAlianzaProducto.id, {
+      onDelete: 'set null',
+    }),
+    // Snapshot del cálculo — congelado al momento de procesar la venta
+    montoVenta: numeric('monto_venta', { precision: 18, scale: 2 }).notNull(),
+    tipoProducto: tipoProductoComisionEnum('tipo_producto').notNull(),
+    porcentajeTotalAplicado: numeric('porcentaje_total_aplicado', {
+      precision: 5,
+      scale: 2,
+    }).notNull(),
+    comisionBrutaTotal: numeric('comision_bruta_total', { precision: 18, scale: 2 }).notNull(),
+    // Desglose por concepto (todos los montos)
+    montoOpBmcorp: numeric('monto_op_bmcorp', { precision: 18, scale: 2 }).notNull().default('0'),
+    montoOpYesyucan: numeric('monto_op_yesyucan', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    montoSocioFijoJorge: numeric('monto_socio_fijo_jorge', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    montoSocioFijoKass: numeric('monto_socio_fijo_kass', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    montoBolsaComercial: numeric('monto_bolsa_comercial', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    montoAsesor: numeric('monto_asesor', { precision: 18, scale: 2 }).notNull().default('0'),
+    montoLiderSaldo: numeric('monto_lider_saldo', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    montoSocioBolsaJorge: numeric('monto_socio_bolsa_jorge', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    montoSocioBolsaKass: numeric('monto_socio_bolsa_kass', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    montoSocioBolsaDiana: numeric('monto_socio_bolsa_diana', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    // Flujo y diferimiento
+    enganchePagado: numeric('enganche_pagado', { precision: 18, scale: 2 }).notNull().default('0'),
+    porcentajeEnganche: numeric('porcentaje_enganche', { precision: 5, scale: 2 }),
+    montoLiberable: numeric('monto_liberable', { precision: 18, scale: 2 }).notNull(),
+    montoDiferido: numeric('monto_diferido', { precision: 18, scale: 2 }).notNull(),
+    esPrecalculo: boolean('es_precalculo').notNull().default(false),
+    // Si la alianza requiere config (no estaba en doc), no se calcula hasta que Joana configure
+    sinConfig: boolean('sin_config').notNull().default(false),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('comisiones_tenant_idx').on(t.tenantId),
+    ventaUniqueIdx: uniqueIndex('comisiones_venta_unique').on(t.tenantId, t.ventaId),
+    esquemaIdx: index('comisiones_esquema_idx').on(t.esquemaId),
+    matrizIdx: index('comisiones_matriz_idx').on(t.matrizId),
+  }),
+)
+
+// ─── Dispersiones (líneas de pago a beneficiarios) ───────────────────────────
+// Por cada comisión calculada se generan 4 dispersiones:
+// OP_BMCORP, OP_YESYUCAN, LIDER, SOCIOS.
+
+export const dispersiones = pgTable(
+  'dispersiones',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    comisionId: uuid('comision_id')
+      .notNull()
+      .references(() => comisionesCalculadas.id, { onDelete: 'restrict' }),
+    // Líder dueño de la dispersión (null si ASESOR_FLAMINGO o socio fijo/bolsa)
+    liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'set null' }),
+    // Asesor cuando tipoBeneficiario = ASESOR (null en otros casos)
+    asesorId: uuid('asesor_id').references(() => asesores.id, { onDelete: 'set null' }),
+    tipoBeneficiario: tipoBeneficiarioEnum('tipo_beneficiario').notNull(),
+    beneficiarioNombre: text('beneficiario_nombre').notNull(),
+    montoTotal: numeric('monto_total', { precision: 18, scale: 2 }).notNull(),
+    montoPagado: numeric('monto_pagado', { precision: 18, scale: 2 }).notNull().default('0'),
+    montoDiferido: numeric('monto_diferido', { precision: 18, scale: 2 }).notNull().default('0'),
+    estado: estadoDispersionEnum('estado').notNull().default('PENDIENTE'),
+    // Si acumulaMensual=true, no se paga al liberar — se agrupa fin de mes (doc §4 Jorge bolsa)
+    acumulaMensual: boolean('acumula_mensual').notNull().default(false),
+    fechaEstimadaPago: date('fecha_estimada_pago'),
+    fechaPago: date('fecha_pago'),
+    aprobadoPor: text('aprobado_por').references(() => users.id, { onDelete: 'set null' }),
+    fechaAprobacion: timestamp('fecha_aprobacion', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('dispersiones_tenant_idx').on(t.tenantId),
+    comisionIdx: index('dispersiones_comision_idx').on(t.comisionId),
+    estadoIdx: index('dispersiones_estado_idx').on(t.tenantId, t.estado),
+    fechaIdx: index('dispersiones_fecha_pago_idx').on(t.fechaPago),
+    liderIdx: index('dispersiones_lider_idx').on(t.liderId),
+    asesorIdx: index('dispersiones_asesor_idx').on(t.asesorId),
+    acumulaIdx: index('dispersiones_acumula_idx').on(t.tenantId, t.acumulaMensual, t.estado),
+    comisionTipoUnique: uniqueIndex('dispersiones_comision_tipo_unique').on(
+      t.comisionId,
+      t.tipoBeneficiario,
+    ),
+  }),
+)
+
+// ─── Bonos al Líder por Meta Cumplida ────────────────────────────────────────
+// Doc §1, §2 y nota operativa: bono % adicional cuando alianza alcanza meta
+// mensual. Lo paga el líder (no afecta cálculo base). Joana lo registra manual.
+
+export const bonosLider = pgTable(
+  'bonos_lider',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    liderId: uuid('lider_id')
+      .notNull()
+      .references(() => lideresAlianza.id, { onDelete: 'cascade' }),
+    afiliadoId: uuid('afiliado_id')
+      .notNull()
+      .references(() => afiliados.id, { onDelete: 'restrict' }),
+    anio: integer('anio').notNull(),
+    mes: integer('mes').notNull(),
+    nivelAlcanzado: nivelAlianzaEnum('nivel_alcanzado').notNull(),
+    promedioVentas: numeric('promedio_ventas', { precision: 18, scale: 2 }).notNull(),
+    porcentajeBono: numeric('porcentaje_bono', { precision: 5, scale: 2 }).notNull(),
+    montoBono: numeric('monto_bono', { precision: 18, scale: 2 }).notNull(),
+    // Cálculo del bono SIEMPRE auto. Reconocimiento de meta puede ser numérico o manual:
+    // NUMERICO_AUTO: cumplio_meta = (promedioVentas >= umbralNivel) sin intervención
+    // MANUAL: Joana o líder setea cumplio_meta basado en criterio cualitativo
+    modoBono: modoBonoEnum('modo_bono').notNull().default('NUMERICO_AUTO'),
+    cumplioMeta: boolean('cumplio_meta').notNull().default(false),
+    // Bono lo paga el LÍDER (no BMCorp). Esta marca refleja status de pago por parte del líder.
+    pagado: boolean('pagado').notNull().default(false),
+    fechaPago: date('fecha_pago'),
+    registradoPor: text('registrado_por').references(() => users.id, { onDelete: 'set null' }),
+    observaciones: text('observaciones'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('bonos_tenant_idx').on(t.tenantId),
+    liderPeriodoUnique: uniqueIndex('bonos_lider_periodo_unique').on(
+      t.tenantId,
+      t.liderId,
+      t.anio,
+      t.mes,
+    ),
+  }),
+)
+
+// ─── Asesores Niveles (modelo híbrido auto + manual) ────────────────────────
+// Sistema calcula nivel_propuesto del promedio últimos 3 meses.
+// Joana confirma nivel_efectivo. Si override → motivo + audit trail.
+
+export const asesoresNiveles = pgTable(
+  'asesores_niveles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    asesorId: uuid('asesor_id')
+      .notNull()
+      .references(() => asesores.id, { onDelete: 'cascade' }),
+    anio: integer('anio').notNull(),
+    mes: integer('mes').notNull(),
+    // Calculado por el sistema (promedio últimos 3 meses)
+    nivelPropuesto: nivelAlianzaEnum('nivel_propuesto'),
+    promedioVentasCalculado: numeric('promedio_ventas_calculado', {
+      precision: 18,
+      scale: 2,
+    }).default('0'),
+    // Confirmado o sobrescrito por Joana
+    nivelEfectivo: nivelAlianzaEnum('nivel_efectivo').notNull(),
+    motivoOverride: text('motivo_override'), // si difiere de propuesto
+    confirmadoPor: text('confirmado_por').references(() => users.id, { onDelete: 'set null' }),
+    confirmadoEn: timestamp('confirmado_en', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('asesores_niveles_tenant_idx').on(t.tenantId),
+    asesorPeriodoUnique: uniqueIndex('asesores_niveles_periodo_unique').on(
+      t.tenantId,
+      t.asesorId,
+      t.anio,
+      t.mes,
+    ),
+  }),
+)
+
+// ─── Pautas Digitales (compromiso vs ejecutado) ──────────────────────────────
+// NO entra al cálculo de comisión. Métrica complementaria de compromiso de
+// marketing budget: Jade→$15k/mes, Turquesa→$10k/mes, Onix→$5k/mes (doc §1 y §2).
+// Alerta si gap entre compromiso y ejecutado > 20%.
+
+export const pautasDigitales = pgTable(
+  'pautas_digitales',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    afiliadoId: uuid('afiliado_id')
+      .notNull()
+      .references(() => afiliados.id, { onDelete: 'restrict' }),
+    liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'set null' }),
+    anio: integer('anio').notNull(),
+    mes: integer('mes').notNull(),
+    nivelVigente: nivelAlianzaEnum('nivel_vigente').notNull(),
+    // Compromiso según nivel (auto del esquema vigente)
+    montoComprometido: numeric('monto_comprometido', { precision: 18, scale: 2 }).notNull(),
+    // Ejecutado real (Joana/Marketing lo captura desde Excel/Drive)
+    montoEjecutado: numeric('monto_ejecutado', { precision: 18, scale: 2 }).notNull().default('0'),
+    // Gap calculado para semáforo. > 20% = alerta
+    porcentajeGap: numeric('porcentaje_gap', { precision: 5, scale: 2 }),
+    capturadoPor: text('capturado_por').references(() => users.id, { onDelete: 'set null' }),
+    observaciones: text('observaciones'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('pautas_tenant_idx').on(t.tenantId),
+    afiliadoPeriodoUnique: uniqueIndex('pautas_afiliado_periodo_unique').on(
+      t.tenantId,
+      t.afiliadoId,
+      t.anio,
+      t.mes,
+    ),
+  }),
+)
+
+// ─── Comprobantes de Pago ────────────────────────────────────────────────────
+// Archivos (PDF/imagen) que acreditan que se pagó una dispersión.
+
+export const comprobantesPago = pgTable(
+  'comprobantes_pago',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    dispersionId: uuid('dispersion_id')
+      .notNull()
+      .references(() => dispersiones.id, { onDelete: 'restrict' }),
+    nombre: text('nombre').notNull(),
+    rutaArchivo: text('ruta_archivo').notNull(),
+    mimeType: text('mime_type').notNull(),
+    tamanioBytes: integer('tamanio_bytes').notNull(),
+    subidoPor: text('subido_por')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    dispersionIdx: index('comprobantes_dispersion_idx').on(t.dispersionId),
+    tenantIdx: index('comprobantes_tenant_idx').on(t.tenantId),
+  }),
+)
+
+// ─── Usuarios del Portal ─────────────────────────────────────────────────────
+// Puente entre users (Better Auth) y entidad del portal (líder o asesor).
+
+export const usuariosPortal = pgTable(
+  'usuarios_portal',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    rolPortal: rolPortalEnum('rol_portal').notNull(),
+    // Exactamente uno tendrá valor según el rolPortal
+    liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'cascade' }),
+    asesorId: uuid('asesor_id').references(() => asesores.id, { onDelete: 'cascade' }),
+    activo: boolean('activo').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userUniqueIdx: uniqueIndex('usuarios_portal_user_unique').on(t.userId),
+    tenantIdx: index('usuarios_portal_tenant_idx').on(t.tenantId),
+    liderIdx: index('usuarios_portal_lider_idx').on(t.liderId),
+    asesorIdx: index('usuarios_portal_asesor_idx').on(t.asesorId),
+  }),
+)
+
+// ─── NPS Registros (captura trimestral interna) ──────────────────────────────
+
+export const npsRegistros = pgTable(
+  'nps_registros',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    empresaEncuestada: text('empresa_encuestada').notNull(),
+    anio: integer('anio').notNull(),
+    trimestre: integer('trimestre').notNull(),
+    puntuacion: integer('puntuacion').notNull(),
+    respondientes: integer('respondientes').notNull().default(0),
+    promotores: integer('promotores').notNull().default(0),
+    detractores: integer('detractores').notNull().default(0),
+    comentarios: text('comentarios'),
+    capturadoPor: text('capturado_por').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantPeriodoUnique: uniqueIndex('nps_tenant_periodo_unique').on(
+      t.tenantId,
+      t.empresaEncuestada,
+      t.anio,
+      t.trimestre,
+    ),
   }),
 )

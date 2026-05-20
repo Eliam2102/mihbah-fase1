@@ -24,6 +24,12 @@
   --accent-foreground: #14532d;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --info: #2563eb;
+  --info-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
   --ring: #16a34a;
@@ -63,6 +69,12 @@
   --accent-foreground: #86efac;
   --destructive: #7f1d1d;
   --destructive-foreground: #fca5a5;
+  --success: #22c55e;
+  --success-foreground: #052e16;
+  --warning: #f59e0b;
+  --warning-foreground: #1a1206;
+  --info: #60a5fa;
+  --info-foreground: #0a1a2e;
   --border: #1f2d2a;
   --input: #1f2d2a;
   --ring: #4ade80;
@@ -101,6 +113,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -140,6 +158,15 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* Breakpoints — defaults Tailwind + ampliados para monitores grandes */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  --breakpoint-3xl: 1920px; /* monitor XL (Full HD ≈ 1920px) */
+  --breakpoint-4xl: 2560px; /* monitor XXL (QHD / iMac 27 5K halved) */
 }
 
 @layer base {
@@ -149,5 +176,11 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+  }
+}
+
+@layer components {
+  .input {
+    @apply bg-background border-input focus:border-ring focus:ring-ring/20 w-full rounded-md border px-2.5 py-1.5 text-sm focus:ring-2 focus:outline-none;
   }
 }

@@ -7,21 +7,42 @@ import { nextCookies } from 'better-auth/next-js'
 const ac = createAccessControl({
   user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
   session: ['list', 'revoke', 'delete'],
+  // Recursos del portal externo (Épica 14)
+  portal: ['acceder'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
 })
 
 const userRole = ac.newRole({})
 const adminRole = ac.newRole({
   user: ['create', 'read', 'update', 'list', 'set-role', 'ban'],
   session: ['list', 'revoke'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
 })
 const superAdminRole = ac.newRole({
   user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
   session: ['list', 'revoke', 'delete'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
 })
 // SaaS owner — cross-tenant, full control
 const superAdminDevRole = ac.newRole({
   user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
   session: ['list', 'revoke', 'delete'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
+})
+// Roles del portal externo (líderes y asesores)
+const liderAlianzaRole = ac.newRole({
+  portal: ['acceder'],
+  comisiones: ['ver'],
+  comprobantes: ['ver'],
+})
+const asesorRole = ac.newRole({
+  portal: ['acceder'],
+  comisiones: ['ver'],
+  comprobantes: ['ver'],
 })
 import { db } from '@/lib/db'
 import { accounts, sessions, users, verifications } from '@/lib/db/schema'
@@ -102,6 +123,8 @@ export const auth = betterAuth({
         admin: adminRole,
         super_admin: superAdminRole,
         super_admin_dev: superAdminDevRole,
+        lider_alianza: liderAlianzaRole,
+        asesor: asesorRole,
       },
       defaultRole: 'user',
       adminRoles: ['admin', 'super_admin', 'super_admin_dev'],

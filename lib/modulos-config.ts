@@ -9,6 +9,7 @@ export type ModuloKey =
   | 'reportes'
   | 'cargas'
   | 'monday'
+  | 'comisiones'
 
 export interface ModuloMeta {
   key: ModuloKey
@@ -68,6 +69,13 @@ export const MODULOS_META: Record<ModuloKey, ModuloMeta> = {
     tieneEdicion: true,
     labelEdicion: 'Puede sincronizar',
   },
+  comisiones: {
+    key: 'comisiones',
+    label: 'Comisiones',
+    descripcion: 'Alianzas, esquemas, dispersiones y comprobantes',
+    tieneEdicion: true,
+    labelEdicion: 'Puede aprobar pagos',
+  },
 }
 
 // Módulos disponibles por tipo de empresa
@@ -76,7 +84,7 @@ export type TipoEmpresaKey = 'CONSTRUCTORA' | 'CAPITAL' | 'COMERCIAL' | 'DEFAULT
 export const MODULOS_POR_TIPO: Record<TipoEmpresaKey, ModuloKey[]> = {
   CONSTRUCTORA: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'cargas'],
   CAPITAL: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'cargas'],
-  COMERCIAL: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'monday'],
+  COMERCIAL: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'monday', 'comisiones'],
   DEFAULT: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes'],
 }
 
