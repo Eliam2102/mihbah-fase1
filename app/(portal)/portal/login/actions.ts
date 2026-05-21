@@ -6,17 +6,19 @@ import { z } from 'zod'
 import { auth } from '@/lib/auth/config'
 import { checkRateLimit } from '@/lib/auth/rate-limiter'
 
-const loginSchema = z.object({
+const portalLoginSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
   password: z.string().min(1, 'La contraseña es requerida'),
 })
 
-type LoginState = { error: string } | null
+type PortalLoginState = { error: string } | null
 
-export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
+export async function portalLoginAction(
+  _prev: PortalLoginState,
+  formData: FormData,
+): Promise<PortalLoginState> {
   const hdrs = await headers()
 
-  // Rate limit by IP
   const ip =
     hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ?? hdrs.get('x-real-ip') ?? 'unknown'
 
@@ -25,7 +27,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: 'Demasiados intentos fallidos. Intenta de nuevo en 15 minutos.' }
   }
 
-  const parsed = loginSchema.safeParse({
+  const parsed = portalLoginSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
   })
@@ -34,13 +36,9 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: parsed.error.errors[0]?.message ?? 'Datos inválidos' }
   }
 
-  // nextCookies() plugin handles Set-Cookie automatically in server actions
   const result = await auth.api
     .signInEmail({
-      body: {
-        email: parsed.data.email,
-        password: parsed.data.password,
-      },
+      body: { email: parsed.data.email, password: parsed.data.password },
       headers: hdrs,
     })
     .catch(() => null)
@@ -53,7 +51,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: `Correo o contraseña incorrectos.${hint}` }
   }
 
-  // Redirect role-based: portal users → /portal/dashboard, admin → /dashboard
+  // Portal solo para roles portal — admin sigue al dashboard admin (guard rebota)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const role = (result.user as any)?.role
   const destino = role === 'lider_alianza' || role === 'asesor' ? '/portal/dashboard' : '/dashboard'

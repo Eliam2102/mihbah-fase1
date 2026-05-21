@@ -255,44 +255,89 @@ export async function getFlujoSemanal(
     await setTenant(tx, tenantId)
     const useDispersiones = await usarDispersionesNuevas(tx, tenantId, empresaId)
 
-    // Ingresos confirmados: ventas con fechaCierre, agrupadas por semana ISO
-    const ingresoRows = await tx
-      .select({
-        semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaCierre}), 'YYYY-MM-DD')`,
-        monto: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
-      })
-      .from(ventasBmcorp)
-      .where(
-        and(
-          eq(ventasBmcorp.tenantId, tenantId),
-          eq(ventasBmcorp.empresaId, empresaId),
-          sql`${ventasBmcorp.fechaCierre} IS NOT NULL`,
-          sql`${ventasBmcorp.fechaCierre} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
-          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
-        ),
-      )
-      .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
-      .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
+    let ingresoRows: { semana: string; monto: string }[] = []
+    let proyectadoRows: { semana: string; monto: string }[] = []
 
-    // Ingresos proyectados: ventas abiertas (sin fechaCierre), por fechaApertura
-    const proyectadoRows = await tx
-      .select({
-        semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaApertura}), 'YYYY-MM-DD')`,
-        monto: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
-      })
-      .from(ventasBmcorp)
-      .where(
-        and(
-          eq(ventasBmcorp.tenantId, tenantId),
-          eq(ventasBmcorp.empresaId, empresaId),
-          sql`${ventasBmcorp.fechaCierre} IS NULL`,
-          sql`${ventasBmcorp.fechaApertura} IS NOT NULL`,
-          sql`${ventasBmcorp.fechaApertura} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
-          notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
-        ),
-      )
-      .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
-      .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
+    if (useDispersiones) {
+      // Ingresos confirmados reales (comisión bruta local)
+      ingresoRows = await tx
+        .select({
+          semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaCierre}), 'YYYY-MM-DD')`,
+          monto: sql<string>`COALESCE(SUM(${comisionesCalculadas.comisionBrutaTotal}), 0)::text`,
+        })
+        .from(comisionesCalculadas)
+        .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+        .where(
+          and(
+            eq(comisionesCalculadas.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            sql`${ventasBmcorp.fechaCierre} IS NOT NULL`,
+            sql`${ventasBmcorp.fechaCierre} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
+            notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
+          ),
+        )
+        .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
+        .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
+
+      // Ingresos proyectados reales (comisión bruta local)
+      proyectadoRows = await tx
+        .select({
+          semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaApertura}), 'YYYY-MM-DD')`,
+          monto: sql<string>`COALESCE(SUM(${comisionesCalculadas.comisionBrutaTotal}), 0)::text`,
+        })
+        .from(comisionesCalculadas)
+        .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+        .where(
+          and(
+            eq(comisionesCalculadas.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            sql`${ventasBmcorp.fechaCierre} IS NULL`,
+            sql`${ventasBmcorp.fechaApertura} IS NOT NULL`,
+            sql`${ventasBmcorp.fechaApertura} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
+            notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
+          ),
+        )
+        .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
+        .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
+    } else {
+      // Fallback legacy (comisión bruta de Monday)
+      ingresoRows = await tx
+        .select({
+          semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaCierre}), 'YYYY-MM-DD')`,
+          monto: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+        })
+        .from(ventasBmcorp)
+        .where(
+          and(
+            eq(ventasBmcorp.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            sql`${ventasBmcorp.fechaCierre} IS NOT NULL`,
+            sql`${ventasBmcorp.fechaCierre} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
+            notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
+          ),
+        )
+        .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
+        .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaCierre})`)
+
+      proyectadoRows = await tx
+        .select({
+          semana: sql<string>`TO_CHAR(DATE_TRUNC('week', ${ventasBmcorp.fechaApertura}), 'YYYY-MM-DD')`,
+          monto: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+        })
+        .from(ventasBmcorp)
+        .where(
+          and(
+            eq(ventasBmcorp.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            sql`${ventasBmcorp.fechaCierre} IS NULL`,
+            sql`${ventasBmcorp.fechaApertura} IS NOT NULL`,
+            sql`${ventasBmcorp.fechaApertura} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
+            notInArray(ventasBmcorp.estadoVenta, ['CANCELADA']),
+          ),
+        )
+        .groupBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
+        .orderBy(sql`DATE_TRUNC('week', ${ventasBmcorp.fechaApertura})`)
+    }
 
     // Egresos: nuevo módulo usa dispersiones.fechaPago (solo PAGADO/PARCIAL)
     const egresoRows = useDispersiones
@@ -425,9 +470,11 @@ export async function getRemanentesPorAfiliado(
   empresaId: string,
   tenantId: string,
   limit = 50,
+  period?: PeriodFilter,
 ): Promise<RemanenteItem[]> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
+    const range = periodRange(period)
 
     // Todas las alianzas activas con su vendido (LEFT JOIN — incluye las que no tienen ventas)
     const ventasRows = await tx
@@ -449,6 +496,29 @@ export async function getRemanentesPorAfiliado(
       .groupBy(afiliados.id, afiliados.nombre)
       .orderBy(desc(sql`COALESCE(SUM(${ventasBmcorp.monto}), 0)`))
       .limit(limit)
+
+    // Vendido en período (filtrado por fecha de venta)
+    const vendidoPeriodoMap = new Map<string, number>()
+    if (range) {
+      const periodoRows = await tx
+        .select({
+          afiliadoId: ventasBmcorp.afiliadoId,
+          monto: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
+        })
+        .from(ventasBmcorp)
+        .where(
+          and(
+            eq(ventasBmcorp.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            gte(ventasBmcorp.fecha, range.from),
+            lte(ventasBmcorp.fecha, range.to),
+          ),
+        )
+        .groupBy(ventasBmcorp.afiliadoId)
+      for (const r of periodoRows) {
+        if (r.afiliadoId) vendidoPeriodoMap.set(r.afiliadoId, Number(r.monto))
+      }
+    }
 
     const useDispersiones = await usarDispersionesNuevas(tx, tenantId, empresaId)
 
@@ -490,10 +560,12 @@ export async function getRemanentesPorAfiliado(
     return ventasRows.map((v) => {
       const vendido = Number(v.vendido)
       const repartos = repartosMap.get(v.afiliadoId) ?? 0
+      const vendidoPeriodo = vendidoPeriodoMap.get(v.afiliadoId) ?? 0
       return {
         afiliadoId: v.afiliadoId,
         nombre: v.nombre,
         vendido,
+        vendidoPeriodo,
         repartos,
         remanente: vendido - repartos,
       }
@@ -544,18 +616,25 @@ export async function getUltimaSync(empresaId: string, tenantId: string): Promis
 export async function getRepartosSplit(
   empresaId: string,
   tenantId: string,
+  period?: PeriodFilter,
 ): Promise<RepartosSplit> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
     const useDispersiones = await usarDispersionesNuevas(tx, tenantId, empresaId)
+    const range = periodRange(period)
 
     if (useDispersiones) {
-      // Filtro: solo dispersiones tipo LIDER_SALDO + ASESOR (las que van a la red comercial)
-      const rows = await tx
+      // Realizado/parcial filtran por fechaPago en período (transaccional).
+      // Pendiente queda sin filtro: deuda viva histórica.
+      const periodoWhere = range
+        ? and(gte(dispersiones.fechaPago, range.from), lte(dispersiones.fechaPago, range.to))
+        : undefined
+
+      const pagadosRows = await tx
         .select({
           estado: dispersiones.estado,
           count: sql<number>`COUNT(*)::int`,
-          monto: sql<string>`COALESCE(SUM(${dispersiones.montoTotal}), 0)::text`,
+          monto: sql<string>`COALESCE(SUM(${dispersiones.montoPagado}), 0)::text`,
         })
         .from(dispersiones)
         .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
@@ -565,9 +644,29 @@ export async function getRepartosSplit(
             eq(dispersiones.tenantId, tenantId),
             eq(ventasBmcorp.empresaId, empresaId),
             inArray(dispersiones.tipoBeneficiario, ['LIDER_SALDO', 'ASESOR']),
+            inArray(dispersiones.estado, ['PAGADO', 'PARCIAL']),
+            periodoWhere,
           ),
         )
         .groupBy(dispersiones.estado)
+
+      // Pendiente: sin filtro de período (histórico vivo).
+      const [pendienteRow] = await tx
+        .select({
+          count: sql<number>`COUNT(*)::int`,
+          monto: sql<string>`COALESCE(SUM(${dispersiones.montoTotal} - ${dispersiones.montoPagado}), 0)::text`,
+        })
+        .from(dispersiones)
+        .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+        .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+        .where(
+          and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            inArray(dispersiones.tipoBeneficiario, ['LIDER_SALDO', 'ASESOR']),
+            notInArray(dispersiones.estado, ['PAGADO']),
+          ),
+        )
 
       const [ultimoRow] = await tx
         .select({ ultimo: sql<string | null>`MAX(${dispersiones.fechaPago})::text` })
@@ -585,23 +684,22 @@ export async function getRepartosSplit(
       const result: RepartosSplit = {
         realizado: { count: 0, monto: 0 },
         parcial: { count: 0, monto: 0 },
-        pendiente: { count: 0, monto: 0 },
+        pendiente: {
+          count: Number(pendienteRow?.count ?? 0),
+          monto: Number(pendienteRow?.monto ?? 0),
+        },
         totalMonto: 0,
         ultimoReparto: ultimoRow?.ultimo ?? null,
-        sinDatos: rows.length === 0,
+        sinDatos: pagadosRows.length === 0 && Number(pendienteRow?.count ?? 0) === 0,
       }
-      for (const r of rows) {
+      for (const r of pagadosRows) {
         const monto = Number(r.monto)
         const count = Number(r.count)
         result.totalMonto += monto
         if (r.estado === 'PAGADO') result.realizado = { count, monto }
         else if (r.estado === 'PARCIAL') result.parcial = { count, monto }
-        else
-          result.pendiente = {
-            count: result.pendiente.count + count,
-            monto: result.pendiente.monto + monto,
-          }
       }
+      result.totalMonto += result.pendiente.monto
       return result
     }
 
@@ -672,22 +770,41 @@ export async function countVentasTotal(empresaId: string, tenantId: string): Pro
 export async function getComisionamientoConciliado(
   empresaId: string,
   tenantId: string,
+  period?: PeriodFilter,
 ): Promise<ComisionamientoConciliado> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
     const useDispersiones = await usarDispersionesNuevas(tx, tenantId, empresaId)
+    const range = periodRange(period)
 
     if (useDispersiones) {
-      // Total = comisión bruta total de todas las comisiones calculadas
+      // Total generado del período: comisión bruta de ventas con fecha en período
+      const genWhere = range
+        ? and(
+            eq(comisionesCalculadas.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            gte(ventasBmcorp.fecha, range.from),
+            lte(ventasBmcorp.fecha, range.to),
+          )
+        : and(eq(comisionesCalculadas.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId))
+
       const [genRow] = await tx
         .select({
           total: sql<string>`COALESCE(SUM(${comisionesCalculadas.comisionBrutaTotal}), 0)::text`,
         })
         .from(comisionesCalculadas)
         .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
-        .where(
-          and(eq(comisionesCalculadas.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)),
-        )
+        .where(genWhere)
+
+      // Pagado/parcial del período: dispersiones con fechaPago en período
+      const pagoWhere = range
+        ? and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            gte(dispersiones.fechaPago, range.from),
+            lte(dispersiones.fechaPago, range.to),
+          )
+        : and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId))
 
       const pagoRows = await tx
         .select({
@@ -697,8 +814,24 @@ export async function getComisionamientoConciliado(
         .from(dispersiones)
         .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
         .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
-        .where(and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+        .where(pagoWhere)
         .groupBy(dispersiones.estado)
+
+      // Pendiente: deuda viva histórica = SUM(montoTotal - montoPagado) de todas las dispersiones no pagadas
+      const [pendienteRow] = await tx
+        .select({
+          monto: sql<string>`COALESCE(SUM(${dispersiones.montoTotal} - ${dispersiones.montoPagado}), 0)::text`,
+        })
+        .from(dispersiones)
+        .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+        .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+        .where(
+          and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            notInArray(dispersiones.estado, ['PAGADO']),
+          ),
+        )
 
       const totalGenerado = Number(genRow?.total ?? 0)
       let pagado = 0
@@ -708,7 +841,7 @@ export async function getComisionamientoConciliado(
         if (r.estado === 'PAGADO') pagado += monto
         else if (r.estado === 'PARCIAL') parcial += monto
       }
-      const pendiente = Math.max(0, totalGenerado - pagado - parcial)
+      const pendiente = Number(pendienteRow?.monto ?? 0)
       const porcentajeConciliado =
         totalGenerado > 0 ? Math.round(((pagado + parcial) / totalGenerado) * 100) : 0
       return {
@@ -717,7 +850,7 @@ export async function getComisionamientoConciliado(
         parcial,
         pendiente,
         porcentajeConciliado,
-        sinDatos: totalGenerado === 0,
+        sinDatos: totalGenerado === 0 && pendiente === 0,
       }
     }
 
@@ -799,21 +932,44 @@ export async function getSemaforoBmcorp(
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
 
-    const [row] = await tx
-      .select({
-        total: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
-      })
-      .from(ventasBmcorp)
-      .where(
-        and(
-          eq(ventasBmcorp.tenantId, tenantId),
-          eq(ventasBmcorp.empresaId, empresaId),
-          gte(ventasBmcorp.fechaApertura, from),
-          lte(ventasBmcorp.fechaApertura, to),
-        ),
-      )
+    const useDispersiones = await usarDispersionesNuevas(tx, tenantId, empresaId)
 
-    const comisionesMes = Number(row?.total ?? 0)
+    let comisionesMes = 0
+
+    if (useDispersiones) {
+      // Sumamos la comisión bruta real calculada localmente
+      const [row] = await tx
+        .select({
+          total: sql<string>`COALESCE(SUM(${comisionesCalculadas.comisionBrutaTotal}), 0)::text`,
+        })
+        .from(comisionesCalculadas)
+        .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+        .where(
+          and(
+            eq(comisionesCalculadas.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            gte(ventasBmcorp.fecha, from),
+            lte(ventasBmcorp.fecha, to),
+          ),
+        )
+      comisionesMes = Number(row?.total ?? 0)
+    } else {
+      // Fallback legacy (Monday puro)
+      const [row] = await tx
+        .select({
+          total: sql<string>`COALESCE(SUM(${ventasBmcorp.comisionBmcorp}), 0)::text`,
+        })
+        .from(ventasBmcorp)
+        .where(
+          and(
+            eq(ventasBmcorp.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            gte(ventasBmcorp.fecha, from),
+            lte(ventasBmcorp.fecha, to),
+          ),
+        )
+      comisionesMes = Number(row?.total ?? 0)
+    }
 
     if (comisionesMes > 500_000) {
       return {

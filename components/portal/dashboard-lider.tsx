@@ -126,7 +126,20 @@ export function DashboardLider({
           </div>
           <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Hola, {userName}</h1>
           <p className="text-jade-50/90 mt-2 text-sm sm:text-base">
-            Alianza <span className="font-semibold">{perfil.alianzaNombre ?? '—'}</span>
+            {perfil.alianzasNombres.length === 0 ? (
+              <>
+                Alianza <span className="font-semibold">—</span>
+              </>
+            ) : perfil.alianzasNombres.length === 1 ? (
+              <>
+                Alianza <span className="font-semibold">{perfil.alianzasNombres[0]}</span>
+              </>
+            ) : (
+              <>
+                {perfil.alianzasNombres.length} alianzas:{' '}
+                <span className="font-semibold">{perfil.alianzasNombres.join(' · ')}</span>
+              </>
+            )}
             {perfil.liderNombre && perfil.liderNombre !== userName && (
               <> · representando a {perfil.liderNombre}</>
             )}
@@ -305,6 +318,11 @@ export function DashboardLider({
                   <thead className="bg-muted/40 text-muted-foreground text-xs">
                     <tr>
                       <th className="px-4 py-2.5 text-left font-medium">Cliente</th>
+                      {perfil.alianzasNombres.length > 1 && (
+                        <th className="hidden px-4 py-2.5 text-left font-medium lg:table-cell">
+                          Alianza
+                        </th>
+                      )}
                       <th className="hidden px-4 py-2.5 text-left font-medium md:table-cell">
                         Asesor
                       </th>
@@ -329,6 +347,13 @@ export function DashboardLider({
                               </div>
                             )}
                           </td>
+                          {perfil.alianzasNombres.length > 1 && (
+                            <td className="hidden px-4 py-3 lg:table-cell">
+                              <span className="bg-primary/10 text-primary inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium">
+                                {d.alianzaNombre ?? '—'}
+                              </span>
+                            </td>
+                          )}
                           <td className="text-muted-foreground hidden px-4 py-3 text-xs md:table-cell">
                             {d.asesorNombre ?? '—'}
                           </td>
@@ -391,6 +416,11 @@ export function DashboardLider({
                             <p className="text-foreground truncate text-sm font-semibold">
                               {d.ventaCliente}
                             </p>
+                            {perfil.alianzasNombres.length > 1 && d.alianzaNombre && (
+                              <span className="bg-primary/10 text-primary mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-medium">
+                                {d.alianzaNombre}
+                              </span>
+                            )}
                             <p className="text-muted-foreground truncate text-[11px]">
                               {d.asesorNombre ?? '—'}
                             </p>

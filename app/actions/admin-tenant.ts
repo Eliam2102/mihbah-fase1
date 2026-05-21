@@ -38,3 +38,21 @@ export async function actionCreateTenant(raw: unknown): Promise<AdminTenantResul
     return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' }
   }
 }
+
+// Wrapper para Server Action con <form action={...}>
+export async function actionCreateTenantFromForm(
+  _prev: AdminTenantResult | null,
+  formData: FormData,
+): Promise<AdminTenantResult> {
+  return actionCreateTenant({
+    tenantName: formData.get('tenantName'),
+    slug: formData.get('slug'),
+    orgName: formData.get('orgName'),
+    empresaNombre: formData.get('empresaNombre'),
+    empresaTipo: formData.get('empresaTipo'),
+    empresaFuente: formData.get('empresaFuente'),
+    adminName: formData.get('adminName'),
+    adminEmail: formData.get('adminEmail'),
+    adminPassword: formData.get('adminPassword'),
+  })
+}

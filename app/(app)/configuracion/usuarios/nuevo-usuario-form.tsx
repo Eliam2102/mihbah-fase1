@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { actionCreateUser } from '@/app/actions/admin-user'
+import { actionCreateUserFromForm } from '@/app/actions/admin-user'
 import { Users } from 'lucide-react'
 
 interface Props {
@@ -12,41 +12,25 @@ interface Props {
 export function NuevoUsuarioForm({ empresas }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'user' as 'super_admin' | 'admin' | 'user',
-    empresaIds: [] as string[],
-  })
+  const [empresaIds, setEmpresaIds] = useState<string[]>([])
+  const [state, action, pending] = useActionState(
+    async (
+      prev: Awaited<ReturnType<typeof actionCreateUserFromForm>> | null,
+      formData: FormData,
+    ) => {
+      const result = await actionCreateUserFromForm(prev, formData)
+      if (result?.ok) {
+        setOpen(false)
+        setEmpresaIds([])
+        router.refresh()
+      }
+      return result
+    },
+    null,
+  )
 
   function toggleEmpresa(id: string) {
-    setForm((f) => ({
-      ...f,
-      empresaIds: f.empresaIds.includes(id)
-        ? f.empresaIds.filter((e) => e !== id)
-        : [...f.empresaIds, id],
-    }))
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    const result = await actionCreateUser(form)
-    setLoading(false)
-
-    if (result.ok) {
-      setOpen(false)
-      setForm({ name: '', email: '', password: '', role: 'user', empresaIds: [] })
-      router.refresh()
-    } else {
-      setError(result.error ?? 'Error desconocido')
-    }
+    setEmpresaIds((prev) => (prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]))
   }
 
   if (!open) {
@@ -73,25 +57,28 @@ export function NuevoUsuarioForm({ empresas }: Props) {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form action={action} className="space-y-4">
+        {/* Hidden inputs para empresaIds (FormData.getAll soporta múltiples) */}
+        {empresaIds.map((id) => (
+          <input key={id} type="hidden" name="empresaIds" value={id} />
+        ))}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="text-foreground mb-1.5 block text-sm font-medium">Nombre</label>
             <input
+              name="name"
               type="text"
               required
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               className="border-border bg-background text-foreground w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
             />
           </div>
           <div>
             <label className="text-foreground mb-1.5 block text-sm font-medium">Email</label>
             <input
+              name="email"
               type="email"
               required
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               className="border-border bg-background text-foreground w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
             />
           </div>
@@ -103,19 +90,19 @@ export function NuevoUsuarioForm({ empresas }: Props) {
               Contraseña temporal
             </label>
             <input
+              name="password"
               type="password"
               required
               minLength={8}
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              autoComplete="new-password"
               className="border-border bg-background text-foreground w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
             />
           </div>
           <div>
             <label className="text-foreground mb-1.5 block text-sm font-medium">Rol</label>
             <select
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as typeof form.role }))}
+              name="role"
+              defaultValue="user"
               className="border-border bg-background text-foreground w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
             >
               <option value="super_admin">Super Admin</option>
@@ -137,7 +124,7 @@ export function NuevoUsuarioForm({ empresas }: Props) {
                   type="button"
                   onClick={() => toggleEmpresa(e.id)}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    form.empresaIds.includes(e.id)
+                    empresaIds.includes(e.id)
                       ? 'border-green-600 bg-green-600 text-white'
                       : 'border-border text-muted-foreground hover:border-green-600'
                   }`}
@@ -149,18 +136,18 @@ export function NuevoUsuarioForm({ empresas }: Props) {
           </div>
         )}
 
-        {error && (
+        {state && !state.ok && state.error && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-            {error}
+            {state.error}
           </p>
         )}
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={pending}
           className="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
-          {loading ? 'Creando...' : 'Crear usuario'}
+          {pending ? 'Creando...' : 'Crear usuario'}
         </button>
       </form>
     </div>

@@ -4,9 +4,10 @@ import { formatMXN } from '@/lib/utils'
 
 interface Props {
   data: RepartosSplit
+  periodLabel?: string
 }
 
-export function BmcorpRepartosCard({ data }: Props) {
+export function BmcorpRepartosCard({ data, periodLabel }: Props) {
   return (
     <div className="border-border bg-card rounded-xl border p-5">
       <div className="mb-4 flex items-center gap-2">
@@ -37,6 +38,7 @@ export function BmcorpRepartosCard({ data }: Props) {
             </p>
             <p className="text-muted-foreground mt-0.5 text-xs">
               {data.realizado.count} {data.realizado.count === 1 ? 'pago' : 'pagos'}
+              {periodLabel ? ` · ${periodLabel}` : ''}
             </p>
           </div>
           <div className="text-center">
@@ -48,6 +50,7 @@ export function BmcorpRepartosCard({ data }: Props) {
             </p>
             <p className="text-muted-foreground mt-0.5 text-xs">
               {data.parcial.count} {data.parcial.count === 1 ? 'pago' : 'pagos'}
+              {periodLabel ? ` · ${periodLabel}` : ''}
             </p>
           </div>
           <div className="text-center">
@@ -58,7 +61,8 @@ export function BmcorpRepartosCard({ data }: Props) {
               {formatMXN(data.pendiente.monto)}
             </p>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              {data.pendiente.count} {data.pendiente.count === 1 ? 'reparto' : 'repartos'}
+              {data.pendiente.count} {data.pendiente.count === 1 ? 'reparto' : 'repartos'} · saldo
+              vivo
             </p>
           </div>
         </div>

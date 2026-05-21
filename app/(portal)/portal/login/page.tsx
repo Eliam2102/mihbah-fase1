@@ -1,37 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { authClient } from '@/lib/auth/client'
 import { Loader2, LogIn, Wallet, ShieldCheck } from 'lucide-react'
+import { portalLoginAction } from './actions'
 
 export default function PortalLoginPage() {
   const searchParams = useSearchParams()
   const callbackError = searchParams.get('error')
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setPending(true)
-
-    const data = new FormData(e.currentTarget)
-    const email = data.get('email') as string
-    const password = data.get('password') as string
-
-    const result = await authClient.signIn.email({ email, password })
-
-    if (result.error) {
-      setError('Correo o contraseña incorrectos.')
-      setPending(false)
-      return
-    }
-
-    // Hard reload: fuerza fresh server render con sesión nueva, evita reusar
-    // árbol RSC cacheado de un usuario anterior.
-    window.location.replace('/portal/dashboard')
-  }
+  const [state, action, pending] = useActionState(portalLoginAction, null)
 
   return (
     <div className="-mx-4 -my-6 grid min-h-[calc(100vh-7rem)] place-items-center sm:-mx-6 sm:-my-8 lg:-mx-8">
@@ -62,7 +39,7 @@ export default function PortalLoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
+            <form action={action} className="mt-5 space-y-3.5">
               <div>
                 <label htmlFor="email" className="text-foreground mb-1.5 block text-xs font-medium">
                   Correo electrónico
@@ -95,9 +72,9 @@ export default function PortalLoginPage() {
                 />
               </div>
 
-              {error && (
+              {state && 'error' in state && (
                 <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-md border p-2.5 text-xs">
-                  {error}
+                  {state.error}
                 </div>
               )}
 

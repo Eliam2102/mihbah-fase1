@@ -17,6 +17,9 @@ const client =
     max: process.env.NODE_ENV === 'production' ? 20 : 10,
     idle_timeout: 20,
     connect_timeout: 10,
+    // Recicla cada conexión cada 30min (1800s). Evita sockets stale por
+    // OS-level TCP timeouts cuando dev mac va a dormir / wifi cambia.
+    max_lifetime: 60 * 30,
   })
 
 if (process.env.NODE_ENV !== 'production') {

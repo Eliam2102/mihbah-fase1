@@ -4,9 +4,10 @@ import { formatMXN } from '@/lib/utils'
 
 interface Props {
   data: ComisionamientoConciliado
+  periodLabel?: string
 }
 
-export function BmcorpComisionamiento({ data }: Props) {
+export function BmcorpComisionamiento({ data, periodLabel }: Props) {
   return (
     <div className="border-border bg-card rounded-xl border p-5">
       <div className="mb-4 flex items-center gap-2">
@@ -17,7 +18,9 @@ export function BmcorpComisionamiento({ data }: Props) {
       <div className="space-y-3">
         {/* Total generado */}
         <div className="flex items-baseline justify-between">
-          <span className="text-muted-foreground text-xs">Comisión generada (BM CORP)</span>
+          <span className="text-muted-foreground text-xs">
+            Comisión generada{periodLabel ? ` · ${periodLabel}` : ''}
+          </span>
           <span className="text-foreground text-lg font-bold tabular-nums">
             {formatMXN(data.totalGenerado)}
           </span>
@@ -61,13 +64,18 @@ export function BmcorpComisionamiento({ data }: Props) {
                 <p className="mt-1 text-sm font-bold text-red-700 tabular-nums dark:text-red-300">
                   {formatMXN(data.pendiente)}
                 </p>
+                <p className="mt-0.5 text-[10px] text-red-600/80 dark:text-red-400/80">
+                  saldo vivo
+                </p>
               </div>
             </div>
 
             {/* Progress bar */}
             <div>
               <div className="flex items-baseline justify-between text-xs">
-                <span className="text-muted-foreground">Conciliado</span>
+                <span className="text-muted-foreground">
+                  Conciliado{periodLabel ? ` · ${periodLabel}` : ''}
+                </span>
                 <span className="text-foreground font-semibold tabular-nums">
                   {data.porcentajeConciliado}%
                 </span>

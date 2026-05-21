@@ -33,8 +33,24 @@ interface Props {
   mes?: number
 }
 
+const MESES_ES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
+
 export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props) {
   const period = mes ? { anio, mes } : { anio }
+  const periodLabel = mes ? `${MESES_ES[mes - 1]} ${anio}` : `${anio}`
 
   const [
     kpis,
@@ -52,9 +68,9 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
     getRankingAfiliados(empresaId, tenantId, period, 10),
     getRankingDesarrollos(empresaId, tenantId, period, 10),
     getFlujoSemanal(empresaId, tenantId, 12),
-    getRepartosSplit(empresaId, tenantId),
-    getRemanentesPorAfiliado(empresaId, tenantId, 50),
-    getComisionamientoConciliado(empresaId, tenantId),
+    getRepartosSplit(empresaId, tenantId, period),
+    getRemanentesPorAfiliado(empresaId, tenantId, 50, period),
+    getComisionamientoConciliado(empresaId, tenantId, period),
     getUltimaSync(empresaId, tenantId),
     countVentasTotal(empresaId, tenantId),
     getSemaforoBmcorp(empresaId, tenantId),
@@ -147,20 +163,22 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
         {/* DERECHA — Pagos y flujo */}
         <div className="space-y-6">
           {/* Repartos card con split */}
-          <BmcorpRepartosCard data={repartosSplit} />
+          <BmcorpRepartosCard data={repartosSplit} periodLabel={periodLabel} />
 
           {/* Flujo semanal */}
           <BmcorpFlujoSemanal data={flujo} />
 
           {/* Comisionamiento conciliado */}
-          <BmcorpComisionamiento data={comisionamiento} />
+          <BmcorpComisionamiento data={comisionamiento} periodLabel={periodLabel} />
 
           {/* Remanentes por afiliado — debajo de Comisionamiento */}
           <div className="border-border bg-card rounded-xl border p-5">
             <div className="mb-4 flex items-center gap-2">
               <Cloud className="text-jade-600 h-4 w-4" />
               <h3 className="text-foreground text-sm font-semibold">Remanentes por afiliado</h3>
-              <span className="text-muted-foreground text-xs">(vendido − repartos)</span>
+              <span className="text-muted-foreground text-xs">
+                (saldo vivo — histórico, todos los años)
+              </span>
             </div>
 
             {remanentes.length === 0 ? (
@@ -176,7 +194,10 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
                         Afiliado
                       </th>
                       <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
-                        Vendido
+                        Generado · {periodLabel}
+                      </th>
+                      <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
+                        Vendido histórico
                       </th>
                       <th className="text-muted-foreground px-3 py-2 text-right text-xs font-semibold tracking-wide uppercase">
                         Repartos
@@ -190,6 +211,9 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
                     {remanentes.map((r) => (
                       <tr key={r.afiliadoId} className="border-border border-b last:border-0">
                         <td className="text-foreground px-3 py-2.5 font-medium">{r.nombre}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold text-blue-600 tabular-nums dark:text-blue-400">
+                          {formatMXN(r.vendidoPeriodo)}
+                        </td>
                         <td className="text-foreground px-3 py-2.5 text-right tabular-nums">
                           {formatMXN(r.vendido)}
                         </td>

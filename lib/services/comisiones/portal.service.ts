@@ -19,18 +19,26 @@ import {
   usuariosPortal,
   ventasBmcorp,
   afiliados,
+  users,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, or, isNull } from 'drizzle-orm'
 
 export interface PerfilPortal {
   rolPortal: 'LIDER_ALIANZA' | 'ASESOR'
   tenantId: string
+  // Líder primario (compat con UI / tests). Para queries usa liderIds.
   liderId: string | null
   asesorId: string | null
+  // Todos los IDs lideres_alianza donde el email del user coincide (email o email_alterno).
+  // Un líder puede tener N alianzas; ve TODAS las dispersiones de sus alianzas.
+  liderIds: string[]
+  asesorIds: string[]
   liderNombre: string | null
   asesorNombre: string | null
   alianzaNombre: string | null
+  // Nombres de TODAS las alianzas del líder/asesor (para UI multi-alianza).
+  alianzasNombres: string[]
 }
 
 export interface DispersionPortal {
@@ -53,6 +61,9 @@ export interface DispersionPortal {
   tipoProducto: string
   // Si la dispersión tiene un asesor asociado distinto, para contexto del líder
   asesorNombre: string | null
+  // Alianza (afiliado) a la que pertenece esta dispersión — útil cuando un
+  // líder tiene N alianzas para distinguir de cuál viene cada dispersión.
+  alianzaNombre: string | null
 }
 
 // ─── Perfil del usuario portal autenticado ───────────────────────────────────
@@ -64,34 +75,87 @@ export async function getPerfilPortal(userId: string): Promise<PerfilPortal | nu
       usuario: usuariosPortal,
       lider: lideresAlianza,
       asesor: asesores,
+      userEmail: users.email,
     })
     .from(usuariosPortal)
+    .innerJoin(users, eq(usuariosPortal.userId, users.id))
     .leftJoin(lideresAlianza, eq(usuariosPortal.liderId, lideresAlianza.id))
     .leftJoin(asesores, eq(usuariosPortal.asesorId, asesores.id))
     .where(and(eq(usuariosPortal.userId, userId), eq(usuariosPortal.activo, true)))
     .limit(1)
   if (!row) return null
 
-  // Obtener alianza nombre
-  const afId = row.lider?.afiliadoId ?? row.asesor?.afiliadoId
-  let alianzaNombre: string | null = null
-  if (afId) {
-    const [af] = await db
-      .select({ nombre: afiliados.nombre })
+  // Líder puede tener N alianzas (N rows en lideres_alianza con el mismo email).
+  // Asesor igual (raro pero soportado). Buscar TODOS los IDs por email matching.
+  const tenantId = row.usuario.tenantId
+  const userEmailLower = row.userEmail.toLowerCase()
+
+  let liderIds: string[] = []
+  let asesorIds: string[] = []
+  let alianzasIds: string[] = []
+
+  if (row.usuario.rolPortal === 'LIDER_ALIANZA') {
+    const lideres = await db
+      .select({ id: lideresAlianza.id, afiliadoId: lideresAlianza.afiliadoId })
+      .from(lideresAlianza)
+      .where(
+        and(
+          eq(lideresAlianza.tenantId, tenantId),
+          isNull(lideresAlianza.deletedAt),
+          eq(lideresAlianza.activo, true),
+          or(
+            eq(lideresAlianza.email, userEmailLower),
+            eq(lideresAlianza.emailAlterno, userEmailLower),
+          ),
+        ),
+      )
+    liderIds = lideres.map((l) => l.id)
+    alianzasIds = lideres.map((l) => l.afiliadoId)
+    // Fallback al liderId del usuariosPortal si email matching no encontró nada.
+    if (liderIds.length === 0 && row.usuario.liderId) {
+      liderIds = [row.usuario.liderId]
+      if (row.lider?.afiliadoId) alianzasIds = [row.lider.afiliadoId]
+    }
+  } else {
+    const ases = await db
+      .select({ id: asesores.id, afiliadoId: asesores.afiliadoId })
+      .from(asesores)
+      .where(
+        and(
+          eq(asesores.tenantId, tenantId),
+          eq(asesores.activo, true),
+          eq(asesores.email, userEmailLower),
+        ),
+      )
+    asesorIds = ases.map((a) => a.id)
+    alianzasIds = ases.map((a) => a.afiliadoId)
+    if (asesorIds.length === 0 && row.usuario.asesorId) {
+      asesorIds = [row.usuario.asesorId]
+      if (row.asesor?.afiliadoId) alianzasIds = [row.asesor.afiliadoId]
+    }
+  }
+
+  // Obtener nombres de TODAS las alianzas asociadas.
+  let alianzasNombres: string[] = []
+  if (alianzasIds.length > 0) {
+    const afs = await db
+      .select({ id: afiliados.id, nombre: afiliados.nombre })
       .from(afiliados)
-      .where(eq(afiliados.id, afId))
-      .limit(1)
-    alianzaNombre = af?.nombre ?? null
+      .where(inArray(afiliados.id, alianzasIds))
+    alianzasNombres = afs.map((a) => a.nombre).sort((a, b) => a.localeCompare(b))
   }
 
   return {
     rolPortal: row.usuario.rolPortal,
-    tenantId: row.usuario.tenantId,
+    tenantId,
     liderId: row.usuario.liderId,
     asesorId: row.usuario.asesorId,
+    liderIds,
+    asesorIds,
     liderNombre: row.lider?.nombre ?? null,
     asesorNombre: row.asesor?.nombre ?? null,
-    alianzaNombre,
+    alianzaNombre: alianzasNombres[0] ?? null,
+    alianzasNombres,
   }
 }
 
@@ -100,8 +164,8 @@ export async function getPerfilPortal(userId: string): Promise<PerfilPortal | nu
 
 export async function getComisionesPortalAsesor(userId: string): Promise<DispersionPortal[]> {
   const perfil = await getPerfilPortal(userId)
-  if (!perfil || perfil.rolPortal !== 'ASESOR' || !perfil.asesorId) return []
-  const asesorId = perfil.asesorId
+  if (!perfil || perfil.rolPortal !== 'ASESOR' || perfil.asesorIds.length === 0) return []
+  const asesorIds = perfil.asesorIds
 
   return db.transaction(async (tx) => {
     await setTenant(tx, perfil.tenantId)
@@ -112,17 +176,19 @@ export async function getComisionesPortalAsesor(userId: string): Promise<Dispers
         c: comisionesCalculadas,
         desarrolloNombre: desarrollos.nombre,
         asesorNombre: asesores.nombre,
+        alianzaNombre: afiliados.nombre,
       })
       .from(dispersiones)
       .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
       .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
       .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
       .leftJoin(asesores, eq(dispersiones.asesorId, asesores.id))
+      .leftJoin(afiliados, eq(ventasBmcorp.afiliadoId, afiliados.id))
       .where(
         and(
           eq(dispersiones.tenantId, perfil.tenantId),
           eq(dispersiones.tipoBeneficiario, 'ASESOR'),
-          eq(dispersiones.asesorId, asesorId),
+          inArray(dispersiones.asesorId, asesorIds),
         ),
       )
       .orderBy(desc(comisionesCalculadas.createdAt))
@@ -135,12 +201,12 @@ export async function getComisionesPortalAsesor(userId: string): Promise<Dispers
 
 export async function getComisionesPortalLider(userId: string): Promise<DispersionPortal[]> {
   const perfil = await getPerfilPortal(userId)
-  if (!perfil || perfil.rolPortal !== 'LIDER_ALIANZA' || !perfil.liderId) return []
-  const liderId = perfil.liderId
+  if (!perfil || perfil.rolPortal !== 'LIDER_ALIANZA' || perfil.liderIds.length === 0) return []
+  const liderIds = perfil.liderIds
 
   return db.transaction(async (tx) => {
     await setTenant(tx, perfil.tenantId)
-    // Dispersiones asociadas a este líder (LIDER_SALDO + ASESOR si fueron asignados)
+    // Dispersiones de TODAS las alianzas que lidera (LIDER_SALDO + ASESOR de su red)
     const rows = await tx
       .select({
         d: dispersiones,
@@ -148,17 +214,18 @@ export async function getComisionesPortalLider(userId: string): Promise<Dispersi
         c: comisionesCalculadas,
         desarrolloNombre: desarrollos.nombre,
         asesorNombre: asesores.nombre,
+        alianzaNombre: afiliados.nombre,
       })
       .from(dispersiones)
       .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
       .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
       .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
       .leftJoin(asesores, eq(dispersiones.asesorId, asesores.id))
+      .leftJoin(afiliados, eq(ventasBmcorp.afiliadoId, afiliados.id))
       .where(
         and(
           eq(dispersiones.tenantId, perfil.tenantId),
-          eq(dispersiones.liderId, liderId),
-          // Solo tipos que pertenecen al líder/su red
+          inArray(dispersiones.liderId, liderIds),
           inArray(dispersiones.tipoBeneficiario, ['LIDER_SALDO', 'ASESOR']),
         ),
       )
@@ -169,8 +236,8 @@ export async function getComisionesPortalLider(userId: string): Promise<Dispersi
 
 export async function getAsesoresPortalLider(userId: string) {
   const perfil = await getPerfilPortal(userId)
-  if (!perfil || perfil.rolPortal !== 'LIDER_ALIANZA' || !perfil.liderId) return []
-  const liderId = perfil.liderId
+  if (!perfil || perfil.rolPortal !== 'LIDER_ALIANZA' || perfil.liderIds.length === 0) return []
+  const liderIds = perfil.liderIds
   return db.transaction(async (tx) => {
     await setTenant(tx, perfil.tenantId)
     return tx
@@ -179,7 +246,7 @@ export async function getAsesoresPortalLider(userId: string) {
       .where(
         and(
           eq(asesores.tenantId, perfil.tenantId),
-          eq(asesores.liderId, liderId),
+          inArray(asesores.liderId, liderIds),
           eq(asesores.activo, true),
         ),
       )
@@ -206,11 +273,15 @@ export async function verificarPertenenciaDispersion(
       .where(and(eq(dispersiones.tenantId, perfil.tenantId), eq(dispersiones.id, dispersionId)))
       .limit(1)
     if (!row) return false
-    if (perfil.rolPortal === 'ASESOR' && perfil.asesorId) {
-      return row.tipoBeneficiario === 'ASESOR' && row.asesorId === perfil.asesorId
+    if (perfil.rolPortal === 'ASESOR' && perfil.asesorIds.length > 0) {
+      return (
+        row.tipoBeneficiario === 'ASESOR' &&
+        row.asesorId !== null &&
+        perfil.asesorIds.includes(row.asesorId)
+      )
     }
-    if (perfil.rolPortal === 'LIDER_ALIANZA' && perfil.liderId) {
-      return row.liderId === perfil.liderId
+    if (perfil.rolPortal === 'LIDER_ALIANZA' && perfil.liderIds.length > 0) {
+      return row.liderId !== null && perfil.liderIds.includes(row.liderId)
     }
     return false
   })
@@ -224,6 +295,7 @@ type Row = {
   c: typeof comisionesCalculadas.$inferSelect
   desarrolloNombre: string | null
   asesorNombre: string | null
+  alianzaNombre: string | null
 }
 
 function toDispersionPortal(r: Row): DispersionPortal {
@@ -245,5 +317,6 @@ function toDispersionPortal(r: Row): DispersionPortal {
     desarrolloNombre: r.desarrolloNombre,
     tipoProducto: r.c.tipoProducto,
     asesorNombre: r.asesorNombre,
+    alianzaNombre: r.alianzaNombre,
   }
 }

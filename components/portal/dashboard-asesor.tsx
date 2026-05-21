@@ -112,7 +112,20 @@ export function DashboardAsesor({
           <p className="text-jade-100 text-xs font-medium tracking-wide uppercase">Bienvenido</p>
           <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Hola, {userName}</h1>
           <p className="text-jade-50/90 mt-2 text-sm sm:text-base">
-            Asesor de <span className="font-semibold">{perfil.alianzaNombre ?? '—'}</span>
+            {perfil.alianzasNombres.length === 0 ? (
+              <>
+                Asesor de <span className="font-semibold">—</span>
+              </>
+            ) : perfil.alianzasNombres.length === 1 ? (
+              <>
+                Asesor de <span className="font-semibold">{perfil.alianzasNombres[0]}</span>
+              </>
+            ) : (
+              <>
+                Asesor en {perfil.alianzasNombres.length} alianzas:{' '}
+                <span className="font-semibold">{perfil.alianzasNombres.join(' · ')}</span>
+              </>
+            )}
             {perfil.asesorNombre && perfil.asesorNombre !== userName && (
               <> · representando a {perfil.asesorNombre}</>
             )}

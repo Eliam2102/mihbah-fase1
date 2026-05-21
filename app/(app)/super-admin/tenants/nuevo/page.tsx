@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { actionCreateTenant } from '@/app/actions/admin-tenant'
+import { actionCreateTenantFromForm } from '@/app/actions/admin-tenant'
 import { ArrowLeft, Shield } from 'lucide-react'
 import Link from 'next/link'
 
@@ -11,20 +11,14 @@ type Step = 1 | 2 | 3
 export default function NuevoTenantPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [tenantName, setTenantName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [orgName, setOrgName] = useState('')
+  const [state, action, pending] = useActionState(actionCreateTenantFromForm, null)
 
-  const [form, setForm] = useState({
-    tenantName: '',
-    slug: '',
-    orgName: '',
-    empresaNombre: '',
-    empresaTipo: 'CONSTRUCTORA' as 'CONSTRUCTORA' | 'CAPITAL' | 'COMERCIAL',
-    empresaFuente: 'EXCEL' as 'EXCEL' | 'MONDAY' | 'MANUAL',
-    adminName: '',
-    adminEmail: '',
-    adminPassword: '',
-  })
+  useEffect(() => {
+    if (state?.ok) router.push('/super-admin')
+  }, [state, router])
 
   function autoSlug(name: string) {
     return name
@@ -37,31 +31,9 @@ export default function NuevoTenantPage() {
   }
 
   function handleTenantName(value: string) {
-    setForm((f) => ({
-      ...f,
-      tenantName: value,
-      slug: autoSlug(value),
-      orgName: f.orgName || `Grupo ${value}`,
-    }))
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (step < 3) {
-      setStep((s) => (s + 1) as Step)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-    const result = await actionCreateTenant(form)
-    setLoading(false)
-
-    if (result.ok) {
-      router.push('/super-admin')
-    } else {
-      setError(result.error ?? 'Error desconocido')
-    }
+    setTenantName(value)
+    setSlug(autoSlug(value))
+    if (!orgName) setOrgName(`Grupo ${value}`)
   }
 
   const inputClass =
@@ -83,7 +55,6 @@ export default function NuevoTenantPage() {
         </div>
       </div>
 
-      {/* Steps indicator */}
       <div className="flex items-center gap-2">
         {(['1. Tenant', '2. Empresa', '3. Admin'] as const).map((label, i) => (
           <div key={label} className="flex items-center gap-2">
@@ -110,158 +81,127 @@ export default function NuevoTenantPage() {
         ))}
       </div>
 
-      <form onSubmit={handleSubmit}>
+      {/*
+        Single form con todos los inputs siempre renderizados.
+        Steps no visibles usan CSS hidden, NO unmount, para que FormData los recoja al submit.
+        Server Action procesa al final con todos los valores.
+      */}
+      <form action={action}>
         <div className="border-border bg-card max-w-lg rounded-xl border p-6">
           {/* Step 1 — Tenant + Org */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-foreground text-sm font-semibold">Información del tenant</h2>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">
-                  Nombre del cliente (tenant)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.tenantName}
-                  onChange={(e) => handleTenantName(e.target.value)}
-                  placeholder="Ej. Universo Jade"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">Slug</label>
-                <input
-                  type="text"
-                  required
-                  value={form.slug}
-                  onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                  placeholder="universo-jade"
-                  className={`${inputClass} font-mono`}
-                />
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Solo minúsculas, números y guiones
-                </p>
-              </div>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">
-                  Nombre del grupo / organización
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.orgName}
-                  onChange={(e) => setForm((f) => ({ ...f, orgName: e.target.value }))}
-                  placeholder="Ej. Grupo Universo Jade"
-                  className={inputClass}
-                />
-              </div>
+          <div className={step === 1 ? 'space-y-4' : 'hidden'}>
+            <h2 className="text-foreground text-sm font-semibold">Información del tenant</h2>
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                Nombre del cliente (tenant)
+              </label>
+              <input
+                name="tenantName"
+                type="text"
+                required
+                value={tenantName}
+                onChange={(e) => handleTenantName(e.target.value)}
+                placeholder="Ej. Universo Jade"
+                className={inputClass}
+              />
             </div>
-          )}
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">Slug</label>
+              <input
+                name="slug"
+                type="text"
+                required
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="universo-jade"
+                className={`${inputClass} font-mono`}
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Solo minúsculas, números y guiones
+              </p>
+            </div>
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                Nombre del grupo / organización
+              </label>
+              <input
+                name="orgName"
+                type="text"
+                required
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Ej. Grupo Universo Jade"
+                className={inputClass}
+              />
+            </div>
+          </div>
 
           {/* Step 2 — Primera empresa */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-foreground text-sm font-semibold">Primera empresa del tenant</h2>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">
-                  Nombre de la empresa
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.empresaNombre}
-                  onChange={(e) => setForm((f) => ({ ...f, empresaNombre: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">Tipo</label>
-                <select
-                  value={form.empresaTipo}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      empresaTipo: e.target.value as typeof form.empresaTipo,
-                    }))
-                  }
-                  className={inputClass}
-                >
-                  <option value="CONSTRUCTORA">Constructora</option>
-                  <option value="CAPITAL">Capital / Inversión</option>
-                  <option value="COMERCIAL">Comercial / Ventas</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">
-                  Fuente de datos
-                </label>
-                <select
-                  value={form.empresaFuente}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      empresaFuente: e.target.value as typeof form.empresaFuente,
-                    }))
-                  }
-                  className={inputClass}
-                >
-                  <option value="EXCEL">Excel</option>
-                  <option value="MONDAY">Monday.com</option>
-                  <option value="MANUAL">Manual</option>
-                </select>
-              </div>
+          <div className={step === 2 ? 'space-y-4' : 'hidden'}>
+            <h2 className="text-foreground text-sm font-semibold">Primera empresa del tenant</h2>
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                Nombre de la empresa
+              </label>
+              <input
+                name="empresaNombre"
+                type="text"
+                required={step === 2 || step === 3}
+                className={inputClass}
+              />
             </div>
-          )}
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">Tipo</label>
+              <select name="empresaTipo" defaultValue="CONSTRUCTORA" className={inputClass}>
+                <option value="CONSTRUCTORA">Constructora</option>
+                <option value="CAPITAL">Capital / Inversión</option>
+                <option value="COMERCIAL">Comercial / Ventas</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                Fuente de datos
+              </label>
+              <select name="empresaFuente" defaultValue="EXCEL" className={inputClass}>
+                <option value="EXCEL">Excel</option>
+                <option value="MONDAY">Monday.com</option>
+                <option value="MANUAL">Manual</option>
+              </select>
+            </div>
+          </div>
 
           {/* Step 3 — Admin user */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-foreground text-sm font-semibold">
-                Usuario administrador inicial
-              </h2>
-              <p className="text-muted-foreground text-xs">
-                Se creará con rol <strong>Super Admin</strong> del nuevo tenant.
-              </p>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">Nombre</label>
-                <input
-                  type="text"
-                  required
-                  value={form.adminName}
-                  onChange={(e) => setForm((f) => ({ ...f, adminName: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={form.adminEmail}
-                  onChange={(e) => setForm((f) => ({ ...f, adminEmail: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="text-foreground mb-1.5 block text-sm font-medium">
-                  Contraseña temporal
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={form.adminPassword}
-                  onChange={(e) => setForm((f) => ({ ...f, adminPassword: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
+          <div className={step === 3 ? 'space-y-4' : 'hidden'}>
+            <h2 className="text-foreground text-sm font-semibold">Usuario administrador inicial</h2>
+            <p className="text-muted-foreground text-xs">
+              Se creará con rol <strong>Super Admin</strong> del nuevo tenant.
+            </p>
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">Nombre</label>
+              <input name="adminName" type="text" required={step === 3} className={inputClass} />
             </div>
-          )}
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">Email</label>
+              <input name="adminEmail" type="email" required={step === 3} className={inputClass} />
+            </div>
+            <div>
+              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                Contraseña temporal
+              </label>
+              <input
+                name="adminPassword"
+                type="password"
+                autoComplete="new-password"
+                required={step === 3}
+                minLength={8}
+                className={inputClass}
+              />
+            </div>
+          </div>
 
-          {error && (
+          {state && !state.ok && state.error && (
             <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-              {error}
+              {state.error}
             </p>
           )}
 
@@ -275,13 +215,23 @@ export default function NuevoTenantPage() {
                 Atrás
               </button>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
-            >
-              {step < 3 ? 'Siguiente' : loading ? 'Creando...' : 'Crear tenant'}
-            </button>
+            {step < 3 ? (
+              <button
+                type="button"
+                onClick={() => setStep((s) => (s + 1) as Step)}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-lg px-4 py-2 text-sm font-semibold"
+              >
+                Siguiente
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={pending}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
+              >
+                {pending ? 'Creando...' : 'Crear tenant'}
+              </button>
+            )}
           </div>
         </div>
       </form>

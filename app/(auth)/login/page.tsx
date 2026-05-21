@@ -1,47 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { authClient } from '@/lib/auth/client'
+import { useActionState } from 'react'
 import Image from 'next/image'
 import { Loader2 } from 'lucide-react'
+import { loginAction } from './actions'
 
 export default function LoginPage() {
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-    setPending(true)
-
-    const data = new FormData(e.currentTarget)
-    const email = data.get('email') as string
-    const password = data.get('password') as string
-
-    const result = await authClient.signIn.email({ email, password })
-
-    if (result.error) {
-      setError('Correo o contraseña incorrectos.')
-      setPending(false)
-      return
-    }
-
-    // Hard reload: fuerza fresh server render con sesión nueva, evita reusar
-    // árbol RSC cacheado de un usuario anterior. También dispara redirect a
-    // /portal si rol es portal (guard del layout admin rebota).
-    let destino = '/dashboard'
-    try {
-      const sess = await authClient.getSession()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const role = (sess?.data?.user as any)?.role
-      if (role === 'lider_alianza' || role === 'asesor') {
-        destino = '/portal/dashboard'
-      }
-    } catch {
-      // fallback: dashboard admin (guard rebota si no aplica)
-    }
-    window.location.replace(destino)
-  }
+  const [state, action, pending] = useActionState(loginAction, null)
 
   return (
     <div className="border-border bg-card rounded-2xl border p-8 shadow-sm">
@@ -62,7 +27,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form action={action} className="space-y-4">
         <div>
           <label htmlFor="email" className="text-foreground mb-1.5 block text-sm font-medium">
             Correo electrónico
@@ -93,9 +58,9 @@ export default function LoginPage() {
           />
         </div>
 
-        {error && (
+        {state && 'error' in state && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
-            <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>
           </div>
         )}
 

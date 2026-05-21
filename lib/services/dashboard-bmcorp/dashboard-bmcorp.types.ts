@@ -38,6 +38,7 @@ export interface RemanenteItem {
   afiliadoId: string
   nombre: string
   vendido: number
+  vendidoPeriodo: number
   repartos: number
   remanente: number
 }

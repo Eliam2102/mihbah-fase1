@@ -10,7 +10,7 @@
 import { db } from '@/lib/db'
 import { afiliados, lideresAlianza, pautasDigitales } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm'
 
 export type PautaRegistro = typeof pautasDigitales.$inferSelect
 
@@ -112,10 +112,14 @@ export async function getPautasDelMes(
     return lideres
       .map((l) => {
         const pauta = pautaPorLider.get(l.liderId)
+        // Siempre recalcula desde el estado ACTUAL del líder
+        // (nivel o presupuesto custom), ignorando el valor histórico
+        // guardado en la pauta para evitar que quede desactualizado
+        // cuando se edita el líder.
         let comprometido = 0
-        if (pauta) comprometido = Number(pauta.montoComprometido)
-        else if (l.nivel) comprometido = COMPROMISO_POR_NIVEL[l.nivel]
-        else if (l.presupuestoCustom) comprometido = Number(l.presupuestoCustom)
+        if (l.nivel) comprometido = COMPROMISO_POR_NIVEL[l.nivel]
+        else if (l.presupuestoCustom !== null && l.presupuestoCustom !== undefined)
+          comprometido = Number(l.presupuestoCustom)
 
         const ejecutado = pauta ? Number(pauta.montoEjecutado) : 0
         const gap = calcularGap(comprometido, ejecutado)
@@ -281,9 +285,11 @@ export async function getPautaMesActualLider(liderId: string): Promise<PautaPort
       anio,
       mes,
       nivel: lider.nivel,
-      montoComprometido: Number(pauta.montoComprometido),
+      // Siempre usa el comprometido calculado desde el nivel ACTUAL,
+      // no el valor histórico guardado en la pauta (puede estar stale).
+      montoComprometido: comprometido,
       montoEjecutado: Number(pauta.montoEjecutado),
-      porcentajeGap: pauta.porcentajeGap === null ? null : Number(pauta.porcentajeGap),
+      porcentajeGap: calcularGap(comprometido, Number(pauta.montoEjecutado)),
       capturada: true,
     }
   }

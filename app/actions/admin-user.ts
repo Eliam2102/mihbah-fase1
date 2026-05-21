@@ -38,6 +38,21 @@ export async function actionCreateUser(raw: unknown): Promise<AdminUserResult> {
   }
 }
 
+// Wrapper para Server Actions con <form action={...}> + useActionState.
+// FormData → objeto tipado → actionCreateUser.
+export async function actionCreateUserFromForm(
+  _prev: AdminUserResult | null,
+  formData: FormData,
+): Promise<AdminUserResult> {
+  return actionCreateUser({
+    name: formData.get('name'),
+    email: formData.get('email'),
+    password: formData.get('password'),
+    role: formData.get('role'),
+    empresaIds: formData.getAll('empresaIds'),
+  })
+}
+
 export async function actionUpdateUserRole(
   userId: string,
   role: 'super_admin' | 'admin' | 'user',
