@@ -1,6 +1,6 @@
 'use server'
 
-import { requireUser } from '@/lib/auth/helpers'
+import { requireUser, isSuperAdminOrAbove } from '@/lib/auth/helpers'
 import { db } from '@/lib/db'
 import { dispersiones, auditLogs, notifications, users } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
@@ -41,6 +41,9 @@ export async function marcarPagadoAction(
 ): Promise<ActionResult<{ id: string; estado: string }>> {
   try {
     const user = await requireUser()
+    if (!isSuperAdminOrAbove(user.role)) {
+      return { ok: false, error: 'Solo super_admin puede marcar pagos.' }
+    }
     const parsed = marcarPagadoSchema.safeParse(input)
     if (!parsed.success) {
       return { ok: false, error: 'Validación falló' }
@@ -92,6 +95,64 @@ export async function marcarPagadoAction(
   }
 }
 
+// ─── Revertir pago de dispersión (super_admin) ──────────────────────────────
+// Resetea montoPagado=0, estado=PENDIENTE, fechaPago=null. Útil cuando se
+// marcó pagada por error.
+
+export async function revertirPagoDispersionAction(
+  empresaId: string,
+  dispersionId: string,
+): Promise<ActionResult<{ id: string; estado: string }>> {
+  try {
+    const user = await requireUser()
+    if (!isSuperAdminOrAbove(user.role)) {
+      return { ok: false, error: 'Solo super_admin puede revertir pagos.' }
+    }
+    const tenantId = user.tenantId!
+
+    const updated = await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+      const [actual] = await tx
+        .select()
+        .from(dispersiones)
+        .where(and(eq(dispersiones.tenantId, tenantId), eq(dispersiones.id, dispersionId)))
+        .limit(1)
+      if (!actual) throw new Error('Dispersión no encontrada')
+
+      const [row] = await tx
+        .update(dispersiones)
+        .set({
+          montoPagado: '0',
+          estado: 'PENDIENTE',
+          fechaPago: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(dispersiones.id, dispersionId))
+        .returning()
+
+      await tx.insert(auditLogs).values({
+        tenantId,
+        userId: user.id,
+        accion: 'DISPERSION_REVERTIDA',
+        recursoTipo: 'dispersiones',
+        recursoId: dispersionId,
+        cambios: {
+          montoPagadoAnterior: actual.montoPagado,
+          estadoAnterior: actual.estado,
+          fechaPagoAnterior: actual.fechaPago,
+        },
+      })
+
+      return row!
+    })
+
+    revalidate(empresaId)
+    return { ok: true, data: { id: updated.id, estado: updated.estado } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
 // ─── Aprobar dispersión (Jorge Juárez aprueba antes de pagar) ───────────────
 
 export async function aprobarDispersionAction(
@@ -100,6 +161,9 @@ export async function aprobarDispersionAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await requireUser()
+    if (!isSuperAdminOrAbove(user.role)) {
+      return { ok: false, error: 'Solo super_admin puede aprobar dispersiones.' }
+    }
     const tenantId = user.tenantId!
     await db.transaction(async (tx) => {
       await setTenant(tx, tenantId)

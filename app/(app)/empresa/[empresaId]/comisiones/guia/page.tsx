@@ -10,244 +10,341 @@ import {
   Users,
   Percent,
   AlertTriangle,
-  HelpCircle,
+  BookOpen,
+  Sparkles,
+  ChevronDown,
+  Megaphone,
+  Smile,
 } from 'lucide-react'
 
 export const metadata = { title: 'Guía · Comisiones' }
 
 export default async function GuiaPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = await params
+  const base = `/empresa/${empresaId}/comisiones`
+
   return (
     <section className="3xl:p-12 w-full space-y-6 p-4 sm:p-6 xl:p-10">
       <Link
-        href={`/empresa/${empresaId}/comisiones`}
+        href={base}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
       >
-        <ArrowLeft className="h-3 w-3" /> Volver a Comisiones
+        <ArrowLeft className="h-3 w-3" /> Comisiones
       </Link>
 
-      <div>
-        <h1 className="text-foreground text-2xl font-bold">Guía del módulo</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Cómo funciona, qué hacer la primera vez y el flujo del día a día.
-        </p>
+      {/* Hero */}
+      <div className="from-jade-700 via-jade-800 to-jade-900 relative overflow-hidden rounded-2xl bg-gradient-to-br p-6 text-white shadow-sm sm:p-8">
+        <div className="bg-jade-400/20 absolute -top-12 -right-12 h-48 w-48 rounded-full blur-3xl" />
+        <div className="relative">
+          <div className="text-jade-100 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+            <BookOpen className="h-3.5 w-3.5" />
+            Centro de ayuda
+          </div>
+          <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Guía del módulo de comisiones</h1>
+          <p className="text-jade-50/90 mt-2 max-w-2xl text-sm sm:text-base">
+            Cómo opera el módulo paso a paso, qué hacer cada día y dónde encontrar lo que necesitas.
+          </p>
+        </div>
       </div>
 
-      {/* Flujo + Setup lado a lado en pantallas grandes */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section>
-          <h2 className="text-foreground mb-3 text-base font-semibold">El flujo</h2>
-          <div className="bg-card rounded-lg border p-4">
-            <ol className="space-y-3">
-              <Paso
-                num={1}
-                icon={<RefreshCw className="h-4 w-4" />}
-                titulo="Venta entra desde Monday"
-                desc="Cuando Carlita registra una venta en Monday, la sincronización la trae a SIG Jade."
-              />
-              <Paso
-                num={2}
-                icon={<Calculator className="h-4 w-4" />}
-                titulo="Motor calcula la comisión"
-                desc="Automático: aplica % del esquema (TERRENOS 20% / YCD 15%) y la matriz de la alianza. Genera 4-9 líneas de dispersión."
-              />
-              <Paso
-                num={3}
-                icon={<Wallet className="h-4 w-4" />}
-                titulo="Tú marcas pagos"
-                desc="Cuando pagas a un beneficiario (líder, asesor, socio), marcas la dispersión como pagada con fecha y monto."
-              />
-              <Paso
-                num={4}
-                icon={<FileText className="h-4 w-4" />}
-                titulo="Subes comprobante"
-                desc="(Próximamente storage real) Subes PDF o foto del comprobante. Líder/asesor lo descarga del portal."
-              />
-              <Paso
-                num={5}
-                icon={<CheckCircle2 className="h-4 w-4" />}
-                titulo="Líderes y asesores ven en portal"
-                desc="Cada uno entra a /portal/login con su cuenta y ve solo sus comisiones."
-              />
-            </ol>
-          </div>
-        </section>
+      {/* Flujo completo — visual horizontal */}
+      <div>
+        <div className="mb-3 flex items-center gap-2">
+          <Sparkles className="text-primary h-4 w-4" />
+          <h2 className="text-foreground text-base font-semibold">Cómo funciona el módulo</h2>
+        </div>
+        <div className="bg-card rounded-xl border p-4 sm:p-5">
+          <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <PasoFlujo
+              num={1}
+              icon={<RefreshCw className="h-4 w-4" />}
+              titulo="Venta entra"
+              desc="Se sincroniza desde Monday"
+            />
+            <PasoFlujo
+              num={2}
+              icon={<Calculator className="h-4 w-4" />}
+              titulo="Sistema calcula"
+              desc="Aplica % de matriz automático"
+            />
+            <PasoFlujo
+              num={3}
+              icon={<Wallet className="h-4 w-4" />}
+              titulo="Marcas pagos"
+              desc="Cuando transfieres a un beneficiario"
+            />
+            <PasoFlujo
+              num={4}
+              icon={<FileText className="h-4 w-4" />}
+              titulo="Subes comprobante"
+              desc="PDF o foto del pago"
+            />
+            <PasoFlujo
+              num={5}
+              icon={<CheckCircle2 className="h-4 w-4" />}
+              titulo="Líder ve portal"
+              desc="Acceso externo con su cuenta"
+            />
+          </ol>
+        </div>
+      </div>
 
-        <section>
-          <h2 className="text-foreground mb-3 text-base font-semibold">Primera vez (setup)</h2>
-          <div className="bg-card divide-y rounded-lg border">
+      {/* 4 secciones colapsables */}
+      <div className="space-y-3">
+        <h2 className="text-foreground text-base font-semibold">Necesito ayuda con...</h2>
+
+        {/* Setup inicial */}
+        <Seccion
+          icon={<Sparkles className="h-4 w-4" />}
+          color="primary"
+          title="Es mi primera vez aquí"
+          subtitle="6 pasos para dejar el módulo configurado"
+          defaultOpen
+        >
+          <ol className="divide-y">
             <ChecklistItem
               num={1}
-              titulo="Verifica esquemas globales"
-              desc="Hay 2 fijos: TERRENOS 20% y YCD 15%. Vienen del seed."
-              link={`/empresa/${empresaId}/comisiones/esquemas`}
+              titulo="Revisa los esquemas globales"
+              desc="Hay 2: TERRENOS (20%) y YCD (15%). Vienen cargados, solo verifica que existan."
+              link={`${base}/esquemas`}
               cta="Ver esquemas"
             />
             <ChecklistItem
               num={2}
-              titulo="Asigna líderes a cada alianza"
-              desc="Para las 15 alianzas, crea su líder (nombre, email, banco)."
-              link={`/empresa/${empresaId}/comisiones/alianzas`}
+              titulo="Asigna líder a cada alianza"
+              desc="Las 16 alianzas necesitan un líder con nombre, correo y datos bancarios."
+              link={`${base}/alianzas`}
               cta="Ir a alianzas"
             />
             <ChecklistItem
               num={3}
-              titulo="Registra asesores bajo cada líder"
-              desc="Asesores son los que cierran ventas. Cada uno bajo su líder. Captura 'mondayNombre' para que el sistema cruce automático."
-              link={`/empresa/${empresaId}/comisiones/alianzas`}
+              titulo="Registra los asesores"
+              desc="Cada asesor va bajo un líder. Captura su 'Nombre Monday' para que se cruce automático con las ventas."
+              link={`${base}/alianzas`}
               cta="Ir a alianzas"
             />
             <ChecklistItem
               num={4}
-              titulo="Configura matriz por alianza"
-              desc="Para cada alianza, captura cómo se reparte la bolsa comercial: % afiliación líder + % Jorge bolsa + % Kass bolsa + % Diana bolsa. La suma debe ser exacta (15% terrenos, 12% YCD)."
-              link={`/empresa/${empresaId}/comisiones/alianzas`}
+              titulo="Configura la matriz de cada alianza"
+              desc="Define cómo se reparte la bolsa entre líder, Jorge, Kass y Diana. La suma debe ser exacta (15% Terrenos / 12% YCD)."
+              link={`${base}/alianzas`}
               cta="Configurar"
             />
             <ChecklistItem
               num={5}
-              titulo="Crea cuentas del portal"
-              desc="Para líderes y asesores que quieran ver sus comisiones online. Usa email + password temporal."
-              link={`/empresa/${empresaId}/comisiones/portal-usuarios`}
+              titulo="Crea cuentas de portal externo"
+              desc="Para líderes y asesores que quieran ver sus comisiones online."
+              link={`${base}/portal-usuarios`}
               cta="Crear cuentas"
             />
             <ChecklistItem
               num={6}
               titulo="Sincroniza Monday"
-              desc="Trae las ventas históricas. El motor las calcula todas automáticamente."
+              desc="Trae todas las ventas históricas. El sistema las calcula automático."
               link={`/empresa/${empresaId}/monday`}
               cta="Sincronizar"
             />
-          </div>
-        </section>
-      </div>
+          </ol>
+        </Seccion>
 
-      {/* Día a día + Mensual + Troubleshooting en 3 columnas en XL */}
-      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-        <section>
-          <h2 className="text-foreground mb-3 text-base font-semibold">Día a día</h2>
-          <ul className="space-y-2 text-sm">
-            <Diario
+        {/* Día a día */}
+        <Seccion
+          icon={<Wallet className="h-4 w-4" />}
+          color="success"
+          title="Lo que hago cada día"
+          subtitle="Operativo recurrente"
+        >
+          <div className="space-y-2 p-4">
+            <Accion
               icon={<RefreshCw className="h-4 w-4" />}
-              texto="Cuando Carlita avise nuevas ventas → click 'Sincronizar Monday'"
+              titulo="Sincronizar Monday"
+              desc="Cada vez que entran nuevas ventas. 1 click."
+              link={`/empresa/${empresaId}/monday`}
+              cta="Ir"
             />
-            <Diario
+            <Accion
               icon={<Wallet className="h-4 w-4" />}
-              texto="Cuando vas a pagar → ir a 'Dispersiones', filtrar 'Solo pendientes', click 'Marcar' por cada pago"
+              titulo="Marcar dispersiones pagadas"
+              desc="Después de cada transferencia. Filtra 'Pendientes' y marca."
+              link={`${base}/dispersiones`}
+              cta="Ir"
             />
-            <Diario
+            <Accion
               icon={<Calculator className="h-4 w-4" />}
-              texto="Si quieres simular antes (cambio de % o caso especial) → usar 'Precálculo'"
+              titulo="Simular antes de pagar (precálculo)"
+              desc="Si tienes dudas con un caso, simula sin tocar datos reales."
+              link={`${base}/precalculo`}
+              cta="Ir"
             />
-            <Diario
-              icon={<AlertTriangle className="h-4 w-4" />}
-              texto="Si una venta marca 'SIN_CONFIG' → la alianza no tiene matriz configurada. Ir a 'Alianzas' y configurarla."
-            />
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-foreground mb-3 text-base font-semibold">
-            Captura mensual / trimestral
-          </h2>
-          <ul className="space-y-2 text-sm">
-            <Diario
+            <Accion
               icon={<CheckCircle2 className="h-4 w-4" />}
-              texto="Mes: paga las dispersiones con flag 'acumulaMensual' (Jorge bolsa, casos LGI YCD)"
+              titulo="Validar cálculos del sistema"
+              desc="Comparar contra el Excel manual. Descargar reporte completo."
+              link={`${base}/validacion`}
+              cta="Ir"
             />
-            <Diario
-              icon={<Percent className="h-4 w-4" />}
-              texto="Mes: paga los socios fijos (1.5% Jorge + 1.5% Kass en terrenos)"
-            />
-            <Diario
-              icon={<Users className="h-4 w-4" />}
-              texto="Trimestre: captura NPS interno por empresa"
-            />
-          </ul>
-        </section>
+          </div>
+        </Seccion>
 
-        <section>
-          <h2 className="text-foreground mb-3 text-base font-semibold">Si algo no funciona</h2>
-          <ul className="space-y-2 text-sm">
-            <Diario
-              icon={<AlertTriangle className="h-4 w-4" />}
-              texto="Cálculo no cuadra con reporte oficial → revisa % en matriz de la alianza vs doc YESYUCAN v5"
+        {/* Mensual / trimestral */}
+        <Seccion
+          icon={<Megaphone className="h-4 w-4" />}
+          color="info"
+          title="Tareas mensuales y trimestrales"
+          subtitle="Capturas periódicas"
+        >
+          <div className="space-y-2 p-4">
+            <Accion
+              icon={<Megaphone className="h-4 w-4" />}
+              titulo="Capturar pautas digitales del mes"
+              desc="Niq registra el monto ejecutado por cada líder."
+              link={`${base}/pautas`}
+              cta="Ir"
             />
-            <Diario
-              icon={<AlertTriangle className="h-4 w-4" />}
-              texto="Líder no entra al portal → verifica usuario activo en /portal-usuarios y rol lider_alianza"
+            <Accion
+              icon={<Percent className="h-4 w-4" />}
+              titulo="Revisar niveles de membresía"
+              desc="Asignar Jade / Turquesa / Ónix según ventas del periodo."
+              link={`${base}/niveles`}
+              cta="Ir"
             />
-            <Diario
-              icon={<AlertTriangle className="h-4 w-4" />}
-              texto="Para todo lo demás → revisa docs/comisiones-operativo.md"
+            <Accion
+              icon={<Smile className="h-4 w-4" />}
+              titulo="Capturar NPS trimestral"
+              desc="Cada 3 meses: puntaje, promotores, detractores."
+              link={`${base}/nps`}
+              cta="Ir"
             />
-          </ul>
-        </section>
+            <Accion
+              icon={<Wallet className="h-4 w-4" />}
+              titulo="Pagar acumulados de Jorge bolsa"
+              desc="Las dispersiones marcadas 'acumula mensual' se pagan 1 vez al cierre del mes."
+              link={`${base}/dispersiones`}
+              cta="Ir"
+            />
+          </div>
+        </Seccion>
+
+        {/* Glosario */}
+        <Seccion
+          icon={<BookOpen className="h-4 w-4" />}
+          color="muted"
+          title="No entiendo un término"
+          subtitle="Glosario de conceptos"
+        >
+          <dl className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Concepto
+              term="Esquema global"
+              def="Plantilla del % total de comisión. Hay 2: TERRENOS (20%) y YCD (15%)."
+            />
+            <Concepto
+              term="Matriz alianza × producto"
+              def="Define cómo se reparte la bolsa entre líder y socios para cada alianza."
+            />
+            <Concepto
+              term="Bolsa comercial"
+              def="Parte de la comisión que va a líder y socios. 15% en Terrenos, 12% en YCD."
+            />
+            <Concepto
+              term="% Afiliación"
+              def="Lo que recibe el líder. De ahí paga al asesor (excepto Flamingo, donde paga directo)."
+            />
+            <Concepto
+              term="Dispersión"
+              def="Una línea de pago a un beneficiario. Por cada venta hay 4 a 9 dispersiones."
+            />
+            <Concepto
+              term="Liberable"
+              def="Cuánto se puede pagar HOY con el enganche que ya cobró el cliente."
+            />
+            <Concepto
+              term="Diferido"
+              def="Lo que aún no se libera. Se desbloquea cuando el cliente paga más."
+            />
+            <Concepto
+              term="Acumula mensual"
+              def="No se paga al momento. Se acumula y se paga 1 vez al cierre del mes (caso Jorge bolsa)."
+            />
+            <Concepto
+              term="Descuento desarrolladora"
+              def="5% que aplica la desarrolladora antes de entregar el pago a BM Corp. Aplica a todos los conceptos."
+            />
+            <Concepto
+              term="Regla Flamingo"
+              def="YESYUCAN paga directo al asesor, sin pasar por el líder."
+            />
+            <Concepto
+              term="Regla LGI YCD acumula"
+              def="Las comisiones YCD de LGI no se pagan al momento. Se acumulan y Kass define dispersión al inicio del mes siguiente."
+            />
+            <Concepto
+              term="Sin config"
+              def="Falta configurar matriz de esa alianza. El sistema marca la venta y no procesa hasta que se configure."
+            />
+          </dl>
+        </Seccion>
+
+        {/* Troubleshooting */}
+        <Seccion
+          icon={<AlertTriangle className="h-4 w-4" />}
+          color="warning"
+          title="Algo no me funciona"
+          subtitle="Resolución de problemas comunes"
+        >
+          <div className="space-y-3 p-4">
+            <Problema
+              problema="El cálculo no cuadra con mi reporte manual"
+              solucion="Abre Validación cálculos, descarga el Excel del sistema y compara línea por línea con tu Excel. Si el % difiere, revisa la matriz de esa alianza."
+              link={`${base}/validacion`}
+              cta="Ir a Validación"
+            />
+            <Problema
+              problema="Una venta dice 'Sin config'"
+              solucion="La alianza no tiene matriz configurada. Ve a Alianzas, abre la alianza, configura los % de Terrenos o YCD según corresponda."
+              link={`${base}/alianzas`}
+              cta="Ir a Alianzas"
+            />
+            <Problema
+              problema="Un líder no puede entrar al portal"
+              solucion="Revisa que su cuenta esté activa en Usuarios de Portal. Verifica que el rol sea lider_alianza y que la contraseña sea la que le compartiste."
+              link={`${base}/portal-usuarios`}
+              cta="Ir a Portal usuarios"
+            />
+            <Problema
+              problema="Sincronicé Monday pero faltan ventas"
+              solucion="Verifica que las ventas en Monday tengan el campo 'Afiliado' y 'Asesor' llenos. El sistema solo trae las que tienen estos datos."
+              link={`/empresa/${empresaId}/monday`}
+              cta="Ir a Monday"
+            />
+            <Problema
+              problema="El monto del asesor en el portal no coincide"
+              solucion="Excepto Flamingo, el asesor cobra del líder. En el sistema el dinero del asesor se consolida en la línea del líder. Para Flamingo sí aparece línea separada."
+            />
+          </div>
+        </Seccion>
       </div>
 
-      {/* Conceptos — grid 2-3 col según pantalla */}
-      <section>
-        <h2 className="text-foreground mb-3 text-base font-semibold">Conceptos clave</h2>
-        <dl className="3xl:grid-cols-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Concepto
-            term="Esquema global"
-            def="Plantilla del % total. Hay 2: TERRENOS (20%) y YCD (15%). Igual para todas las alianzas."
-          />
-          <Concepto
-            term="Matriz alianza × producto"
-            def="Por cada alianza y tipo de producto, define cómo se reparte la bolsa comercial entre líder y socios."
-          />
-          <Concepto
-            term="Bolsa comercial"
-            def="Parte de la comisión que se reparte entre líder y socios (Jorge, Kass, Diana). 15% en terrenos, 12% en YCD."
-          />
-          <Concepto
-            term="% Afiliación"
-            def="Lo que recibe el líder de la bolsa comercial. De ahí paga al asesor su comisión estándar (8% terrenos / 7% YCD) y se queda con el saldo."
-          />
-          <Concepto
-            term="Dispersión"
-            def="Una línea de pago a un beneficiario específico. Por cada venta hay 4 a 9 dispersiones."
-          />
-          <Concepto
-            term="Liberable"
-            def="Cuánto de la comisión se puede pagar HOY con el enganche que ya pagó el cliente."
-          />
-          <Concepto
-            term="Diferido"
-            def="Lo que aún no se libera porque el cliente no ha pagado suficiente. Se libera cuando paga sus mensualidades."
-          />
-          <Concepto
-            term="Acumula mensual"
-            def="La dispersión NO se paga al momento. Se acumula para pagar 1 vez al mes (caso de Jorge bolsa)."
-          />
-          <Concepto
-            term="Regla Flamingo"
-            def="YESYUCAN paga directo al asesor, sin pasar por Diana (su líder)."
-          />
-          <Concepto
-            term="Regla LGI YCD acumula"
-            def="Comisiones YCD de LGI no se pagan inmediato. Kass define dispersión al inicio del mes siguiente."
-          />
-          <Concepto
-            term="Sin config"
-            def="Comisión calculada pero falta configurar la matriz de la alianza. El motor no procesa hasta que Joana configure."
-          />
-        </dl>
-      </section>
-
-      <div className="bg-muted/30 text-muted-foreground flex items-start gap-2 rounded-lg border p-3 text-xs">
-        <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <p>
-          Esta guía es resumen visual. Manual completo en{' '}
-          <code className="bg-card rounded px-1 py-0.5">docs/comisiones-operativo.md</code>.
-        </p>
+      {/* Footer con link manual completo */}
+      <div className="bg-muted/40 flex items-start gap-3 rounded-lg border p-4">
+        <BookOpen className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+        <div className="text-sm">
+          <p className="text-foreground font-medium">¿Necesitas el manual completo?</p>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Esta guía es un resumen visual. El manual operativo detallado vive en{' '}
+            <code className="bg-card rounded px-1 py-0.5 text-[11px]">
+              docs/comisiones-operativo.md
+            </code>{' '}
+            del repositorio.
+          </p>
+        </div>
       </div>
     </section>
   )
 }
 
-function Paso({
+// ─── Componentes ─────────────────────────────────────────────────────────────
+
+function PasoFlujo({
   num,
   icon,
   titulo,
@@ -259,17 +356,61 @@ function Paso({
   desc: string
 }) {
   return (
-    <li className="flex gap-3">
-      <div className="bg-primary text-primary-foreground flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold">
-        {num}
+    <li className="bg-muted/30 hover:bg-muted/50 relative rounded-lg p-3 transition-colors">
+      <div className="text-muted-foreground mb-1.5 flex items-center justify-between">
+        <span className="bg-primary text-primary-foreground inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold">
+          {num}
+        </span>
+        <span className="text-primary">{icon}</span>
       </div>
-      <div>
-        <p className="text-foreground inline-flex items-center gap-1.5 text-sm font-medium">
-          {icon} {titulo}
-        </p>
-        <p className="text-muted-foreground mt-0.5 text-xs">{desc}</p>
-      </div>
+      <p className="text-foreground text-sm font-semibold">{titulo}</p>
+      <p className="text-muted-foreground mt-0.5 text-[11px] leading-tight">{desc}</p>
     </li>
+  )
+}
+
+function Seccion({
+  icon,
+  color,
+  title,
+  subtitle,
+  children,
+  defaultOpen = false,
+}: {
+  icon: React.ReactNode
+  color: 'primary' | 'success' | 'warning' | 'info' | 'muted'
+  title: string
+  subtitle: string
+  children: React.ReactNode
+  defaultOpen?: boolean
+}) {
+  const colorMap: Record<string, string> = {
+    primary: 'bg-primary/10 text-primary',
+    success: 'bg-success/10 text-success',
+    warning: 'bg-warning/10 text-warning',
+    info: 'bg-info/10 text-info',
+    muted: 'bg-muted text-muted-foreground',
+  }
+
+  return (
+    <details
+      open={defaultOpen}
+      className="bg-card group rounded-xl border shadow-sm transition-shadow open:shadow-md"
+    >
+      <summary className="hover:bg-muted/30 flex cursor-pointer list-none items-center gap-4 rounded-xl p-4 transition-colors">
+        <span
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${colorMap[color]}`}
+        >
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-foreground text-base font-semibold">{title}</p>
+          <p className="text-muted-foreground mt-0.5 text-xs">{subtitle}</p>
+        </div>
+        <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t">{children}</div>
+    </details>
   )
 }
 
@@ -287,8 +428,8 @@ function ChecklistItem({
   cta: string
 }) {
   return (
-    <div className="flex items-start gap-3 p-4">
-      <div className="bg-muted text-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">
+    <li className="flex items-start gap-3 p-4">
+      <div className="bg-muted text-foreground flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold">
         {num}
       </div>
       <div className="flex-1">
@@ -297,7 +438,38 @@ function ChecklistItem({
       </div>
       <Link
         href={link}
-        className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs"
+        className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
+      >
+        {cta}
+        <ArrowRight className="h-3 w-3" />
+      </Link>
+    </li>
+  )
+}
+
+function Accion({
+  icon,
+  titulo,
+  desc,
+  link,
+  cta,
+}: {
+  icon: React.ReactNode
+  titulo: string
+  desc: string
+  link: string
+  cta: string
+}) {
+  return (
+    <div className="bg-muted/20 hover:bg-muted/40 flex items-start gap-3 rounded-lg border p-3 transition-colors">
+      <span className="text-muted-foreground mt-0.5 shrink-0">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-foreground text-sm font-medium">{titulo}</p>
+        <p className="text-muted-foreground mt-0.5 text-xs">{desc}</p>
+      </div>
+      <Link
+        href={link}
+        className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
       >
         {cta}
         <ArrowRight className="h-3 w-3" />
@@ -306,20 +478,42 @@ function ChecklistItem({
   )
 }
 
-function Diario({ icon, texto }: { icon: React.ReactNode; texto: string }) {
+function Concepto({ term, def }: { term: string; def: string }) {
   return (
-    <li className="bg-card flex items-start gap-2 rounded-md border p-3">
-      <span className="text-muted-foreground mt-0.5 shrink-0">{icon}</span>
-      <span className="text-foreground text-sm">{texto}</span>
-    </li>
+    <div className="bg-muted/20 rounded-lg p-3">
+      <dt className="text-foreground text-sm font-semibold">{term}</dt>
+      <dd className="text-muted-foreground mt-0.5 text-xs leading-relaxed">{def}</dd>
+    </div>
   )
 }
 
-function Concepto({ term, def }: { term: string; def: string }) {
+function Problema({
+  problema,
+  solucion,
+  link,
+  cta,
+}: {
+  problema: string
+  solucion: string
+  link?: string
+  cta?: string
+}) {
   return (
-    <div className="bg-card rounded-lg border p-3">
-      <dt className="text-foreground text-sm font-semibold">{term}</dt>
-      <dd className="text-muted-foreground mt-0.5 text-xs">{def}</dd>
+    <div className="border-warning/30 bg-warning/5 rounded-lg border p-3">
+      <p className="text-foreground inline-flex items-center gap-1.5 text-sm font-medium">
+        <AlertTriangle className="text-warning h-3.5 w-3.5 shrink-0" />
+        {problema}
+      </p>
+      <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">{solucion}</p>
+      {link && cta && (
+        <Link
+          href={link}
+          className="text-primary mt-2 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+        >
+          {cta}
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      )}
     </div>
   )
 }

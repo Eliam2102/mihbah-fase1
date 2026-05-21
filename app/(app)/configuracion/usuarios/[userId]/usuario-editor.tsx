@@ -166,7 +166,7 @@ export function UsuarioEditor({
         <h2 className="text-foreground mb-4 text-sm font-semibold">Rol del sistema</h2>
         {isSaasDev ? (
           <p className="text-muted-foreground text-sm">
-            Este usuario es SaaS Owner — el rol no se puede cambiar desde aquí.
+            El rol de este usuario no puede modificarse desde aquí.
           </p>
         ) : isSelf ? (
           <p className="text-muted-foreground text-sm">No puedes cambiar tu propio rol.</p>

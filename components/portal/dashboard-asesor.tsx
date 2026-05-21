@@ -264,7 +264,16 @@ export function DashboardAsesor({
                                 .map((p) => p[0]?.toUpperCase())
                                 .join('') || '?'}
                             </span>
-                            <span className="text-foreground font-medium">{d.ventaCliente}</span>
+                            <div className="min-w-0">
+                              <p className="text-foreground truncate font-medium">
+                                {d.ventaCliente}
+                              </p>
+                              {d.ventaMondayItemId && (
+                                <p className="text-muted-foreground font-mono text-[10px]">
+                                  ID Monday: {d.ventaMondayItemId}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="text-muted-foreground hidden px-4 py-3 text-xs md:table-cell">
@@ -347,6 +356,11 @@ export function DashboardAsesor({
                             <p className="text-muted-foreground truncate text-[11px]">
                               {d.desarrolloNombre ?? '—'} · {d.tipoProducto}
                             </p>
+                            {d.ventaMondayItemId && (
+                              <p className="text-muted-foreground/80 font-mono text-[10px]">
+                                ID: {d.ventaMondayItemId}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <span

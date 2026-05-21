@@ -48,6 +48,7 @@ export interface DispersionPortal {
   ventaId: string
   ventaCliente: string
   ventaMonto: number
+  ventaMondayItemId: string | null
   desarrolloNombre: string | null
   tipoProducto: string
   // Si la dispersión tiene un asesor asociado distinto, para contexto del líder
@@ -240,6 +241,7 @@ function toDispersionPortal(r: Row): DispersionPortal {
     ventaId: r.v.id,
     ventaCliente: r.v.cliente,
     ventaMonto: Number(r.v.monto),
+    ventaMondayItemId: r.v.mondayItemId,
     desarrolloNombre: r.desarrolloNombre,
     tipoProducto: r.c.tipoProducto,
     asesorNombre: r.asesorNombre,

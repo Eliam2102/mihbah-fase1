@@ -57,6 +57,9 @@ export interface CalculatorInput {
   porcentajeEnganche?: number
   esquema: EsquemaConfig
   matriz: MatrizConfig | null
+  // Descuento que aplica la desarrolladora ANTES de entregar comisión a BM Corp.
+  // Default 5% según práctica real. Se aplica a cada concepto antes de cascada.
+  descuentoDesarrolladoraPct?: number
 }
 
 export interface LineaDispersion {
@@ -112,7 +115,12 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
     ])
   }
 
-  // 1. Montos por concepto
+  // Descuento desarrolladora — default 5%. Aplica a TODOS los conceptos
+  // (BM Corp, YESYUCAN, Asesor, Líder, Socios) antes de cascada.
+  const descuentoPct = input.descuentoDesarrolladoraPct ?? 5
+  const factorDescuento = 1 - descuentoPct / 100
+
+  // 1. Montos por concepto (BRUTOS, antes de descuento)
   const comisionBrutaTotal = pct(montoVenta, esquema.porcentajeTotalCliente)
   const montoOpBmcorp = pct(montoVenta, esquema.porcentajeOpBmcorp)
   const montoOpYesyucan = pct(montoVenta, esquema.porcentajeOpYesyucan)
@@ -126,7 +134,6 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
   const tope = esquema.porcentajeLiderTope ?? Infinity
   const afiliacionAplicada = Math.min(matriz.porcentajeAfiliacion, tope)
   const montoAfiliacionAplicada = pct(montoVenta, afiliacionAplicada)
-  const montoLiderSaldo = round(Math.max(0, montoAfiliacionAplicada - montoAsesor))
 
   const montoSocioBolsaJorge = pct(montoVenta, matriz.porcentajeJorgeBolsa)
   const montoSocioBolsaKass = pct(montoVenta, matriz.porcentajeKassBolsa)
@@ -142,14 +149,25 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
     )
   }
 
+  // Asesor cobra del líder excepto Flamingo (regla validada cliente).
+  // Si NO es Flamingo, la línea ASESOR se consolida en LIDER_SALDO.
+  // El líder recibe afiliación COMPLETA y dispersa internamente.
+  const esFlamingo = matriz.reglaEspecial === 'FLAMINGO_DIRECTO'
+  const montoAsesorEfectivo = esFlamingo ? montoAsesor : 0
+  const montoLiderSaldo = esFlamingo
+    ? round(Math.max(0, montoAfiliacionAplicada - montoAsesor))
+    : montoAfiliacionAplicada
+
   // 2. Construir líneas en orden de cascada (doc §4)
+  // Aplica factor descuento (1 - desc%) a cada monto.
   const lineas: LineaDispersion[] = []
   const addLinea = (
     tipo: TipoBeneficiario,
     nombre: string,
-    monto: number,
+    montoBruto: number,
     acumula = false,
   ): void => {
+    const monto = round(montoBruto * factorDescuento)
     if (monto > 0) {
       lineas.push({
         tipoBeneficiario: tipo,
@@ -164,7 +182,9 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
 
   addLinea('OP_BMCORP', 'BM Corp', montoOpBmcorp)
   addLinea('OP_YESYUCAN', 'YESYUCAN', montoOpYesyucan)
-  addLinea('ASESOR', matriz.asesorNombre || 'Asesor', montoAsesor)
+  if (esFlamingo) {
+    addLinea('ASESOR', matriz.asesorNombre || 'Asesor', montoAsesorEfectivo)
+  }
   addLinea('LIDER_SALDO', matriz.liderNombre, montoLiderSaldo)
   addLinea('SOCIO_BOLSA_JORGE', 'Jorge Juárez', montoSocioBolsaJorge, true)
   addLinea('SOCIO_BOLSA_KASS', 'Kass Brambila', montoSocioBolsaKass)
@@ -172,8 +192,10 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
   addLinea('SOCIO_FIJO_JORGE', 'Jorge Juárez (fijo)', montoSocioFijoJorge)
   addLinea('SOCIO_FIJO_KASS', 'Kass Brambila (fijo)', montoSocioFijoKass)
 
-  // 3. Cascada de liberación según enganche pagado
-  let resto = round(enganchePagado)
+  // 3. Cascada de liberación según enganche pagado.
+  // El enganche también se reduce por el descuento desarrolladora (lo que
+  // realmente cobra BM Corp del enganche).
+  let resto = round(enganchePagado * factorDescuento)
   for (const linea of lineas) {
     if (resto <= 0) break
     const liberable = Math.min(linea.montoTotal, resto)
@@ -198,19 +220,21 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
   const porcentajeEnganche =
     input.porcentajeEnganche ?? (montoVenta > 0 ? round((enganchePagado / montoVenta) * 100) : 0)
 
+  // Snapshot de totales — todos NETOS post-descuento (lo que realmente
+  // cobra cada beneficiario). Esto es lo que se persiste en comisiones_calculadas.
   return {
     sinConfig: false,
-    comisionBrutaTotal,
-    montoOpBmcorp,
-    montoOpYesyucan,
-    montoSocioFijoJorge,
-    montoSocioFijoKass,
-    montoBolsaComercial,
-    montoAsesor,
-    montoLiderSaldo,
-    montoSocioBolsaJorge,
-    montoSocioBolsaKass,
-    montoSocioBolsaDiana,
+    comisionBrutaTotal: round(comisionBrutaTotal * factorDescuento),
+    montoOpBmcorp: round(montoOpBmcorp * factorDescuento),
+    montoOpYesyucan: round(montoOpYesyucan * factorDescuento),
+    montoSocioFijoJorge: round(montoSocioFijoJorge * factorDescuento),
+    montoSocioFijoKass: round(montoSocioFijoKass * factorDescuento),
+    montoBolsaComercial: round(montoBolsaComercial * factorDescuento),
+    montoAsesor: round(montoAsesorEfectivo * factorDescuento),
+    montoLiderSaldo: round(montoLiderSaldo * factorDescuento),
+    montoSocioBolsaJorge: round(montoSocioBolsaJorge * factorDescuento),
+    montoSocioBolsaKass: round(montoSocioBolsaKass * factorDescuento),
+    montoSocioBolsaDiana: round(montoSocioBolsaDiana * factorDescuento),
     enganchePagado: round(enganchePagado),
     porcentajeEnganche,
     montoLiberable,

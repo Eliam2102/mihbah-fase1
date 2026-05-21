@@ -13,10 +13,21 @@ const NIVELES = [
   { value: 'ONIX_NEGRO', label: 'Ónix Negro' },
 ] as const
 
+const METODOS_PAGO = [
+  { value: 'EFECTIVO', label: 'Efectivo' },
+  { value: 'DEPOSITO', label: 'Depósito' },
+  { value: 'TRANSFERENCIA', label: 'Transferencia' },
+  { value: 'OTRO', label: 'Otro' },
+] as const
+
+type MetodoPago = 'EFECTIVO' | 'DEPOSITO' | 'TRANSFERENCIA' | 'OTRO'
+
 type FormState = {
   nombre: string
   email: string
+  emailAlterno: string
   telefono: string
+  metodoPago: MetodoPago
   clabe: string
   banco: string
   numeroCuenta: string
@@ -29,7 +40,9 @@ function initialForm(lider: Lider | null): FormState {
   return {
     nombre: lider?.nombre ?? '',
     email: lider?.email ?? '',
+    emailAlterno: lider?.emailAlterno ?? '',
     telefono: lider?.telefono ?? '',
+    metodoPago: (lider?.metodoPago ?? 'EFECTIVO') as MetodoPago,
     clabe: lider?.clabe ?? '',
     banco: lider?.banco ?? '',
     numeroCuenta: lider?.numeroCuenta ?? '',
@@ -66,7 +79,9 @@ export function LiderForm({
       const payload = {
         nombre: form.nombre,
         email: form.email || null,
+        emailAlterno: form.emailAlterno || null,
         telefono: form.telefono || null,
+        metodoPago: form.metodoPago,
         clabe: form.clabe || null,
         banco: form.banco || null,
         numeroCuenta: form.numeroCuenta || null,
@@ -116,7 +131,7 @@ export function LiderForm({
       </Field>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Email">
+        <Field label="Email principal">
           <input
             type="email"
             value={form.email}
@@ -133,31 +148,63 @@ export function LiderForm({
         </Field>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="CLABE">
-          <input
-            value={form.clabe}
-            onChange={(e) => setForm({ ...form, clabe: e.target.value })}
-            className="input"
-          />
-        </Field>
-        <Field label="Banco">
-          <input
-            value={form.banco}
-            onChange={(e) => setForm({ ...form, banco: e.target.value })}
-            className="input"
-          />
-        </Field>
-      </div>
+      <Field label="Email alterno (opcional)">
+        <input
+          type="email"
+          value={form.emailAlterno}
+          onChange={(e) => setForm({ ...form, emailAlterno: e.target.value })}
+          className="input"
+          placeholder="Para notificaciones secundarias"
+        />
+      </Field>
 
-      {editing && (
-        <Field label="Número de cuenta">
-          <input
-            value={form.numeroCuenta}
-            onChange={(e) => setForm({ ...form, numeroCuenta: e.target.value })}
-            className="input"
-          />
-        </Field>
+      <Field label="Método de pago">
+        <select
+          value={form.metodoPago}
+          onChange={(e) => setForm({ ...form, metodoPago: e.target.value as MetodoPago })}
+          className="input"
+        >
+          {METODOS_PAGO.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {(form.metodoPago === 'TRANSFERENCIA' || form.metodoPago === 'DEPOSITO') && (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="CLABE">
+              <input
+                value={form.clabe}
+                onChange={(e) => setForm({ ...form, clabe: e.target.value })}
+                className="input"
+                placeholder="18 dígitos"
+              />
+            </Field>
+            <Field label="Banco">
+              <input
+                value={form.banco}
+                onChange={(e) => setForm({ ...form, banco: e.target.value })}
+                className="input"
+                placeholder="BBVA, Banorte, etc."
+              />
+            </Field>
+          </div>
+          {editing && (
+            <Field label="Número de cuenta (opcional)">
+              <input
+                value={form.numeroCuenta}
+                onChange={(e) => setForm({ ...form, numeroCuenta: e.target.value })}
+                className="input"
+              />
+            </Field>
+          )}
+          <p className="text-muted-foreground text-[11px]">
+            Datos bancarios cifrados con AES-256-GCM.
+          </p>
+        </>
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

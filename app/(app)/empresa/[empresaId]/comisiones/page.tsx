@@ -23,6 +23,7 @@ import {
   ArrowRight,
   RefreshCw,
   HelpCircle,
+  Megaphone,
 } from 'lucide-react'
 // CheckCircle2 ya importado arriba
 
@@ -264,6 +265,12 @@ export default async function ComisionesLanding({
           icon={<Percent className="h-3.5 w-3.5" />}
           label="Niveles membresía"
           count="Jade · Turquesa · Ónix"
+        />
+        <SecondaryLink
+          href={`/empresa/${empresaId}/comisiones/pautas`}
+          icon={<Megaphone className="h-3.5 w-3.5" />}
+          label="Pautas digitales"
+          count="Marketing comprometido vs ejecutado"
         />
         <SecondaryLink
           href={`/empresa/${empresaId}/comisiones/validacion`}

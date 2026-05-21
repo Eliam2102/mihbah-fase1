@@ -53,7 +53,7 @@ export function isAdminOrAbove(role?: string | null): boolean {
 
 export async function requireSuperAdminDev(): Promise<AuthUser> {
   const user = await requireUser()
-  if (!isSuperAdminDev(user.role)) throw new Error('Acceso denegado — se requiere super_admin_dev')
+  if (!isSuperAdminDev(user.role)) throw new Error('Acceso denegado — permisos insuficientes')
   return user
 }
 

@@ -18,7 +18,7 @@ const FUENTE_LABEL: Record<string, string> = {
 }
 
 const ROL_LABEL: Record<string, string> = {
-  super_admin_dev: 'SaaS Owner',
+  super_admin_dev: 'Super Admin',
   super_admin: 'Super Admin',
   admin: 'Admin',
   user: 'Viewer',

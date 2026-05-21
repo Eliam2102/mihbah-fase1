@@ -271,41 +271,51 @@ function MatrizCard({
   const titulo = tipo === 'TERRENO' ? 'Matriz Terrenos' : 'Matriz YCD'
   const ok = matriz && !matriz.requiereConfig
 
+  const tieneNota = matriz && matriz.notas && matriz.notas.trim().length > 0
+
   return (
     <div
-      className={`bg-card flex items-center gap-3 rounded-xl border p-3.5 shadow-sm ${
+      className={`bg-card flex flex-col gap-2 rounded-xl border p-3.5 shadow-sm ${
         ok ? '' : 'border-warning/30 bg-warning/5'
       }`}
     >
-      <span
-        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
-          ok ? 'bg-success/10 text-success' : 'bg-warning/15 text-warning'
-        }`}
-      >
-        <Percent className="h-4 w-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-          {titulo}
-        </p>
-        {ok ? (
-          <p className="text-foreground text-sm font-semibold tabular-nums">
-            {matriz!.porcentajeAfiliacion}% afiliación
+      <div className="flex items-center gap-3">
+        <span
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+            ok ? 'bg-success/10 text-success' : 'bg-warning/15 text-warning'
+          }`}
+        >
+          <Percent className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+            {titulo}
           </p>
-        ) : (
-          <p className="text-warning text-xs font-medium">
-            {matriz ? 'Requiere configuración' : 'No configurada'}
-          </p>
-        )}
+          {ok ? (
+            <p className="text-foreground text-sm font-semibold tabular-nums">
+              {matriz!.porcentajeAfiliacion}% afiliación
+            </p>
+          ) : (
+            <p className="text-warning text-xs font-medium">
+              {matriz ? 'Requiere configuración' : 'No configurada'}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onConfig}
+          className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
+        >
+          <Settings2 className="h-3 w-3" />
+          Configurar
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={onConfig}
-        className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
-      >
-        <Settings2 className="h-3 w-3" />
-        Configurar
-      </button>
+      {tieneNota && (
+        <div className="bg-warning/10 border-warning/30 text-warning rounded-md border px-2.5 py-1.5 text-[11px] leading-relaxed">
+          <span className="font-semibold tracking-wide uppercase">Por validar:</span>{' '}
+          {matriz!.notas}
+        </div>
+      )}
     </div>
   )
 }

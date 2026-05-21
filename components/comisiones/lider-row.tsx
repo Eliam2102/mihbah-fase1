@@ -76,6 +76,27 @@ export function LiderRow({ empresaId, lider }: { empresaId: string; lider: Lider
               {lider.coordinaPago}
             </span>
           )}
+          {lider.metodoPago && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                lider.metodoPago === 'EFECTIVO'
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : lider.metodoPago === 'DEPOSITO'
+                    ? 'bg-indigo-100 text-indigo-800'
+                    : lider.metodoPago === 'TRANSFERENCIA'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {lider.metodoPago === 'EFECTIVO'
+                ? 'Efectivo'
+                : lider.metodoPago === 'DEPOSITO'
+                  ? 'Depósito'
+                  : lider.metodoPago === 'TRANSFERENCIA'
+                    ? 'Transferencia'
+                    : 'Otro'}
+            </span>
+          )}
         </div>
 
         <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">

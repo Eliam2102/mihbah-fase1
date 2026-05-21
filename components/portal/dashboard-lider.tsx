@@ -13,9 +13,11 @@ import {
   Building2,
   Trophy,
   Crown,
+  Megaphone,
 } from 'lucide-react'
 import type { DispersionPortal, PerfilPortal } from '@/lib/services/comisiones/portal.service'
 import type { Asesor } from '@/lib/services/comisiones/alianzas.service'
+import type { PautaPortal } from '@/lib/services/comisiones/pautas.service'
 
 type Estado = 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'DIFERIDO'
 
@@ -49,11 +51,13 @@ export function DashboardLider({
   dispersiones,
   asesores,
   userName,
+  pauta,
 }: {
   perfil: PerfilPortal
   dispersiones: DispersionPortal[]
   asesores: Asesor[]
   userName: string
+  pauta: PautaPortal | null
 }) {
   const fmt = (n: number) =>
     n.toLocaleString('es-MX', {
@@ -191,6 +195,9 @@ export function DashboardLider({
         />
       </div>
 
+      {/* Pauta del mes */}
+      {pauta && <PautaCard pauta={pauta} fmt={fmt} />}
+
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <TabButton active={tab === 'resumen'} onClick={() => setTab('resumen')}>
@@ -315,7 +322,12 @@ export function DashboardLider({
                       return (
                         <tr key={d.id} className="hover:bg-muted/30 transition-colors">
                           <td className="text-foreground px-4 py-3 font-medium">
-                            {d.ventaCliente}
+                            <div>{d.ventaCliente}</div>
+                            {d.ventaMondayItemId && (
+                              <div className="text-muted-foreground font-mono text-[10px]">
+                                ID Monday: {d.ventaMondayItemId}
+                              </div>
+                            )}
                           </td>
                           <td className="text-muted-foreground hidden px-4 py-3 text-xs md:table-cell">
                             {d.asesorNombre ?? '—'}
@@ -382,6 +394,11 @@ export function DashboardLider({
                             <p className="text-muted-foreground truncate text-[11px]">
                               {d.asesorNombre ?? '—'}
                             </p>
+                            {d.ventaMondayItemId && (
+                              <p className="text-muted-foreground/80 font-mono text-[10px]">
+                                ID: {d.ventaMondayItemId}
+                              </p>
+                            )}
                           </div>
                           <span
                             className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${sem.pill}`}
@@ -692,6 +709,86 @@ function EmptyState({
       </div>
       <p className="text-foreground text-sm font-semibold">{title}</p>
       <p className="text-muted-foreground max-w-xs text-xs">{description}</p>
+    </div>
+  )
+}
+
+const MESES = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]
+
+function PautaCard({ pauta, fmt }: { pauta: PautaPortal; fmt: (n: number) => string }) {
+  const gap = pauta.porcentajeGap
+  const sem =
+    gap === null
+      ? { color: 'text-muted-foreground', bg: 'bg-muted', label: 'Sin dato' }
+      : Math.abs(gap) <= 10
+        ? { color: 'text-success', bg: 'bg-success/15', label: `${gap.toFixed(1)}%` }
+        : Math.abs(gap) <= 20
+          ? { color: 'text-warning', bg: 'bg-warning/15', label: `${gap.toFixed(1)}%` }
+          : { color: 'text-destructive', bg: 'bg-destructive/15', label: `${gap.toFixed(1)}%` }
+
+  const progreso =
+    pauta.montoComprometido > 0
+      ? Math.min(100, (pauta.montoEjecutado / pauta.montoComprometido) * 100)
+      : 0
+
+  return (
+    <div className="bg-card rounded-lg border p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-muted-foreground inline-flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase">
+            <Megaphone className="h-3 w-3" /> Pauta digital · {MESES[pauta.mes - 1]} {pauta.anio}
+          </div>
+          <p className="text-foreground mt-0.5 text-base font-semibold">
+            Compromiso de marketing del mes
+          </p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${sem.bg} ${sem.color}`}>
+          Gap {sem.label}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div>
+          <p className="text-muted-foreground text-[11px] uppercase">Comprometido</p>
+          <p className="text-foreground text-lg font-bold tabular-nums">
+            {fmt(pauta.montoComprometido)}
+          </p>
+          <p className="text-muted-foreground text-[11px]">Nivel {pauta.nivel}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-[11px] uppercase">Ejecutado</p>
+          <p className="text-primary text-lg font-bold tabular-nums">{fmt(pauta.montoEjecutado)}</p>
+          <p className="text-muted-foreground text-[11px]">
+            {pauta.capturada ? 'Capturado' : 'Aún sin captura'}
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-[11px] uppercase">Avance</p>
+          <p className="text-foreground text-lg font-bold tabular-nums">{progreso.toFixed(0)}%</p>
+          <div className="bg-muted mt-1.5 h-1.5 overflow-hidden rounded-full">
+            <div className="bg-primary h-full rounded-full" style={{ width: `${progreso}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {!pauta.capturada && (
+        <p className="text-muted-foreground mt-3 text-[11px]">
+          Métrica informativa. Sin penalización si no se cumple.
+        </p>
+      )}
     </div>
   )
 }

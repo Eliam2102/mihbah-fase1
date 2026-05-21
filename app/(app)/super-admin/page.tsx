@@ -21,9 +21,7 @@ export default async function SuperAdminPage() {
             <Shield className="h-5 w-5 text-purple-600" />
             <h1 className="text-foreground text-2xl font-bold">Panel SaaS</h1>
           </div>
-          <p className="text-muted-foreground text-sm">
-            Vista global de todos los tenants. Solo accesible para SaaS Owner.
-          </p>
+          <p className="text-muted-foreground text-sm">Vista global de todos los tenants.</p>
         </div>
         <Link
           href="/super-admin/tenants/nuevo"

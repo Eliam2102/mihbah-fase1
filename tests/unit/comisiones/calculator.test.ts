@@ -63,6 +63,7 @@ function yuccaliTerrenos(): MatrizConfig {
 describe('motor de comisiones — calculator.calcular()', () => {
   it('Caso 1: LGI Terrenos $1M, enganche 12% — cascada parcial llega a saldo líder', () => {
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 1_000_000,
       enganchePagado: 120_000,
       esquema: esquemaTerrenos(),
@@ -76,14 +77,16 @@ describe('motor de comisiones — calculator.calcular()', () => {
     expect(r.montoSocioFijoJorge).toBe(15_000)
     expect(r.montoSocioFijoKass).toBe(15_000)
     expect(r.montoBolsaComercial).toBe(150_000)
-    expect(r.montoAsesor).toBe(80_000)
-    expect(r.montoLiderSaldo).toBe(70_000)
+    // Asesor consolidado en líder (no Flamingo) — montoAsesor = 0
+    expect(r.montoAsesor).toBe(0)
+    // Líder recibe afiliación completa 15% × $1M = $150k
+    expect(r.montoLiderSaldo).toBe(150_000)
     expect(r.montoSocioBolsaJorge).toBe(0)
     expect(r.montoSocioBolsaKass).toBe(0)
     expect(r.montoSocioBolsaDiana).toBe(0)
     expect(r.advertencias).toEqual([])
 
-    // Cascada con $120k: OP 10+10, Asesor 80, Líder libera 20 (diferido 50)
+    // Cascada con $120k: OP 10+10, Líder libera 100 (diferido 50)
     expect(r.montoLiberable).toBe(120_000)
     expect(r.montoDiferido).toBe(80_000)
 
@@ -91,12 +94,8 @@ describe('motor de comisiones — calculator.calcular()', () => {
     expect(op.montoLiberable).toBe(10_000)
     expect(op.montoDiferido).toBe(0)
 
-    const asesor = r.dispersiones.find((l) => l.tipoBeneficiario === 'ASESOR')!
-    expect(asesor.montoLiberable).toBe(80_000)
-    expect(asesor.montoDiferido).toBe(0)
-
     const lider = r.dispersiones.find((l) => l.tipoBeneficiario === 'LIDER_SALDO')!
-    expect(lider.montoLiberable).toBe(20_000)
+    expect(lider.montoLiberable).toBe(100_000)
     expect(lider.montoDiferido).toBe(50_000)
 
     const fijoJorge = r.dispersiones.find((l) => l.tipoBeneficiario === 'SOCIO_FIJO_JORGE')!
@@ -106,6 +105,7 @@ describe('motor de comisiones — calculator.calcular()', () => {
 
   it('Caso 2: Flamingo Terrenos $500k, enganche 7% — cascada corta hasta asesor parcial', () => {
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 500_000,
       enganchePagado: 35_000,
       esquema: esquemaTerrenos(),
@@ -134,6 +134,7 @@ describe('motor de comisiones — calculator.calcular()', () => {
 
   it('Caso 3: LGI YCD $1M, enganche 12% — tope líder 10%, regla LGI_YCD_ACUMULA marca todas líneas', () => {
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 1_000_000,
       enganchePagado: 120_000,
       esquema: esquemaYcd(),
@@ -146,12 +147,13 @@ describe('motor de comisiones — calculator.calcular()', () => {
     expect(r.montoSocioFijoJorge).toBe(0)
     expect(r.montoSocioFijoKass).toBe(0)
     expect(r.montoBolsaComercial).toBe(120_000)
-    expect(r.montoAsesor).toBe(70_000)
-    // Tope aplica: afiliación 10% × 1M = $100k → líder saldo = 100 − 70 = $30k
-    expect(r.montoLiderSaldo).toBe(30_000)
+    // Asesor consolidado en líder (no Flamingo) — montoAsesor = 0, líder recibe completo
+    expect(r.montoAsesor).toBe(0)
+    // Tope aplica: afiliación 10% × 1M = $100k → líder recibe todo $100k
+    expect(r.montoLiderSaldo).toBe(100_000)
     expect(r.montoSocioBolsaJorge).toBe(20_000)
 
-    // Cascada $120k: OP 30, Asesor 70, Líder libera 20 (diferido 10)
+    // Cascada $120k: OP YC 30, Líder libera 90 (diferido 10)
     expect(r.montoLiberable).toBe(120_000)
     expect(r.montoDiferido).toBe(30_000)
 
@@ -163,6 +165,7 @@ describe('motor de comisiones — calculator.calcular()', () => {
 
   it('Caso 4: Yuccali Terrenos $1M, enganche 16% — co-líderes, líder saldo = 0', () => {
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 1_000_000,
       enganchePagado: 160_000,
       esquema: esquemaTerrenos(),
@@ -170,18 +173,15 @@ describe('motor de comisiones — calculator.calcular()', () => {
     })
 
     expect(r.comisionBrutaTotal).toBe(200_000)
-    expect(r.montoAsesor).toBe(80_000)
-    // Afiliación 8% = $80k, asesor 8% = $80k → líder saldo = 0
-    expect(r.montoLiderSaldo).toBe(0)
+    // Asesor consolidado en líder (no Flamingo) — montoAsesor = 0
+    expect(r.montoAsesor).toBe(0)
+    // Afiliación 8% = $80k pasa COMPLETA al líder (líder paga asesor internamente)
+    expect(r.montoLiderSaldo).toBe(80_000)
     expect(r.montoSocioBolsaJorge).toBe(35_000)
     expect(r.montoSocioBolsaKass).toBe(35_000)
     expect(r.advertencias).toEqual([])
 
-    // Como líder saldo = 0, NO debe existir esa línea en dispersiones
-    const lider = r.dispersiones.find((l) => l.tipoBeneficiario === 'LIDER_SALDO')
-    expect(lider).toBeUndefined()
-
-    // Cascada $160k: OP 20, Asesor 80, Jorge bolsa 35, Kass bolsa libera 25 (diferido 10)
+    // Cascada $160k: OP 20, Líder 80, Jorge bolsa 35, Kass bolsa libera 25 (diferido 10)
     expect(r.montoLiberable).toBe(160_000)
     expect(r.montoDiferido).toBe(40_000)
 
@@ -196,6 +196,7 @@ describe('motor de comisiones — calculator.calcular()', () => {
 
   it('Caso 5: Promo Terrenos $500k sin enganche — todo diferido', () => {
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 500_000,
       enganchePagado: 0,
       esquema: esquemaTerrenos(),
@@ -213,6 +214,7 @@ describe('motor de comisiones — calculator.calcular()', () => {
 
   it('Caso 6: Sin matriz (alianza requiereConfig) — motor marca sinConfig y no genera líneas', () => {
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 1_000_000,
       enganchePagado: 120_000,
       esquema: esquemaTerrenos(),
@@ -238,6 +240,7 @@ describe('motor de comisiones — calculator.calcular()', () => {
     }
 
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 1_000_000,
       enganchePagado: 100_000,
       esquema: esquemaTerrenos(),
@@ -250,6 +253,7 @@ describe('motor de comisiones — calculator.calcular()', () => {
 
   it('Caso 8: enganche supera comisión — toda comisión liberable, sobrante no genera nada extra', () => {
     const r = calcular({
+      descuentoDesarrolladoraPct: 0,
       montoVenta: 1_000_000,
       enganchePagado: 500_000, // 50% > 20% comisión = 200k
       esquema: esquemaTerrenos(),

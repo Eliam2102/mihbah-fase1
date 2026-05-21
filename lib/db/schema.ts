@@ -122,6 +122,16 @@ export const reglaEspecialAlianzaEnum = pgEnum('regla_especial_alianza', [
 
 export const rolPortalEnum = pgEnum('rol_portal', ['LIDER_ALIANZA', 'ASESOR'])
 
+// Método con el que se le paga a cada líder (trazabilidad operativa).
+// Default EFECTIVO según práctica actual confirmada por cliente 2026-05-20.
+// Tanto efectivo como depósito requieren comprobante (foto/PDF).
+export const metodoPagoLiderEnum = pgEnum('metodo_pago_lider', [
+  'EFECTIVO',
+  'DEPOSITO',
+  'TRANSFERENCIA',
+  'OTRO',
+])
+
 // ─── Tenants ─────────────────────────────────────────────────────────────────
 
 export const tenants = pgTable('tenants', {
@@ -378,6 +388,14 @@ export const ventasBmcorp = pgTable(
     operativoApertura: text('operativo_apertura'),
     operativoCierre: text('operativo_cierre'),
     comisionBmcorp: numeric('comision_bmcorp', { precision: 18, scale: 2 }).default('0'),
+    // Descuento que aplica la desarrolladora antes de entregar a BM Corp.
+    // Por defecto 5% según práctica real validada con cliente. Editable por venta.
+    descuentoDesarrolladoraPct: numeric('descuento_desarrolladora_pct', {
+      precision: 5,
+      scale: 2,
+    })
+      .notNull()
+      .default('5'),
     mondayBoardId: text('monday_board_id'),
 
     // Datos personales
@@ -795,7 +813,13 @@ export const lideresAlianza = pgTable(
       .references(() => afiliados.id, { onDelete: 'restrict' }),
     nombre: text('nombre').notNull(),
     email: text('email'),
+    // Algunos líderes (Kass, Jorge) tienen un correo alterno para notificaciones.
+    emailAlterno: text('email_alterno'),
     telefono: text('telefono'),
+    // Método con el que se realiza el pago al líder. Default EFECTIVO.
+    metodoPago: metodoPagoLiderEnum('metodo_pago').notNull().default('EFECTIVO'),
+    // Datos bancarios — opcionales, solo si metodoPago = TRANSFERENCIA.
+    // Cifrados AES-256-GCM en lib/crypto/field-encryption.ts.
     clabe: text('clabe'),
     banco: text('banco'),
     numeroCuenta: text('numero_cuenta'),
@@ -957,6 +981,8 @@ export const matrizAlianzaProducto = pgTable(
     reglaEspecial: reglaEspecialAlianzaEnum('regla_especial').notNull().default('NINGUNA'),
     // Si la alianza requiere configuración manual (e.g. está en Monday pero no en doc)
     requiereConfig: boolean('requiere_config').notNull().default(false),
+    // Notas operativas — Joana puede dejar mensajes para validar después
+    notas: text('notas'),
     activo: boolean('activo').notNull().default(true),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
