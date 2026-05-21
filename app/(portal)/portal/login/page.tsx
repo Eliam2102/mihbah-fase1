@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { authClient } from '@/lib/auth/client'
 import { Loader2, LogIn, Wallet, ShieldCheck } from 'lucide-react'
 
 export default function PortalLoginPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const callbackError = searchParams.get('error')
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +28,9 @@ export default function PortalLoginPage() {
       return
     }
 
-    router.push('/portal/dashboard')
+    // Hard reload: fuerza fresh server render con sesión nueva, evita reusar
+    // árbol RSC cacheado de un usuario anterior.
+    window.location.replace('/portal/dashboard')
   }
 
   return (

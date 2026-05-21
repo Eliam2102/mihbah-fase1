@@ -416,6 +416,29 @@ export const ventasBmcorp = pgTable(
   (t) => ({
     tenantIdx: index('ventas_bmcorp_tenant_idx').on(t.tenantId),
     mondayItemIdx: uniqueIndex('ventas_bmcorp_monday_item_unique').on(t.tenantId, t.mondayItemId),
+    // Compuestos para queries dashboard (filtros tenant+empresa+rango fecha)
+    tenantEmpresaFechaIdx: index('ventas_bmcorp_tenant_empresa_fecha_idx').on(
+      t.tenantId,
+      t.empresaId,
+      t.fecha,
+    ),
+    tenantEmpresaAperturaIdx: index('ventas_bmcorp_tenant_empresa_apertura_idx').on(
+      t.tenantId,
+      t.empresaId,
+      t.fechaApertura,
+    ),
+    tenantEmpresaCierreIdx: index('ventas_bmcorp_tenant_empresa_cierre_idx').on(
+      t.tenantId,
+      t.empresaId,
+      t.fechaCierre,
+    ),
+    tenantEmpresaEstadoIdx: index('ventas_bmcorp_tenant_empresa_estado_idx').on(
+      t.tenantId,
+      t.empresaId,
+      t.estadoVenta,
+    ),
+    afiliadoIdx: index('ventas_bmcorp_afiliado_idx').on(t.afiliadoId),
+    desarrolloIdx: index('ventas_bmcorp_desarrollo_idx').on(t.desarrolloId),
   }),
 )
 
@@ -1115,6 +1138,12 @@ export const dispersiones = pgTable(
     liderIdx: index('dispersiones_lider_idx').on(t.liderId),
     asesorIdx: index('dispersiones_asesor_idx').on(t.asesorId),
     acumulaIdx: index('dispersiones_acumula_idx').on(t.tenantId, t.acumulaMensual, t.estado),
+    // Para dashboard split (filtra por tipo + estado)
+    tipoEstadoIdx: index('dispersiones_tipo_estado_idx').on(
+      t.tenantId,
+      t.tipoBeneficiario,
+      t.estado,
+    ),
     comisionTipoUnique: uniqueIndex('dispersiones_comision_tipo_unique').on(
       t.comisionId,
       t.tipoBeneficiario,

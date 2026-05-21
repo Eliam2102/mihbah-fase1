@@ -12,7 +12,9 @@ const globalForDb = globalThis as unknown as {
 const client =
   globalForDb.pgClient ??
   postgres(process.env.DATABASE_URL!, {
-    max: 10,
+    // Prod: 20 conns por instancia (con 2-3 instancias Easypanel → 40-60 total).
+    // Dev: 10 (suficiente para hot-reload sin saturar Postgres local).
+    max: process.env.NODE_ENV === 'production' ? 20 : 10,
     idle_timeout: 20,
     connect_timeout: 10,
   })

@@ -94,6 +94,30 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // refresh once per day
   },
 
+  // Rate limit en memoria — protege contra brute force login.
+  // Prod: 10 intentos por minuto por IP. Dev: 100 (no estorbar pruebas).
+  // Custom rule en /sign-in/email: 5 intentos cada 60s.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: process.env.NODE_ENV === 'production' ? 10 : 100,
+    storage: 'memory',
+    customRules: {
+      '/sign-in/email': {
+        window: 60,
+        max: process.env.NODE_ENV === 'production' ? 5 : 50,
+      },
+      '/sign-up/email': {
+        window: 60,
+        max: 3,
+      },
+      '/forget-password': {
+        window: 60,
+        max: 3,
+      },
+    },
+  },
+
   advanced: {
     cookiePrefix: 'mihbah',
     defaultCookieAttributes: {

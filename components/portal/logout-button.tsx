@@ -1,18 +1,17 @@
 'use client'
 
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { authClient } from '@/lib/auth/client'
 
 export function PortalLogoutButton() {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
 
   function handleLogout() {
     startTransition(async () => {
       await authClient.signOut()
-      router.push('/portal/login')
+      // Hard reload: limpia árbol RSC cacheado, back stack y cualquier estado cliente.
+      window.location.replace('/portal/login')
     })
   }
 

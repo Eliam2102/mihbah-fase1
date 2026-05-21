@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth/client'
 import Image from 'next/image'
 import { Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -28,19 +26,21 @@ export default function LoginPage() {
       return
     }
 
-    // Si rol es portal, redirigir a portal. Detectado vía session API.
+    // Hard reload: fuerza fresh server render con sesión nueva, evita reusar
+    // árbol RSC cacheado de un usuario anterior. También dispara redirect a
+    // /portal si rol es portal (guard del layout admin rebota).
+    let destino = '/dashboard'
     try {
       const sess = await authClient.getSession()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const role = (sess?.data?.user as any)?.role
       if (role === 'lider_alianza' || role === 'asesor') {
-        router.push('/portal/dashboard')
-        return
+        destino = '/portal/dashboard'
       }
     } catch {
-      // si falla, sigue al dashboard normal (guard del layout rebotará si aplica)
+      // fallback: dashboard admin (guard rebota si no aplica)
     }
-    router.push('/dashboard')
+    window.location.replace(destino)
   }
 
   return (

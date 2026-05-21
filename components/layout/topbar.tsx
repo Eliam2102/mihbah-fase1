@@ -41,7 +41,8 @@ export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) 
 
   async function handleLogout() {
     await signOut()
-    router.push('/login')
+    // Hard reload: limpia árbol RSC cacheado y cualquier estado cliente.
+    window.location.replace('/login')
   }
 
   const nextTheme = mounted
