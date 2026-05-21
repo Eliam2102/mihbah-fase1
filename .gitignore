@@ -66,7 +66,13 @@ monday-inspection.json
 # Markdown — documentación interna no se sube al repo
 *.md
 
+# Screenshots de validación — locales, no al repo
+docs/screenshots/
+
 # test artifacts
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Sentry Config File
+.env.sentry-build-plugin
