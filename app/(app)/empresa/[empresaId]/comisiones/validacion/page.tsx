@@ -38,7 +38,13 @@ export default async function ValidacionPage({
       .orderBy(desc(comisionesCalculadas.createdAt))
   })
 
-  const fmt = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+  const fmt = (n: number) =>
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   const totalBruta = rows.reduce((s, r) => s + Number(r.c.comisionBrutaTotal), 0)
   const totalSinConfig = rows.filter((r) => r.c.sinConfig).length
@@ -135,7 +141,7 @@ export default async function ValidacionPage({
                   <tr key={r.c.id} className="hover:bg-muted/20">
                     <td className="px-2 py-1.5 font-medium">
                       <Link
-                        href={`/empresa/${empresaId}/comisiones/ventas/${r.v.id}`}
+                        href={`/empresa/${empresaId}/ventas/${r.v.id}`}
                         className="hover:underline"
                       >
                         {r.v.cliente}

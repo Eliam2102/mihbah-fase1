@@ -61,7 +61,12 @@ export default async function ComprobantesPortalPage({
   if (!data) notFound()
   const { disp, comprobantes } = data
   const fmt = (n: string | number) =>
-    Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+    Number(n).toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
   const total = Number(disp.montoTotal)
   const pagado = Number(disp.montoPagado)
   const pct = total > 0 ? (pagado / total) * 100 : 0

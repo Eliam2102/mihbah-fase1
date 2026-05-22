@@ -45,7 +45,8 @@ export function NivelesView({
     n.toLocaleString('es-MX', {
       style: 'currency',
       currency: 'MXN',
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     })
 
   const sorted = [...lideres].sort((a, b) =>

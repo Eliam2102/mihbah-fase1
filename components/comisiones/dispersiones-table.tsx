@@ -50,7 +50,12 @@ export function DispersionesTable({
   const [estado, setEstado] = useState<Estado>('TODOS')
 
   const fmt = (n: number) =>
-    n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   const q = query.toLowerCase().trim()
   const filtradas = rows.filter((r) => {

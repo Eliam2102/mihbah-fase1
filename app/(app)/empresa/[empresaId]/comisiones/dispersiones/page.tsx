@@ -49,7 +49,12 @@ export default async function DispersionesPage({
   const totalGeneral = rows.reduce((s, r) => s + Number(r.d.montoTotal), 0)
   const totalPagadoGen = rows.reduce((s, r) => s + Number(r.d.montoPagado), 0)
   const fmt = (n: number) =>
-    n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   return (
     <section className="3xl:p-12 w-full space-y-6 p-4 sm:p-6 xl:p-10">

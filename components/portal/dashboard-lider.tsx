@@ -63,7 +63,8 @@ export function DashboardLider({
     n.toLocaleString('es-MX', {
       style: 'currency',
       currency: 'MXN',
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     })
 
   const dispLider = dispersiones.filter((d) => d.tipoBeneficiario === 'LIDER_SALDO')

@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, X, Pencil, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { actualizarVentaAction } from '@/app/actions/comisiones/ventas'
+import { Save, X, Pencil, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { actualizarVentaAction, resyncVentaFromMondayAction } from '@/app/actions/ventas'
 
 interface VentaEditable {
   id: string
@@ -17,6 +19,8 @@ interface VentaEditable {
   asesor: string | null
   notasInternas: string | null
   editadoEnSistema: boolean
+  editadoPorNombre: string | null
+  editadoEn: string | null
 }
 
 const ESTADOS = [
@@ -79,22 +83,72 @@ export function VentaEditForm({ empresaId, venta }: { empresaId: string; venta: 
     })
   }
 
+  function handleResync() {
+    if (
+      !confirm(
+        '¿Permitir que la próxima sincronización Monday sobreescriba los campos editables de esta venta?',
+      )
+    ) {
+      return
+    }
+    setError(null)
+    setSuccess(null)
+    startTransition(async () => {
+      const result = await resyncVentaFromMondayAction(empresaId, venta.id)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      setSuccess('Destrabado. Próxima sync Monday pisará los campos editables.')
+      router.refresh()
+    })
+  }
+
+  const editadoEnFmt =
+    venta.editadoEn && venta.editadoEnSistema
+      ? formatDistanceToNow(new Date(venta.editadoEn), { addSuffix: true, locale: es })
+      : null
+
   if (!open) {
     return (
-      <div className="flex items-center gap-2">
-        {venta.editadoEnSistema && (
-          <span className="bg-info/10 text-info inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium">
-            <Pencil className="h-3 w-3" />
-            Editado en sistema
-          </span>
-        )}
-        <button
-          onClick={() => setOpen(true)}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Editar venta
-        </button>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {venta.editadoEnSistema && (
+            <span
+              className="bg-info/10 text-info inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
+              title={
+                venta.editadoPorNombre
+                  ? `Editado por ${venta.editadoPorNombre}${editadoEnFmt ? ` · ${editadoEnFmt}` : ''}`
+                  : 'Editado en sistema'
+              }
+            >
+              <Pencil className="h-3 w-3" />
+              {venta.editadoPorNombre
+                ? `Editado por ${venta.editadoPorNombre}${editadoEnFmt ? ` · ${editadoEnFmt}` : ''}`
+                : 'Editado en sistema'}
+            </span>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Editar venta
+          </button>
+          {venta.editadoEnSistema && (
+            <button
+              onClick={handleResync}
+              disabled={pending}
+              className="border-border bg-background hover:bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-60"
+              title="Permitir que la próxima sync Monday sobreescriba los campos editables"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${pending ? 'animate-spin' : ''}`} />
+              Re-sincronizar Monday
+            </button>
+          )}
+        </div>
+        {error && <p className="text-destructive text-xs">{error}</p>}
+        {success && <p className="text-success text-xs">{success}</p>}
       </div>
     )
   }

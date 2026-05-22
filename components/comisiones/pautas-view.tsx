@@ -47,12 +47,12 @@ function semaforo(gap: number | null): { pill: string; label: string; accent: Ac
   if (gap === null) return { pill: 'bg-muted text-muted-foreground', label: '—', accent: null }
   const abs = Math.abs(gap)
   if (abs <= 10)
-    return { pill: 'bg-success/15 text-success', label: `${gap.toFixed(0)}%`, accent: 'success' }
+    return { pill: 'bg-success/15 text-success', label: `${gap.toFixed(2)}%`, accent: 'success' }
   if (abs <= 20)
-    return { pill: 'bg-warning/15 text-warning', label: `${gap.toFixed(0)}%`, accent: 'warning' }
+    return { pill: 'bg-warning/15 text-warning', label: `${gap.toFixed(2)}%`, accent: 'warning' }
   return {
     pill: 'bg-destructive/15 text-destructive',
-    label: `${gap.toFixed(0)}%`,
+    label: `${gap.toFixed(2)}%`,
     accent: 'destructive',
   }
 }
@@ -72,7 +72,12 @@ export function PautasView({
 }) {
   const router = useRouter()
   const fmt = (n: number) =>
-    n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   const [query, setQuery] = useState('')
   const [filtroNivel, setFiltroNivel] = useState<FiltroNivel>('TODOS')
@@ -146,7 +151,7 @@ export function PautasView({
           {semTotal.accent ? (
             <Stat
               label="Gap"
-              value={`${totalGap! > 0 ? '+' : ''}${totalGap!.toFixed(1)}%`}
+              value={`${totalGap! > 0 ? '+' : ''}${totalGap!.toFixed(2)}%`}
               hint={
                 Math.abs(totalGap!) <= 10
                   ? 'al objetivo'

@@ -90,7 +90,12 @@ export function MatrizDialog({
   const montoKassBolsa = (ej.monto * form.porcentajeKassBolsa) / 100
   const montoDianaBolsa = (ej.monto * form.porcentajeDianaBolsa) / 100
   const fmt = (n: number) =>
-    n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

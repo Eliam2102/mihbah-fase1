@@ -10,6 +10,7 @@ export type ModuloKey =
   | 'cargas'
   | 'monday'
   | 'comisiones'
+  | 'ventas'
 
 export interface ModuloMeta {
   key: ModuloKey
@@ -76,6 +77,13 @@ export const MODULOS_META: Record<ModuloKey, ModuloMeta> = {
     tieneEdicion: true,
     labelEdicion: 'Puede aprobar pagos',
   },
+  ventas: {
+    key: 'ventas',
+    label: 'Ventas',
+    descripcion: 'Pipeline de ventas BM CORP (Monday + edición en sistema)',
+    tieneEdicion: true,
+    labelEdicion: 'Puede editar ventas',
+  },
 }
 
 // Módulos disponibles por tipo de empresa
@@ -84,7 +92,16 @@ export type TipoEmpresaKey = 'CONSTRUCTORA' | 'CAPITAL' | 'COMERCIAL' | 'DEFAULT
 export const MODULOS_POR_TIPO: Record<TipoEmpresaKey, ModuloKey[]> = {
   CONSTRUCTORA: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'cargas'],
   CAPITAL: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'cargas'],
-  COMERCIAL: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'monday', 'comisiones'],
+  COMERCIAL: [
+    'dashboard',
+    'flujo',
+    'proyectos',
+    'cuentas',
+    'reportes',
+    'ventas',
+    'monday',
+    'comisiones',
+  ],
   DEFAULT: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes'],
 }
 

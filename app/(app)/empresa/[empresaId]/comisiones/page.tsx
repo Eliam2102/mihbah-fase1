@@ -127,7 +127,12 @@ export default async function ComisionesLanding({
 
   const data = await getEstado(tenantId, empresaId)
   const fmt = (n: number) =>
-    n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   const comisionesBruta = Number(data.stats.comisiones?.bruta ?? '0')
   const dispersionesPagado = Number(data.stats.disp?.pagado ?? '0')
@@ -210,7 +215,7 @@ export default async function ComisionesLanding({
           desc="Traer ventas nuevas y calcular comisiones"
         />
         <Action
-          href={`/empresa/${empresaId}/comisiones/ventas`}
+          href={`/empresa/${empresaId}/ventas`}
           icon={<Receipt className="h-5 w-5" />}
           title="Ventas con comisión"
           desc={`${data.stats.comisiones?.total ?? 0} ventas calculadas`}

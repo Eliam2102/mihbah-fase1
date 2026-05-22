@@ -27,7 +27,13 @@ export function PrecalculoForm({ afiliados }: { afiliados: { id: string; nombre:
     })
   }
 
-  const fmt = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+  const fmt = (n: number) =>
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   const porcentajeEnganche =
     form.montoVenta > 0 ? ((form.enganchePagado / form.montoVenta) * 100).toFixed(2) : '0'

@@ -1,6 +1,7 @@
 'use server'
 
 import { requireUser, isSuperAdminOrAbove } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { db } from '@/lib/db'
 import { dispersiones, auditLogs, notifications, users } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
@@ -22,7 +23,7 @@ function handleError(err: unknown): { ok: false; error: string } {
 
 function revalidate(empresaId: string) {
   revalidatePath(`/empresa/${empresaId}/comisiones`)
-  revalidatePath(`/empresa/${empresaId}/comisiones/ventas`)
+  revalidatePath(`/empresa/${empresaId}/ventas`)
   revalidatePath(`/empresa/${empresaId}/comisiones/dispersiones`)
   revalidatePath(`/empresa/${empresaId}/dashboard`)
 }
@@ -44,6 +45,7 @@ export async function marcarPagadoAction(
     if (!isSuperAdminOrAbove(user.role)) {
       return { ok: false, error: 'Solo super_admin puede marcar pagos.' }
     }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
     const parsed = marcarPagadoSchema.safeParse(input)
     if (!parsed.success) {
       return { ok: false, error: 'Validación falló' }
@@ -108,6 +110,7 @@ export async function revertirPagoDispersionAction(
     if (!isSuperAdminOrAbove(user.role)) {
       return { ok: false, error: 'Solo super_admin puede revertir pagos.' }
     }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
     const tenantId = user.tenantId!
 
     const updated = await db.transaction(async (tx) => {
@@ -164,6 +167,7 @@ export async function aprobarDispersionAction(
     if (!isSuperAdminOrAbove(user.role)) {
       return { ok: false, error: 'Solo super_admin puede aprobar dispersiones.' }
     }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
     const tenantId = user.tenantId!
     await db.transaction(async (tx) => {
       await setTenant(tx, tenantId)
@@ -207,7 +211,8 @@ export async function aprobarDispersionAction(
         const fmtMonto = restante.toLocaleString('es-MX', {
           style: 'currency',
           currency: 'MXN',
-          maximumFractionDigits: 0,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
         })
         const valores = admins.map((a) => ({
           tenantId,
@@ -242,6 +247,7 @@ export async function recalcularComisionAction(
 ): Promise<ActionResult<{ ventaId: string }>> {
   try {
     const user = await requireUser()
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
     const parsed = recalcularSchema.safeParse(input)
     if (!parsed.success) return { ok: false, error: 'Validación falló' }
     const tenantId = user.tenantId!
@@ -263,6 +269,7 @@ export async function recalcularVentaAction(
 ): Promise<ActionResult<{ ventaId: string }>> {
   try {
     const user = await requireUser()
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
     const tenantId = user.tenantId!
     await calcularYPersistirComision(tenantId, ventaId, { userId: user.id })
     revalidate(empresaId)
@@ -282,6 +289,7 @@ export async function recalcularTodasComisionesAction(
   try {
     const user = await requireUser()
     if (!user.tenantId) return { ok: false, error: 'Sin tenant' }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
     const tenantId = user.tenantId
 
     // Importar lazy para evitar circular

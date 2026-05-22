@@ -59,7 +59,7 @@ export async function actualizarVentaAction(
     }
     const { ventaId, empresaId, ...campos } = parsed.data
 
-    await requireEmpresaAccess(user, empresaId, 'comisiones')
+    await requireEmpresaAccess(user, empresaId, 'ventas')
     const tenantId = user.tenantId
 
     return await db.transaction(async (tx) => {
@@ -130,13 +130,74 @@ export async function actualizarVentaAction(
         }
       }
 
-      revalidatePath(`/empresa/${empresaId}/comisiones/ventas`)
-      revalidatePath(`/empresa/${empresaId}/comisiones/ventas/${ventaId}`)
+      revalidatePath(`/empresa/${empresaId}/ventas`)
+      revalidatePath(`/empresa/${empresaId}/ventas/${ventaId}`)
 
       return { ok: true as const, data: { ventaId, recalculada } }
     })
   } catch (err) {
     console.error('[actualizarVentaAction]', err)
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Error desconocido',
+    }
+  }
+}
+
+// ─── Resync venta desde Monday ──────────────────────────────────────────────
+// Limpia editadoEnSistema=false para que la próxima sincronización Monday
+// sobreescriba los campos editables. NO ejecuta sync ahora; solo destraba el
+// flag sticky. Joana corre "Sincronizar Monday" desde su módulo si quiere
+// el cambio inmediato.
+
+export async function resyncVentaFromMondayAction(
+  empresaId: string,
+  ventaId: string,
+): Promise<ActionResult<{ ventaId: string }>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+    await requireEmpresaAccess(user, empresaId, 'ventas')
+    const tenantId = user.tenantId
+
+    await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+      const [actual] = await tx
+        .select()
+        .from(ventasBmcorp)
+        .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.id, ventaId)))
+        .limit(1)
+      if (!actual) throw new Error('Venta no encontrada')
+      if (!actual.editadoEnSistema) return // idempotente
+
+      await tx
+        .update(ventasBmcorp)
+        .set({
+          editadoEnSistema: false,
+          editadoPor: null,
+          editadoEn: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.id, ventaId)))
+
+      await tx.insert(auditLogs).values({
+        tenantId,
+        userId: user.id,
+        recursoTipo: 'venta_bmcorp',
+        recursoId: ventaId,
+        accion: 'RESYNC_MONDAY',
+        cambios: {
+          editadoPorAnterior: actual.editadoPor,
+          editadoEnAnterior: actual.editadoEn,
+        },
+      })
+    })
+
+    revalidatePath(`/empresa/${empresaId}/ventas`)
+    revalidatePath(`/empresa/${empresaId}/ventas/${ventaId}`)
+    return { ok: true, data: { ventaId } }
+  } catch (err) {
+    console.error('[resyncVentaFromMondayAction]', err)
     return {
       ok: false,
       error: err instanceof Error ? err.message : 'Error desconocido',

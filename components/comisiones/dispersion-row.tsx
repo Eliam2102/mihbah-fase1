@@ -51,7 +51,12 @@ export function DispersionRow({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fmt = (n: string | number) =>
-    Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+    Number(n).toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   const yaPagado = Number(dispersion.montoPagado) >= Number(dispersion.montoTotal) - 0.01
   const restante = Number(dispersion.montoTotal) - Number(dispersion.montoPagado)
@@ -137,17 +142,14 @@ export function DispersionRow({
         <td className="px-2 py-1.5 sm:px-3">
           <div className="font-medium">{dispersion.beneficiarioNombre}</div>
           <Link
-            href={`/empresa/${empresaId}/comisiones/ventas/${ventaId}`}
+            href={`/empresa/${empresaId}/ventas/${ventaId}`}
             className="text-muted-foreground text-xs hover:underline md:hidden"
           >
             {ventaCliente}
           </Link>
         </td>
         <td className="text-muted-foreground hidden px-3 py-1.5 text-xs md:table-cell">
-          <Link
-            href={`/empresa/${empresaId}/comisiones/ventas/${ventaId}`}
-            className="hover:underline"
-          >
+          <Link href={`/empresa/${empresaId}/ventas/${ventaId}`} className="hover:underline">
             {ventaCliente}
           </Link>
           {ventaMondayItemId && (

@@ -21,7 +21,7 @@ import type {
   VentaListItem,
   GrupoEstado,
   VentasListResult,
-} from '@/lib/services/comisiones/ventas-listing.service'
+} from '@/lib/services/ventas/ventas-listing.service'
 
 type Alianza = { id: string; nombre: string }
 type Desarrollo = { id: string; nombre: string }
@@ -29,7 +29,7 @@ type Desarrollo = { id: string; nombre: string }
 const TABS: { id: GrupoEstado; label: string; icon: React.ReactNode }[] = [
   { id: 'por_cerrar', label: 'Por cerrar', icon: <Clock className="h-3.5 w-3.5" /> },
   { id: 'cerradas', label: 'Cerradas', icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
-  { id: 'en_proceso', label: 'En proceso', icon: <TrendingUp className="h-3.5 w-3.5" /> },
+  { id: 'en_proceso', label: 'Rechazadas', icon: <AlertCircle className="h-3.5 w-3.5" /> },
   { id: 'canceladas', label: 'Canceladas', icon: <XCircle className="h-3.5 w-3.5" /> },
   { id: 'todas', label: 'Todas', icon: <Package className="h-3.5 w-3.5" /> },
 ]
@@ -91,7 +91,12 @@ export function VentasListingView({
   }
 
   const fmt = (n: number) =>
-    n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+    n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   const totalPages = Math.max(1, Math.ceil(result.total / 50))
   const filtersActive =
@@ -133,7 +138,7 @@ export function VentasListingView({
               icon={<CheckCircle2 className="h-4 w-4" />}
               label="Comisión pagada"
               value={fmt(result.stats.totalComisionPagada)}
-              sub={`${result.stats.porcentajeConciliado.toFixed(0)}% conciliado`}
+              sub={`${result.stats.porcentajeConciliado.toFixed(2)}% conciliado`}
             />
             <HeroStat
               icon={<Clock className="h-4 w-4" />}
@@ -290,7 +295,7 @@ export function VentasListingView({
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-sm">
+          <table className="w-full min-w-[1200px] text-sm">
             <thead className="bg-muted/20 text-muted-foreground text-xs">
               <tr>
                 <th className="px-3 py-2.5 text-left font-medium">Cliente</th>
@@ -298,7 +303,18 @@ export function VentasListingView({
                 <th className="px-3 py-2.5 text-left font-medium">Desarrollo · Lote</th>
                 <th className="px-3 py-2.5 text-right font-medium">Monto</th>
                 <th className="px-3 py-2.5 text-left font-medium">% Enganche</th>
-                <th className="px-3 py-2.5 text-right font-medium">Comisión BM</th>
+                <th
+                  className="px-3 py-2.5 text-right font-medium"
+                  title="Comisión bruta total que paga el cliente (antes de repartir entre socios + bolsa comercial)"
+                >
+                  Comisión bruta
+                </th>
+                <th
+                  className="px-3 py-2.5 text-right font-medium"
+                  title="Rebanada operativa BM CORP (1% del bruto típico)"
+                >
+                  Op BM
+                </th>
                 <th className="px-3 py-2.5 text-left font-medium">% Avance pago</th>
                 <th className="px-3 py-2.5 text-center font-medium">Estado</th>
                 <th className="px-3 py-2.5 text-center font-medium">Tiempo</th>
@@ -308,12 +324,50 @@ export function VentasListingView({
             <tbody className="divide-y">
               {result.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-muted-foreground px-4 py-12 text-center">
+                  <td colSpan={11} className="text-muted-foreground px-4 py-12 text-center">
                     <Package className="mx-auto mb-3 h-8 w-8 opacity-30" />
-                    <p className="font-medium">Sin ventas</p>
-                    <p className="mt-1 text-xs">
-                      Ajusta los filtros o ejecuta una sincronización Monday.
+                    <p className="text-foreground font-medium">
+                      {filtersActive
+                        ? 'Sin ventas con los filtros actuales'
+                        : `Sin ventas en "${TABS.find((t) => t.id === currentFilter.grupo)?.label ?? currentFilter.grupo}"`}
                     </p>
+                    <p className="mt-1 text-xs">
+                      {filtersActive
+                        ? `Hay ${result.stats.contadores.todas} ventas totales. Probá quitar filtros.`
+                        : 'Cambiá de tab o ejecutá una sincronización Monday.'}
+                    </p>
+                    <div className="mt-4 flex justify-center gap-2">
+                      {filtersActive && (
+                        <button
+                          onClick={() =>
+                            updateParams({
+                              anio: undefined,
+                              mes: undefined,
+                              alianza: undefined,
+                              desarrollo: undefined,
+                              q: undefined,
+                            })
+                          }
+                          className="border-border hover:bg-muted rounded-md border px-3 py-1.5 text-xs font-medium"
+                        >
+                          Quitar filtros
+                        </button>
+                      )}
+                      {currentFilter.grupo !== 'todas' && (
+                        <button
+                          onClick={() => updateParams({ grupo: undefined })}
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-xs font-medium"
+                        >
+                          Ver todas
+                        </button>
+                      )}
+                      <Link
+                        href={`/empresa/${empresaId}/monday`}
+                        className="border-border hover:bg-muted rounded-md border px-3 py-1.5 text-xs font-medium"
+                      >
+                        Sincronizar Monday
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -389,10 +443,7 @@ function FilaVenta({
   return (
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-3 py-3">
-        <Link
-          href={`/empresa/${empresaId}/comisiones/ventas/${v.ventaId}`}
-          className="hover:underline"
-        >
+        <Link href={`/empresa/${empresaId}/ventas/${v.ventaId}`} className="hover:underline">
           <p className="text-foreground font-medium">{v.cliente}</p>
           {v.mondayItemId && (
             <p className="text-muted-foreground font-mono text-[10px]">ID: {v.mondayItemId}</p>
@@ -413,7 +464,7 @@ function FilaVenta({
       <td className="px-3 py-3">
         <ProgressMini
           pct={v.porcentajeEnganchePagado}
-          label={`${fmt(v.enganche)} (${v.porcentajeEnganchePagado.toFixed(0)}%)`}
+          label={`${fmt(v.enganche)} (${v.porcentajeEnganchePagado.toFixed(2)}%)`}
         />
       </td>
       <td className="text-foreground px-3 py-3 text-right tabular-nums">
@@ -426,11 +477,14 @@ function FilaVenta({
           fmt(v.comisionBmEsperada)
         )}
       </td>
+      <td className="text-muted-foreground px-3 py-3 text-right text-xs tabular-nums">
+        {v.sinEsquema ? '—' : fmt(v.comisionOpBmcorp)}
+      </td>
       <td className="px-3 py-3">
         {v.comisionBmEsperada > 0 ? (
           <ProgressMini
             pct={v.porcentajeAvancePago}
-            label={`${fmt(v.comisionPagada)} (${v.porcentajeAvancePago.toFixed(0)}%)`}
+            label={`${fmt(v.comisionPagada)} (${v.porcentajeAvancePago.toFixed(2)}%)`}
             color="success"
           />
         ) : (
@@ -457,7 +511,7 @@ function FilaVenta({
       </td>
       <td className="px-3 py-3 text-right">
         <Link
-          href={`/empresa/${empresaId}/comisiones/ventas/${v.ventaId}`}
+          href={`/empresa/${empresaId}/ventas/${v.ventaId}`}
           className="text-muted-foreground hover:text-foreground inline-block"
         >
           <ChevronRight className="h-4 w-4" />

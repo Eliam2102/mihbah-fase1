@@ -9,6 +9,7 @@ import {
   Percent,
   Users,
   ShieldCheck,
+  ShoppingCart,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -48,6 +49,12 @@ const MONDAY_MODULE = (empresaId: string): ModuleItem => ({
   label: 'Sincronización Monday',
   href: `/empresa/${empresaId}/monday`,
   icon: RefreshCw,
+})
+
+const VENTAS_MODULE = (empresaId: string): ModuleItem => ({
+  label: 'Ventas',
+  href: `/empresa/${empresaId}/ventas`,
+  icon: ShoppingCart,
 })
 
 const COMISIONES_MODULES = (empresaId: string): ModuleItem[] => [
@@ -99,7 +106,7 @@ export function getModulesForEmpresa(
     const baseBmcorp = base.map((m) =>
       m.label === 'Flujo' ? { ...m, href: `/empresa/${id}/flujo-caja` } : m,
     )
-    return [...baseBmcorp, ...COMISIONES_MODULES(id), MONDAY_MODULE(id)]
+    return [...baseBmcorp, VENTAS_MODULE(id), ...COMISIONES_MODULES(id), MONDAY_MODULE(id)]
   }
 
   return base

@@ -69,7 +69,8 @@ function calcFlujoNeto(neto: number): SubIndicador {
   const formatted = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(neto)
 
   if (neto > 0) return { estado: 'VERDE', label: 'Flujo neto', valor: formatted }

@@ -1,14 +1,14 @@
 import { requireUser } from '@/lib/auth/helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { db } from '@/lib/db'
-import { comisionesCalculadas, ventasBmcorp, dispersiones, afiliados } from '@/lib/db/schema'
+import { comisionesCalculadas, ventasBmcorp, dispersiones, afiliados, users } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, eq } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react'
 import { RecalcularBoton } from '@/components/comisiones/recalcular-boton'
-import { VentaEditForm } from '@/components/comisiones/venta-edit-form'
+import { VentaEditForm } from '@/components/ventas/venta-edit-form'
 
 export default async function VentaDetalle({
   params,
@@ -17,15 +17,20 @@ export default async function VentaDetalle({
 }) {
   const { empresaId, ventaId } = await params
   const user = await requireUser()
-  await requireEmpresaAccess(user, empresaId, 'comisiones')
+  await requireEmpresaAccess(user, empresaId, 'ventas')
   const tenantId = user.tenantId!
 
   const data = await db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
     const [venta] = await tx
-      .select({ venta: ventasBmcorp, afiliado: afiliados.nombre })
+      .select({
+        venta: ventasBmcorp,
+        afiliado: afiliados.nombre,
+        editorNombre: users.name,
+      })
       .from(ventasBmcorp)
       .leftJoin(afiliados, eq(ventasBmcorp.afiliadoId, afiliados.id))
+      .leftJoin(users, eq(ventasBmcorp.editadoPor, users.id))
       .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.id, ventaId)))
       .limit(1)
     if (!venta) return null
@@ -43,18 +48,29 @@ export default async function VentaDetalle({
           .where(and(eq(dispersiones.tenantId, tenantId), eq(dispersiones.comisionId, comision.id)))
           .orderBy(dispersiones.tipoBeneficiario)
       : []
-    return { venta: venta.venta, afiliadoNombre: venta.afiliado, comision, lines }
+    return {
+      venta: venta.venta,
+      afiliadoNombre: venta.afiliado,
+      editorNombre: venta.editorNombre,
+      comision,
+      lines,
+    }
   })
 
   if (!data) notFound()
-  const { venta, afiliadoNombre, comision, lines } = data
+  const { venta, afiliadoNombre, editorNombre, comision, lines } = data
   const fmt = (n: string | number) =>
-    Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+    Number(n).toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
 
   return (
     <section className="3xl:p-12 w-full space-y-6 p-4 sm:p-6 xl:p-10">
       <Link
-        href={`/empresa/${empresaId}/comisiones/ventas`}
+        href={`/empresa/${empresaId}/ventas`}
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
       >
         <ArrowLeft className="h-3 w-3" /> Volver a ventas
@@ -87,6 +103,8 @@ export default async function VentaDetalle({
           asesor: venta.asesor,
           notasInternas: venta.notasInternas,
           editadoEnSistema: venta.editadoEnSistema,
+          editadoPorNombre: editorNombre,
+          editadoEn: venta.editadoEn ? venta.editadoEn.toISOString() : null,
         }}
       />
 

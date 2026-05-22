@@ -63,7 +63,8 @@ export function DashboardAsesor({
     n.toLocaleString('es-MX', {
       style: 'currency',
       currency: 'MXN',
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     })
 
   const proximaPago = dispersiones.find((d) => d.estado === 'PENDIENTE' || d.estado === 'PARCIAL')

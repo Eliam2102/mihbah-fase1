@@ -1,0 +1,1949 @@
+[
+  {
+    "id": "3017199126",
+    "label": "Seguimiento General (ACTUAL)",
+    "name": "Seguimiento General",
+    "items_count": 136,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "subelementos",
+        "title": "Subelementos",
+        "type": "subtasks"
+      },
+      {
+        "id": "text_mkx6pfmg",
+        "title": "Copropiedad",
+        "type": "text"
+      },
+      {
+        "id": "n_mero_de_lote",
+        "title": "Afiliado",
+        "type": "status"
+      },
+      {
+        "id": "n_meros8",
+        "title": "Lote/Acciones",
+        "type": "numbers"
+      },
+      {
+        "id": "desarrollo",
+        "title": "Desarrollo",
+        "type": "dropdown"
+      },
+      {
+        "id": "desarrolladora",
+        "title": "Desarrolladora",
+        "type": "status"
+      },
+      {
+        "id": "date",
+        "title": "Fecha de apertura",
+        "type": "date"
+      },
+      {
+        "id": "f_rmula6",
+        "title": "Liquidación de enganche",
+        "type": "formula"
+      },
+      {
+        "id": "fecha",
+        "title": "Fecha de cierre",
+        "type": "date"
+      },
+      {
+        "id": "reflejo_13",
+        "title": "ESTADO CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "estado_1",
+        "title": "Estado de venta",
+        "type": "status"
+      },
+      {
+        "id": "estado_14",
+        "title": "Financiamiento",
+        "type": "status"
+      },
+      {
+        "id": "color_mkv1cg83",
+        "title": "Paquete accion",
+        "type": "status"
+      },
+      {
+        "id": "color",
+        "title": "OPERATIVO AP",
+        "type": "status"
+      },
+      {
+        "id": "color2",
+        "title": "OPERATIVO CIERRE",
+        "type": "status"
+      },
+      {
+        "id": "numeric_mkv1tbc3",
+        "title": "Monto por acción",
+        "type": "numbers"
+      },
+      {
+        "id": "n_meros",
+        "title": "Monto total",
+        "type": "numbers"
+      },
+      {
+        "id": "reflejo",
+        "title": "MONTO CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "f_rmula7",
+        "title": "ENGANCHE",
+        "type": "formula"
+      },
+      {
+        "id": "n_meros4",
+        "title": "Porcentaje de enganche",
+        "type": "numbers"
+      },
+      {
+        "id": "reflejo_1",
+        "title": "PORCENTAJE CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "estado19",
+        "title": "PROMO",
+        "type": "status"
+      },
+      {
+        "id": "estado2",
+        "title": "EXTENSIÓN",
+        "type": "status"
+      },
+      {
+        "id": "estado0",
+        "title": "DOCUMENTACIÓN",
+        "type": "status"
+      },
+      {
+        "id": "estado64",
+        "title": "CRM/DRIVE",
+        "type": "status"
+      },
+      {
+        "id": "estado12",
+        "title": "C & A",
+        "type": "status"
+      },
+      {
+        "id": "color_mkv1g6fe",
+        "title": "VISTO BUENO",
+        "type": "status"
+      },
+      {
+        "id": "color_mkwrs5hg",
+        "title": "CONTRATO",
+        "type": "status"
+      },
+      {
+        "id": "color_mm191fxg",
+        "title": "CARTA DESLINDE",
+        "type": "status"
+      },
+      {
+        "id": "estado9",
+        "title": "PAGO AP/CUOTA",
+        "type": "status"
+      },
+      {
+        "id": "estado92",
+        "title": "RECIBO AP/CUOTA",
+        "type": "status"
+      },
+      {
+        "id": "color0",
+        "title": "PAGO ABONO",
+        "type": "status"
+      },
+      {
+        "id": "color9",
+        "title": "RECIBO ABONO",
+        "type": "status"
+      },
+      {
+        "id": "color_mkwdv8a3",
+        "title": "CANTIDAD",
+        "type": "status"
+      },
+      {
+        "id": "dup__of_pago_abono",
+        "title": "PAGO LIQ",
+        "type": "status"
+      },
+      {
+        "id": "color95",
+        "title": "RECIBO LIQ",
+        "type": "status"
+      },
+      {
+        "id": "dup__of_recibo_liq",
+        "title": "ENGANCHE",
+        "type": "status"
+      },
+      {
+        "id": "texto2",
+        "title": "ASESOR",
+        "type": "text"
+      },
+      {
+        "id": "long_text_mm3hcmy7",
+        "title": "Promoción",
+        "type": "long_text"
+      },
+      {
+        "id": "estado4",
+        "title": "TICKET",
+        "type": "status"
+      },
+      {
+        "id": "conectar_tableros3",
+        "title": "Formulario Generales",
+        "type": "board_relation"
+      },
+      {
+        "id": "multiple_person_mkypz5b9",
+        "title": "Asesor",
+        "type": "people"
+      },
+      {
+        "id": "multiple_person_mkv1py2z",
+        "title": "Personas",
+        "type": "people"
+      },
+      {
+        "id": "pulse_updated_mkwc6ky8",
+        "title": "Última actualización",
+        "type": "last_updated"
+      },
+      {
+        "id": "f_rmula61",
+        "title": "Días en proceso",
+        "type": "formula"
+      },
+      {
+        "id": "board_relation_mkwbzk5n",
+        "title": "Formulario YCD",
+        "type": "board_relation"
+      },
+      {
+        "id": "reflejo5",
+        "title": "MONTO ABONADO",
+        "type": "mirror"
+      },
+      {
+        "id": "n_meros2",
+        "title": "Número",
+        "type": "numbers"
+      },
+      {
+        "id": "tel_fono",
+        "title": "Teléfono",
+        "type": "phone"
+      },
+      {
+        "id": "correo_electr_nico",
+        "title": "Correo electrónico",
+        "type": "email"
+      },
+      {
+        "id": "pa_s5",
+        "title": "Nacionalidad",
+        "type": "country"
+      },
+      {
+        "id": "pa_s0",
+        "title": "Residencia",
+        "type": "country"
+      },
+      {
+        "id": "estado10",
+        "title": "Sexo",
+        "type": "status"
+      },
+      {
+        "id": "fecha7",
+        "title": "Fecha de nacimiento",
+        "type": "date"
+      },
+      {
+        "id": "estado59",
+        "title": "ENVIADOS A RASTREO",
+        "type": "status"
+      },
+      {
+        "id": "f_rmula8",
+        "title": "Monto 15%",
+        "type": "formula"
+      },
+      {
+        "id": "f_rmula_1",
+        "title": "Puntos calificados",
+        "type": "formula"
+      },
+      {
+        "id": "verificar",
+        "title": "Verificar",
+        "type": "checkbox"
+      },
+      {
+        "id": "conectar_tableros83",
+        "title": "LETS GET IT 2024",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros_5",
+        "title": "Conectar tableros 5",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros_19",
+        "title": "Conectar tableros 1",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros70",
+        "title": "LETS GET IT 2024",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros_12",
+        "title": "LETS GET IT 2024",
+        "type": "board_relation"
+      }
+    ],
+    "groups": [
+      {
+        "id": "grupo_nuevo93113",
+        "title": "PROCESO"
+      },
+      {
+        "id": "duplicate_of_esperando_autoriz19312",
+        "title": "ESPERANDO AUTORIZACIÓN"
+      },
+      {
+        "id": "grupo_nuevo3476",
+        "title": "RECHAZADA"
+      },
+      {
+        "id": "grupo_nuevo85181",
+        "title": "APROBADO DIRECCIÓN VENTAS"
+      },
+      {
+        "id": "grupo_nuevo92117",
+        "title": "APROBADO JURÍDICO"
+      },
+      {
+        "id": "group_mkxbykjx",
+        "title": "FINALIZADAS"
+      },
+      {
+        "id": "grupo_nuevo20405",
+        "title": "LIBERADO"
+      }
+    ]
+  },
+  {
+    "id": "18393694259",
+    "label": "VENTAS 2026",
+    "name": "VENTAS 2026",
+    "items_count": 172,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "subelementos",
+        "title": "Subelementos",
+        "type": "subtasks"
+      },
+      {
+        "id": "text_mkxcsdf0",
+        "title": "Texto",
+        "type": "text"
+      },
+      {
+        "id": "n_mero_de_lote",
+        "title": "Afiliado",
+        "type": "status"
+      },
+      {
+        "id": "n_meros8",
+        "title": "Lote/Acciones",
+        "type": "numbers"
+      },
+      {
+        "id": "multiple_person_mkv1py2z",
+        "title": "Personas",
+        "type": "people"
+      },
+      {
+        "id": "desarrollo",
+        "title": "Desarrollo",
+        "type": "dropdown"
+      },
+      {
+        "id": "desarrolladora",
+        "title": "Desarrolladora",
+        "type": "status"
+      },
+      {
+        "id": "date",
+        "title": "Fecha de apertura",
+        "type": "date"
+      },
+      {
+        "id": "f_rmula6",
+        "title": "Liquidación de enganche",
+        "type": "formula"
+      },
+      {
+        "id": "fecha",
+        "title": "Fecha de cierre",
+        "type": "date"
+      },
+      {
+        "id": "color_mkwx7haw",
+        "title": "Mes",
+        "type": "status"
+      },
+      {
+        "id": "estado_1",
+        "title": "Estado de venta",
+        "type": "status"
+      },
+      {
+        "id": "estado_14",
+        "title": "Financiamiento",
+        "type": "status"
+      },
+      {
+        "id": "color_mkv1cg83",
+        "title": "Paquete accion",
+        "type": "status"
+      },
+      {
+        "id": "color",
+        "title": "OPERATIVO AP",
+        "type": "status"
+      },
+      {
+        "id": "color2",
+        "title": "OPERATIVO CIERRE",
+        "type": "status"
+      },
+      {
+        "id": "numeric_mkv1tbc3",
+        "title": "Monto por acción",
+        "type": "numbers"
+      },
+      {
+        "id": "n_meros",
+        "title": "Monto total",
+        "type": "numbers"
+      },
+      {
+        "id": "f_rmula7",
+        "title": "ENGANCHE",
+        "type": "formula"
+      },
+      {
+        "id": "n_meros4",
+        "title": "Porcentaje de enganche",
+        "type": "numbers"
+      },
+      {
+        "id": "texto2",
+        "title": "ASESOR",
+        "type": "text"
+      },
+      {
+        "id": "estado4",
+        "title": "CARTA RESPONSIVA",
+        "type": "status"
+      },
+      {
+        "id": "f_rmula61",
+        "title": "Días en proceso",
+        "type": "formula"
+      },
+      {
+        "id": "reflejo_13",
+        "title": "ESTADO CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo",
+        "title": "MONTO CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo_1",
+        "title": "PORCENTAJE CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo5",
+        "title": "MONTO ABONADO",
+        "type": "mirror"
+      },
+      {
+        "id": "conectar_tableros3",
+        "title": "Formulario Generales",
+        "type": "board_relation"
+      },
+      {
+        "id": "text_mkwyhw0y",
+        "title": "Estado",
+        "type": "text"
+      },
+      {
+        "id": "text_mkwyazf5",
+        "title": "Ciudad",
+        "type": "text"
+      },
+      {
+        "id": "text_mkwy5g9v",
+        "title": "C.P",
+        "type": "text"
+      },
+      {
+        "id": "pa_s0",
+        "title": "Residencia",
+        "type": "country"
+      },
+      {
+        "id": "pa_s5",
+        "title": "Nacionalidad",
+        "type": "country"
+      },
+      {
+        "id": "tel_fono",
+        "title": "Teléfono",
+        "type": "phone"
+      },
+      {
+        "id": "correo_electr_nico",
+        "title": "Correo electrónico",
+        "type": "email"
+      },
+      {
+        "id": "fecha7",
+        "title": "Fecha de nacimiento",
+        "type": "date"
+      },
+      {
+        "id": "estado10",
+        "title": "Sexo",
+        "type": "status"
+      },
+      {
+        "id": "estado59",
+        "title": "Estado",
+        "type": "status"
+      },
+      {
+        "id": "f_rmula8",
+        "title": "Monto 15%",
+        "type": "formula"
+      },
+      {
+        "id": "f_rmula_1",
+        "title": "Puntos calificados",
+        "type": "formula"
+      },
+      {
+        "id": "verificar",
+        "title": "Verificar",
+        "type": "checkbox"
+      },
+      {
+        "id": "n_meros2",
+        "title": "Copropiedad",
+        "type": "numbers"
+      },
+      {
+        "id": "multiple_person_mm088mbd",
+        "title": "Lider",
+        "type": "people"
+      },
+      {
+        "id": "long_text_mm3h5x66",
+        "title": "Promoción",
+        "type": "long_text"
+      }
+    ],
+    "groups": [
+      {
+        "id": "group_mm07vpc3",
+        "title": "Enero"
+      },
+      {
+        "id": "group_mkv2fdnf",
+        "title": "FEBRERO"
+      },
+      {
+        "id": "group_mkv5nfr5",
+        "title": "MARZO"
+      },
+      {
+        "id": "group_mm2z195q",
+        "title": "ABRIL"
+      },
+      {
+        "id": "group_mkv58k8f",
+        "title": "MAYO"
+      },
+      {
+        "id": "group_mkv5k105",
+        "title": "JUNIO"
+      },
+      {
+        "id": "group_mkv5th1p",
+        "title": "JULIO"
+      },
+      {
+        "id": "group_mkvcqabt",
+        "title": "AGOSTO"
+      },
+      {
+        "id": "group_mkwag80v",
+        "title": "SEPTIEMBRE"
+      },
+      {
+        "id": "group_mkxbqp7j",
+        "title": "OCTUBRE"
+      },
+      {
+        "id": "group_mky7sz74",
+        "title": "NOVIEMBRE"
+      },
+      {
+        "id": "group_mkz78225",
+        "title": "DICIEMBRE"
+      }
+    ]
+  },
+  {
+    "id": "9882086771",
+    "label": "VENTAS 2025",
+    "name": "VENTAS 2025",
+    "items_count": 709,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "subelementos",
+        "title": "Subelementos",
+        "type": "subtasks"
+      },
+      {
+        "id": "text_mkxcsdf0",
+        "title": "Texto",
+        "type": "text"
+      },
+      {
+        "id": "n_mero_de_lote",
+        "title": "Afiliado",
+        "type": "status"
+      },
+      {
+        "id": "n_meros8",
+        "title": "Lote/Acciones",
+        "type": "numbers"
+      },
+      {
+        "id": "multiple_person_mkv1py2z",
+        "title": "Personas",
+        "type": "people"
+      },
+      {
+        "id": "desarrollo",
+        "title": "Desarrollo",
+        "type": "dropdown"
+      },
+      {
+        "id": "desarrolladora",
+        "title": "Desarrolladora",
+        "type": "status"
+      },
+      {
+        "id": "date",
+        "title": "Fecha de apertura",
+        "type": "date"
+      },
+      {
+        "id": "f_rmula6",
+        "title": "Liquidación de enganche",
+        "type": "formula"
+      },
+      {
+        "id": "fecha",
+        "title": "Fecha de cierre",
+        "type": "date"
+      },
+      {
+        "id": "color_mkwx7haw",
+        "title": "Mes",
+        "type": "status"
+      },
+      {
+        "id": "estado_1",
+        "title": "Estado de venta",
+        "type": "status"
+      },
+      {
+        "id": "estado_14",
+        "title": "Financiamiento",
+        "type": "status"
+      },
+      {
+        "id": "color_mkv1cg83",
+        "title": "Paquete accion",
+        "type": "status"
+      },
+      {
+        "id": "color",
+        "title": "OPERATIVO AP",
+        "type": "status"
+      },
+      {
+        "id": "color2",
+        "title": "OPERATIVO CIERRE",
+        "type": "status"
+      },
+      {
+        "id": "numeric_mkv1tbc3",
+        "title": "Monto por acción",
+        "type": "numbers"
+      },
+      {
+        "id": "n_meros",
+        "title": "Monto total",
+        "type": "numbers"
+      },
+      {
+        "id": "f_rmula7",
+        "title": "ENGANCHE",
+        "type": "formula"
+      },
+      {
+        "id": "n_meros4",
+        "title": "Porcentaje de enganche",
+        "type": "numbers"
+      },
+      {
+        "id": "texto2",
+        "title": "ASESOR",
+        "type": "text"
+      },
+      {
+        "id": "estado4",
+        "title": "CARTA RESPONSIVA",
+        "type": "status"
+      },
+      {
+        "id": "f_rmula61",
+        "title": "Días en proceso",
+        "type": "formula"
+      },
+      {
+        "id": "reflejo_13",
+        "title": "ESTADO CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo",
+        "title": "MONTO CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo_1",
+        "title": "PORCENTAJE CRM",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo5",
+        "title": "MONTO ABONADO",
+        "type": "mirror"
+      },
+      {
+        "id": "conectar_tableros3",
+        "title": "Formulario Generales",
+        "type": "board_relation"
+      },
+      {
+        "id": "text_mkwyhw0y",
+        "title": "Estado",
+        "type": "text"
+      },
+      {
+        "id": "text_mkwyazf5",
+        "title": "Ciudad",
+        "type": "text"
+      },
+      {
+        "id": "text_mkwy5g9v",
+        "title": "C.P",
+        "type": "text"
+      },
+      {
+        "id": "pa_s0",
+        "title": "Residencia",
+        "type": "country"
+      },
+      {
+        "id": "pa_s5",
+        "title": "Nacionalidad",
+        "type": "country"
+      },
+      {
+        "id": "tel_fono",
+        "title": "Teléfono",
+        "type": "phone"
+      },
+      {
+        "id": "correo_electr_nico",
+        "title": "Correo electrónico",
+        "type": "email"
+      },
+      {
+        "id": "fecha7",
+        "title": "Fecha de nacimiento",
+        "type": "date"
+      },
+      {
+        "id": "formula_mm19b28d",
+        "title": "Edad",
+        "type": "formula"
+      },
+      {
+        "id": "estado10",
+        "title": "Sexo",
+        "type": "status"
+      },
+      {
+        "id": "estado59",
+        "title": "Estado",
+        "type": "status"
+      },
+      {
+        "id": "f_rmula8",
+        "title": "Monto 15%",
+        "type": "formula"
+      },
+      {
+        "id": "f_rmula_1",
+        "title": "Puntos calificados",
+        "type": "formula"
+      },
+      {
+        "id": "verificar",
+        "title": "Verificar",
+        "type": "checkbox"
+      },
+      {
+        "id": "n_meros2",
+        "title": "Copropiedad",
+        "type": "numbers"
+      },
+      {
+        "id": "conectar_tableros83",
+        "title": "LETS GET IT 2024",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros_12",
+        "title": "LETS GET IT 2024",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros70",
+        "title": "LETS GET IT 2024",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros_19",
+        "title": "Conectar tableros 1",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros_5",
+        "title": "Conectar tableros 5",
+        "type": "board_relation"
+      }
+    ],
+    "groups": [
+      {
+        "id": "group_mkv27jcn",
+        "title": "ENERO"
+      },
+      {
+        "id": "group_mkv2fdnf",
+        "title": "FEBRERO"
+      },
+      {
+        "id": "group_mkv5nfr5",
+        "title": "MARZO"
+      },
+      {
+        "id": "group_mkv5bhd4",
+        "title": "ABRIL"
+      },
+      {
+        "id": "group_mkv58k8f",
+        "title": "MAYO"
+      },
+      {
+        "id": "group_mkv5k105",
+        "title": "JUNIO"
+      },
+      {
+        "id": "group_mkv5th1p",
+        "title": "JULIO"
+      },
+      {
+        "id": "group_mkvcqabt",
+        "title": "AGOSTO"
+      },
+      {
+        "id": "group_mkwag80v",
+        "title": "SEPTIEMBRE"
+      },
+      {
+        "id": "group_mkxbqp7j",
+        "title": "OCTUBRE"
+      },
+      {
+        "id": "group_mky7sz74",
+        "title": "NOVIEMBRE"
+      },
+      {
+        "id": "group_mkz78225",
+        "title": "DICIEMBRE"
+      }
+    ]
+  },
+  {
+    "id": "5981113831",
+    "label": "VENTAS 2024",
+    "name": "VENTAS 2024",
+    "items_count": 1122,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "subelementos",
+        "title": "Subelementos",
+        "type": "subtasks"
+      },
+      {
+        "id": "n_mero_de_lote",
+        "title": "Afiliado",
+        "type": "status"
+      },
+      {
+        "id": "n_meros8",
+        "title": "Número de lote",
+        "type": "numbers"
+      },
+      {
+        "id": "desarrollo",
+        "title": "Desarrollo",
+        "type": "dropdown"
+      },
+      {
+        "id": "desarrolladora",
+        "title": "Desarrolladora",
+        "type": "status"
+      },
+      {
+        "id": "date",
+        "title": "Fecha de apertura",
+        "type": "date"
+      },
+      {
+        "id": "formula_mkv15xw2",
+        "title": "Liquidación de enganche",
+        "type": "formula"
+      },
+      {
+        "id": "fecha",
+        "title": "Fecha de cierre",
+        "type": "date"
+      },
+      {
+        "id": "color_mkwxsk7x",
+        "title": "Mes",
+        "type": "status"
+      },
+      {
+        "id": "estado_1",
+        "title": "Estado de venta",
+        "type": "status"
+      },
+      {
+        "id": "estado_14",
+        "title": "Financiamiento",
+        "type": "status"
+      },
+      {
+        "id": "estado2",
+        "title": "OPERATIVO AP",
+        "type": "status"
+      },
+      {
+        "id": "estado_10",
+        "title": "OPERATIVO CIERRE",
+        "type": "status"
+      },
+      {
+        "id": "numeric_mkv1x99k",
+        "title": "Monto por acción",
+        "type": "numbers"
+      },
+      {
+        "id": "n_meros",
+        "title": "Monto total",
+        "type": "numbers"
+      },
+      {
+        "id": "reflejo",
+        "title": "MONTO",
+        "type": "mirror"
+      },
+      {
+        "id": "n_meros4",
+        "title": "Porcentaje de enganche",
+        "type": "numbers"
+      },
+      {
+        "id": "formula_mkv1nynm",
+        "title": "Enganche",
+        "type": "formula"
+      },
+      {
+        "id": "reflejo0",
+        "title": "PORCENTAJE DE ENGANCHE",
+        "type": "mirror"
+      },
+      {
+        "id": "f_rmula6",
+        "title": "Días en proceso",
+        "type": "formula"
+      },
+      {
+        "id": "reflejo9",
+        "title": "ESTADO DE VENTA",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo2",
+        "title": "MONTO ABONADO",
+        "type": "mirror"
+      },
+      {
+        "id": "verificar",
+        "title": "Verificar",
+        "type": "checkbox"
+      },
+      {
+        "id": "estado1",
+        "title": "Comisión",
+        "type": "status"
+      },
+      {
+        "id": "texto",
+        "title": "GERENCIA",
+        "type": "text"
+      },
+      {
+        "id": "conectar_tableros",
+        "title": "Formulario Generales",
+        "type": "board_relation"
+      },
+      {
+        "id": "texto2",
+        "title": "COORDINACIÓN",
+        "type": "text"
+      },
+      {
+        "id": "texto34",
+        "title": "ASESOR",
+        "type": "text"
+      },
+      {
+        "id": "text_mkx5xbft",
+        "title": "Estado",
+        "type": "text"
+      },
+      {
+        "id": "text_mkx55hr6",
+        "title": "Ciudad",
+        "type": "text"
+      },
+      {
+        "id": "text_mkx5q0qv",
+        "title": "C.P",
+        "type": "text"
+      },
+      {
+        "id": "correo_electr_nico",
+        "title": "Correo electrónico",
+        "type": "email"
+      },
+      {
+        "id": "tel_fono2",
+        "title": "Teléfono",
+        "type": "phone"
+      },
+      {
+        "id": "pa_s3",
+        "title": "Nacionalidad",
+        "type": "country"
+      },
+      {
+        "id": "pa_s6",
+        "title": "Residencia",
+        "type": "country"
+      },
+      {
+        "id": "fecha2",
+        "title": "Fecha de nacimiento",
+        "type": "date"
+      },
+      {
+        "id": "formula_mm19zy59",
+        "title": "Edad",
+        "type": "formula"
+      },
+      {
+        "id": "estado6",
+        "title": "SEXO",
+        "type": "status"
+      },
+      {
+        "id": "estado9",
+        "title": "ESTATUS",
+        "type": "status"
+      },
+      {
+        "id": "texto94",
+        "title": "OBSERVACIÓN",
+        "type": "text"
+      }
+    ],
+    "groups": [
+      {
+        "id": "duplicate_of_finalizadas35477",
+        "title": "ENERO"
+      },
+      {
+        "id": "duplicate_of_finalizadas34036",
+        "title": "FEBRERO"
+      },
+      {
+        "id": "finalizadas21339",
+        "title": "MARZO"
+      },
+      {
+        "id": "duplicate_of_abril",
+        "title": "ABRIL"
+      },
+      {
+        "id": "grupo_nuevo27413",
+        "title": "MAYO"
+      },
+      {
+        "id": "duplicate_of_junio",
+        "title": "JUNIO"
+      },
+      {
+        "id": "duplicate_of_julio",
+        "title": "JULIO"
+      },
+      {
+        "id": "duplicate_of_agosto",
+        "title": "AGOSTO"
+      },
+      {
+        "id": "finalizadas",
+        "title": "SEPTIEMBRE"
+      },
+      {
+        "id": "duplicate_of_finalizadas",
+        "title": "OCTUBRE"
+      },
+      {
+        "id": "duplicate_of_finalizadas90706",
+        "title": "NOVIEMBRE"
+      },
+      {
+        "id": "duplicate_of_finalizadas20932",
+        "title": "DICIEMBRE"
+      },
+      {
+        "id": "duplicate_of_liberadas",
+        "title": "LIBERADAS FEBRERO"
+      },
+      {
+        "id": "liberadas_marzo",
+        "title": "LIBERADAS MARZO"
+      }
+    ]
+  },
+  {
+    "id": "3910633070",
+    "label": "Ventas 2023",
+    "name": "Ventas 2023",
+    "items_count": 1740,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "subelementos",
+        "title": "Subelementos",
+        "type": "subtasks"
+      },
+      {
+        "id": "n_meros8",
+        "title": "Número de lote",
+        "type": "numbers"
+      },
+      {
+        "id": "desarrollo",
+        "title": "Desarrollo",
+        "type": "dropdown"
+      },
+      {
+        "id": "desarrolladora",
+        "title": "Desarrolladora",
+        "type": "status"
+      },
+      {
+        "id": "n_mero_de_lote",
+        "title": "Afiliado",
+        "type": "status"
+      },
+      {
+        "id": "date",
+        "title": "Fecha de apertura",
+        "type": "date"
+      },
+      {
+        "id": "fecha",
+        "title": "Fecha de cierre",
+        "type": "date"
+      },
+      {
+        "id": "color_mkwx5de5",
+        "title": "MES",
+        "type": "status"
+      },
+      {
+        "id": "f_rmula6",
+        "title": "Días en proceso",
+        "type": "formula"
+      },
+      {
+        "id": "estado_1",
+        "title": "Estado de venta",
+        "type": "status"
+      },
+      {
+        "id": "estado0",
+        "title": "Proceso RH",
+        "type": "status"
+      },
+      {
+        "id": "estado2",
+        "title": "OPERATIVO AP",
+        "type": "status"
+      },
+      {
+        "id": "estado_10",
+        "title": "OPERATIVO CIERRE",
+        "type": "status"
+      },
+      {
+        "id": "estado_14",
+        "title": "Financiamiento",
+        "type": "status"
+      },
+      {
+        "id": "n_meros",
+        "title": "Monto",
+        "type": "numbers"
+      },
+      {
+        "id": "n_meros4",
+        "title": "Porcentaje de enganche",
+        "type": "numbers"
+      },
+      {
+        "id": "verificar",
+        "title": "Verificar",
+        "type": "checkbox"
+      },
+      {
+        "id": "estado1",
+        "title": "Comisión",
+        "type": "status"
+      },
+      {
+        "id": "texto",
+        "title": "GERENCIA",
+        "type": "text"
+      },
+      {
+        "id": "texto2",
+        "title": "COORDINACIÓN",
+        "type": "text"
+      },
+      {
+        "id": "texto34",
+        "title": "ASESOR",
+        "type": "text"
+      },
+      {
+        "id": "tel_fono2",
+        "title": "Teléfono",
+        "type": "phone"
+      },
+      {
+        "id": "correo_electr_nico",
+        "title": "Correo electrónico",
+        "type": "email"
+      },
+      {
+        "id": "pa_s3",
+        "title": "Nacionalidad",
+        "type": "country"
+      },
+      {
+        "id": "pa_s6",
+        "title": "Residencia",
+        "type": "country"
+      },
+      {
+        "id": "estado6",
+        "title": "SEXO",
+        "type": "status"
+      },
+      {
+        "id": "fecha2",
+        "title": "Fecha de nacimiento",
+        "type": "date"
+      },
+      {
+        "id": "formula_mm19m2r",
+        "title": "Edad",
+        "type": "formula"
+      },
+      {
+        "id": "estado9",
+        "title": "ESTATUS",
+        "type": "status"
+      },
+      {
+        "id": "texto94",
+        "title": "OBSERVACIÓN",
+        "type": "text"
+      },
+      {
+        "id": "reflejo9",
+        "title": "ESTADO DE VENTA",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo2",
+        "title": "MONTO ABONADO",
+        "type": "mirror"
+      },
+      {
+        "id": "reflejo0",
+        "title": "PORCENTAJE DE ENGANCHE",
+        "type": "mirror"
+      },
+      {
+        "id": "conectar_tableros",
+        "title": "Formulario Generales",
+        "type": "board_relation"
+      },
+      {
+        "id": "reflejo",
+        "title": "MONTO",
+        "type": "mirror"
+      },
+      {
+        "id": "f_rmula",
+        "title": "Comisión 9%",
+        "type": "formula"
+      },
+      {
+        "id": "dup__of_comisi_n_1",
+        "title": "Comisión 12%",
+        "type": "formula"
+      },
+      {
+        "id": "f_rmula_1",
+        "title": "Puntos calificados",
+        "type": "formula"
+      },
+      {
+        "id": "dup__of_puntos_calificados",
+        "title": "Dup. of Puntos calificados",
+        "type": "formula"
+      },
+      {
+        "id": "n_meros1",
+        "title": "Monto abonado",
+        "type": "numbers"
+      },
+      {
+        "id": "f_rmula8",
+        "title": "Monto 15%",
+        "type": "formula"
+      },
+      {
+        "id": "estado",
+        "title": "Pago de comisión",
+        "type": "status"
+      },
+      {
+        "id": "dup__of_comisi_n_2",
+        "title": "Comisión Concierge",
+        "type": "formula"
+      }
+    ],
+    "groups": [
+      {
+        "id": "topics",
+        "title": "ENERO"
+      },
+      {
+        "id": "duplicate_of_febrero94791",
+        "title": "FEBRERO"
+      },
+      {
+        "id": "duplicate_of_marzo",
+        "title": "MARZO"
+      },
+      {
+        "id": "duplicate_of_abril",
+        "title": "ABRIL"
+      },
+      {
+        "id": "grupo_nuevo27413",
+        "title": "MAYO"
+      },
+      {
+        "id": "duplicate_of_junio",
+        "title": "JUNIO"
+      },
+      {
+        "id": "duplicate_of_julio",
+        "title": "JULIO"
+      },
+      {
+        "id": "duplicate_of_agosto",
+        "title": "AGOSTO"
+      },
+      {
+        "id": "finalizadas",
+        "title": "SEPTIEMBRE"
+      },
+      {
+        "id": "duplicate_of_finalizadas",
+        "title": "OCTUBRE"
+      },
+      {
+        "id": "duplicate_of_finalizadas90706",
+        "title": "NOVIEMBRE"
+      },
+      {
+        "id": "duplicate_of_finalizadas20932",
+        "title": "DICIEMBRE"
+      },
+      {
+        "id": "grupo_nuevo82666",
+        "title": "NAYAL TICKETS - FEBRERO"
+      },
+      {
+        "id": "duplicate_of_nayal_tickets",
+        "title": "NAYAL TICKETS - MARZO"
+      }
+    ]
+  },
+  {
+    "id": "3041233015",
+    "label": "Ventas 2022",
+    "name": "Ventas 2022",
+    "items_count": 1258,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "subelementos",
+        "title": "Subelementos",
+        "type": "subtasks"
+      },
+      {
+        "id": "n_meros8",
+        "title": "Número de lote",
+        "type": "numbers"
+      },
+      {
+        "id": "desarrollo",
+        "title": "Desarrollo",
+        "type": "dropdown"
+      },
+      {
+        "id": "desarrolladora",
+        "title": "Desarrolladora",
+        "type": "status"
+      },
+      {
+        "id": "n_mero_de_lote",
+        "title": "Afiliado",
+        "type": "status"
+      },
+      {
+        "id": "date",
+        "title": "Fecha de apertura",
+        "type": "date"
+      },
+      {
+        "id": "fecha",
+        "title": "Fecha de cierre",
+        "type": "date"
+      },
+      {
+        "id": "color_mkwxzvwp",
+        "title": "MES",
+        "type": "status"
+      },
+      {
+        "id": "estado_1",
+        "title": "Estado de venta",
+        "type": "status"
+      },
+      {
+        "id": "estado_14",
+        "title": "Financiamiento",
+        "type": "status"
+      },
+      {
+        "id": "n_meros",
+        "title": "Monto",
+        "type": "numbers"
+      },
+      {
+        "id": "n_meros4",
+        "title": "Porcentaje de enganche",
+        "type": "numbers"
+      },
+      {
+        "id": "f_rmula",
+        "title": "Comisión 9%",
+        "type": "formula"
+      },
+      {
+        "id": "dup__of_comisi_n_1",
+        "title": "Comisión 12%",
+        "type": "formula"
+      },
+      {
+        "id": "dup__of_comisi_n_2",
+        "title": "Comisión Concierge",
+        "type": "formula"
+      },
+      {
+        "id": "estado",
+        "title": "Pago de comisión",
+        "type": "status"
+      },
+      {
+        "id": "f_rmula8",
+        "title": "Monto 15%",
+        "type": "formula"
+      },
+      {
+        "id": "n_meros1",
+        "title": "Monto abonado",
+        "type": "numbers"
+      },
+      {
+        "id": "dup__of_puntos_calificados",
+        "title": "Dup. of Puntos calificados",
+        "type": "formula"
+      },
+      {
+        "id": "verificar",
+        "title": "Verificar",
+        "type": "checkbox"
+      },
+      {
+        "id": "f_rmula_1",
+        "title": "Puntos calificados",
+        "type": "formula"
+      },
+      {
+        "id": "conectar_tableros7",
+        "title": "RAICES",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros6",
+        "title": "LETS GET IT",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros8",
+        "title": "LAGO DE LOS BUSSINES",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros2",
+        "title": "AC",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros98",
+        "title": "WAYAK",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros_1",
+        "title": "Conectar tableros 1",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros1",
+        "title": "LAGO",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros0",
+        "title": "AC",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros06",
+        "title": "LAGO",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros89",
+        "title": "LETS GET IT",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros31",
+        "title": "AC",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros23",
+        "title": "RAÍCES",
+        "type": "board_relation"
+      },
+      {
+        "id": "conectar_tableros52",
+        "title": "BM",
+        "type": "board_relation"
+      },
+      {
+        "id": "n_mero0",
+        "title": "NÚMERO",
+        "type": "phone"
+      },
+      {
+        "id": "correo_electr_nico",
+        "title": "Correo electrónico",
+        "type": "email"
+      },
+      {
+        "id": "pa_s5",
+        "title": "NACIONALIDAD",
+        "type": "country"
+      },
+      {
+        "id": "pa_s6",
+        "title": "RESIDENCIA",
+        "type": "country"
+      },
+      {
+        "id": "estado6",
+        "title": "SEXO",
+        "type": "status"
+      },
+      {
+        "id": "fecha9",
+        "title": "FECHA DE NACIMIENTO",
+        "type": "date"
+      },
+      {
+        "id": "formula_mm19a3z1",
+        "title": "Edad",
+        "type": "formula"
+      },
+      {
+        "id": "estado1",
+        "title": "ESTATUS",
+        "type": "status"
+      },
+      {
+        "id": "texto6",
+        "title": "OBSERVACIÓN",
+        "type": "text"
+      }
+    ],
+    "groups": [
+      {
+        "id": "topics",
+        "title": "ENERO"
+      },
+      {
+        "id": "grupo_nuevo",
+        "title": "FEBRERO"
+      },
+      {
+        "id": "grupo_nuevo42626",
+        "title": "MARZO"
+      },
+      {
+        "id": "grupo_nuevo97082",
+        "title": "ABRIL"
+      },
+      {
+        "id": "grupo_nuevo27413",
+        "title": "MAYO"
+      },
+      {
+        "id": "grupo_nuevo5076",
+        "title": "JUNIO"
+      },
+      {
+        "id": "grupo_nuevo71044",
+        "title": "JULIO"
+      },
+      {
+        "id": "grupo_nuevo22698",
+        "title": "AGOSTO"
+      },
+      {
+        "id": "grupo_nuevo68913",
+        "title": "SEPTIEMBRE"
+      },
+      {
+        "id": "grupo_nuevo18731",
+        "title": "OCTUBRE"
+      },
+      {
+        "id": "grupo_nuevo11583",
+        "title": "NOVIEMBRE"
+      },
+      {
+        "id": "duplicate_of_diciembre",
+        "title": "DICIEMBRE"
+      }
+    ]
+  },
+  {
+    "id": "5672901163",
+    "label": "VENTAS 2021",
+    "name": "VENTAS 2021",
+    "items_count": 219,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "numeric",
+        "title": "Número de lote",
+        "type": "numbers"
+      },
+      {
+        "id": "sorenna_2",
+        "title": "Desarrollo",
+        "type": "text"
+      },
+      {
+        "id": "ar",
+        "title": "Inmobiliaria",
+        "type": "status"
+      },
+      {
+        "id": "04_january_2021",
+        "title": "FECHA APERTURA",
+        "type": "text"
+      },
+      {
+        "id": "12_january_2021",
+        "title": "FECHA CIERRE",
+        "type": "text"
+      },
+      {
+        "id": "fecha",
+        "title": "Fecha de apertura",
+        "type": "date"
+      },
+      {
+        "id": "date",
+        "title": "Fecha de cierre",
+        "type": "date"
+      },
+      {
+        "id": "48_meses",
+        "title": "FINANCIAMIENTO",
+        "type": "status"
+      },
+      {
+        "id": "numeric6",
+        "title": "MONTO",
+        "type": "numbers"
+      },
+      {
+        "id": "fernanda_novelo",
+        "title": "ASESOR",
+        "type": "text"
+      },
+      {
+        "id": "f_sicos",
+        "title": "CATEGORÍA",
+        "type": "status"
+      },
+      {
+        "id": "estado",
+        "title": "ASESOR",
+        "type": "status"
+      },
+      {
+        "id": "n_meros",
+        "title": "Números",
+        "type": "numbers"
+      },
+      {
+        "id": "tel_fono",
+        "title": "Teléfono",
+        "type": "phone"
+      },
+      {
+        "id": "correo_electr_nico",
+        "title": "Correo electrónico",
+        "type": "email"
+      },
+      {
+        "id": "texto",
+        "title": "Nacionalidad",
+        "type": "text"
+      },
+      {
+        "id": "pa_s",
+        "title": "Residencia",
+        "type": "country"
+      },
+      {
+        "id": "fecha8",
+        "title": "Fecha",
+        "type": "date"
+      },
+      {
+        "id": "estado3",
+        "title": "Sexo",
+        "type": "status"
+      },
+      {
+        "id": "estado5",
+        "title": "ESTATUS",
+        "type": "status"
+      }
+    ],
+    "groups": [
+      {
+        "id": "topics",
+        "title": "SEGUIMIENTO DE VENTAS"
+      }
+    ]
+  },
+  {
+    "id": "5672832977",
+    "label": "Ventas 2020",
+    "name": "Ventas 2020",
+    "items_count": 110,
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "name"
+      },
+      {
+        "id": "numeric",
+        "title": "Número de lote",
+        "type": "numbers"
+      },
+      {
+        "id": "sorenna",
+        "title": "Desarrollo",
+        "type": "text"
+      },
+      {
+        "id": "ar",
+        "title": "Inmobiliaria",
+        "type": "text"
+      },
+      {
+        "id": "60_meses_",
+        "title": "Financiamiento",
+        "type": "status"
+      },
+      {
+        "id": "numeric6",
+        "title": "Monto",
+        "type": "numbers"
+      },
+      {
+        "id": "rod",
+        "title": "Asesor",
+        "type": "text"
+      }
+    ],
+    "groups": [
+      {
+        "id": "topics",
+        "title": "SEGUIMIENTO VENTAS"
+      }
+    ]
+  }
+]

@@ -69,7 +69,7 @@ const MODULOS_ADMIN: Modulo[] = [
   {
     nombre: '07 Ventas con comisión',
     archivo: '07-ventas',
-    ruta: (id) => `/empresa/${id}/comisiones/ventas`,
+    ruta: (id) => `/empresa/${id}/ventas`,
   },
   {
     nombre: '08 Dispersiones',

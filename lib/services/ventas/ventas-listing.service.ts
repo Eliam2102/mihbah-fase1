@@ -40,9 +40,9 @@ export type EstadoVenta =
 export type GrupoEstado = 'todas' | 'por_cerrar' | 'cerradas' | 'en_proceso' | 'canceladas'
 
 const GRUPOS_ESTADOS: Record<Exclude<GrupoEstado, 'todas'>, EstadoVenta[]> = {
-  por_cerrar: ['APROBADO_VENTAS', 'APROBADO_JURIDICO', 'ESPERANDO_AUTORIZACION'],
+  por_cerrar: ['EN_PROCESO', 'APROBADO_VENTAS', 'APROBADO_JURIDICO', 'ESPERANDO_AUTORIZACION'],
   cerradas: ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO'],
-  en_proceso: ['EN_PROCESO', 'RECHAZADO'],
+  en_proceso: ['RECHAZADO'],
   canceladas: ['CANCELADA'],
 }
 
@@ -65,7 +65,8 @@ export interface VentaListItem {
   diasEnPipeline: number | null
   diasParaCierre: number | null
   comisionId: string | null
-  comisionBmEsperada: number // comisionBrutaTotal de comisionesCalculadas (0 si no hay)
+  comisionBmEsperada: number // comisionBrutaTotal de comisionesCalculadas (0 si no hay) — total que paga el cliente
+  comisionOpBmcorp: number // montoOpBmcorp (1% típico) — la rebanada operativa de BM
   comisionPagada: number // SUM dispersiones.montoPagado
   porcentajeAvancePago: number // pagada/esperada * 100 (clamped 0-100)
   sinEsquema: boolean // true si no tiene comision_calculada o sinConfig=true
@@ -244,6 +245,7 @@ export async function listarVentas(
         desarrolloNombre: desarrollos.nombre,
         comisionId: comisionesCalculadas.id,
         comisionBruta: comisionesCalculadas.comisionBrutaTotal,
+        comisionOpBmcorp: comisionesCalculadas.montoOpBmcorp,
         sinConfig: comisionesCalculadas.sinConfig,
         comisionPagada: sql<string>`COALESCE((
           SELECT SUM(${dispersiones.montoPagado})
@@ -265,6 +267,7 @@ export async function listarVentas(
       const monto = Number(r.venta.monto)
       const enganche = Number(r.venta.enganche ?? 0)
       const comisionBmEsperada = Number(r.comisionBruta ?? 0)
+      const comisionOpBmcorp = Number(r.comisionOpBmcorp ?? 0)
       const comisionPagada = Number(r.comisionPagada ?? 0)
       const porcentajeEnganchePagado = monto > 0 ? Math.min(100, (enganche / monto) * 100) : 0
       const porcentajeAvancePago =
@@ -301,6 +304,7 @@ export async function listarVentas(
         diasParaCierre,
         comisionId: r.comisionId,
         comisionBmEsperada,
+        comisionOpBmcorp,
         comisionPagada,
         porcentajeAvancePago,
         sinEsquema: !r.comisionId || (r.sinConfig ?? false),

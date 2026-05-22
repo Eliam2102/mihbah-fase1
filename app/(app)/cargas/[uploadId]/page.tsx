@@ -199,6 +199,8 @@ export default async function DetalleCargaGlobalPage({
                     {Number(m.monto).toLocaleString('es-MX', {
                       style: 'currency',
                       currency: 'MXN',
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
                     })}
                   </td>
                   <td className="text-foreground max-w-xs truncate px-4 py-2.5">{m.concepto}</td>

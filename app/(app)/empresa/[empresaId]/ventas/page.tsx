@@ -6,8 +6,8 @@ import {
   getDesarrollosOptionsParaFiltro,
   getAniosVentasDisponibles,
   type GrupoEstado,
-} from '@/lib/services/comisiones/ventas-listing.service'
-import { VentasListingView } from '@/components/comisiones/ventas-listing-view'
+} from '@/lib/services/ventas/ventas-listing.service'
+import { VentasListingView } from '@/components/ventas/ventas-listing-view'
 
 export const metadata = { title: 'Ventas BM CORP' }
 
@@ -38,30 +38,37 @@ export default async function VentasPage({
   const sp = await searchParams
 
   const user = await requireUser()
-  await requireEmpresaAccess(user, empresaId, 'comisiones')
+  await requireEmpresaAccess(user, empresaId, 'ventas')
   const tenantId = user.tenantId!
 
   const grupo: GrupoEstado = GRUPOS_VALIDOS.includes(sp.grupo as GrupoEstado)
     ? (sp.grupo as GrupoEstado)
-    : 'por_cerrar'
+    : 'todas'
 
   const anioNum = sp.anio ? Number(sp.anio) : NaN
   const mesNum = sp.mes ? Number(sp.mes) : NaN
   const page = sp.page ? Math.max(1, Number(sp.page)) : 1
 
-  const filterForService: Parameters<typeof listarVentas>[2] = { grupo, page, pageSize: 50 }
-  if (Number.isFinite(anioNum)) filterForService.anio = anioNum
-  if (Number.isFinite(mesNum)) filterForService.mes = mesNum
-  if (sp.alianza) filterForService.afiliadoId = sp.alianza
-  if (sp.desarrollo) filterForService.desarrolloId = sp.desarrollo
-  if (sp.q) filterForService.query = sp.q
-
-  const [result, alianzas, desarrollos, anios] = await Promise.all([
-    listarVentas(tenantId, empresaId, filterForService),
+  // Cargar años disponibles primero — usamos para validar el ?anio= recibido.
+  // Si viene un año (típicamente del topbar global) que NO existe en ventas,
+  // lo ignoramos para evitar resultado vacío sin razón obvia para el usuario.
+  const [alianzas, desarrollos, anios] = await Promise.all([
     getAlianzasOptionsParaFiltro(tenantId, empresaId),
     getDesarrollosOptionsParaFiltro(tenantId, empresaId),
     getAniosVentasDisponibles(tenantId, empresaId),
   ])
+
+  const anioValido = Number.isFinite(anioNum) && anios.includes(anioNum)
+  const mesValido = Number.isFinite(mesNum) && mesNum >= 1 && mesNum <= 12
+
+  const filterForService: Parameters<typeof listarVentas>[2] = { grupo, page, pageSize: 50 }
+  if (anioValido) filterForService.anio = anioNum
+  if (anioValido && mesValido) filterForService.mes = mesNum
+  if (sp.alianza) filterForService.afiliadoId = sp.alianza
+  if (sp.desarrollo) filterForService.desarrolloId = sp.desarrollo
+  if (sp.q) filterForService.query = sp.q
+
+  const result = await listarVentas(tenantId, empresaId, filterForService)
 
   // Construir currentFilter sin claves undefined (exactOptionalPropertyTypes)
   const currentFilter: {
@@ -73,8 +80,8 @@ export default async function VentasPage({
     desarrolloId?: string
     query?: string
   } = { grupo, page }
-  if (Number.isFinite(anioNum)) currentFilter.anio = anioNum
-  if (Number.isFinite(mesNum)) currentFilter.mes = mesNum
+  if (anioValido) currentFilter.anio = anioNum
+  if (anioValido && mesValido) currentFilter.mes = mesNum
   if (sp.alianza) currentFilter.afiliadoId = sp.alianza
   if (sp.desarrollo) currentFilter.desarrolloId = sp.desarrollo
   if (sp.q) currentFilter.query = sp.q
