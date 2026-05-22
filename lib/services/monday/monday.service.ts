@@ -160,6 +160,7 @@ export async function syncBoard(
     totalItems: 0,
     boardName: '',
     duration: 0,
+    preservadasPorEdicion: 0,
   }
 
   const [syncRecord] = await db
@@ -208,7 +209,10 @@ export async function syncBoard(
           }
 
           const [existing] = await tx
-            .select({ id: ventasBmcorp.id })
+            .select({
+              id: ventasBmcorp.id,
+              editadoEnSistema: ventasBmcorp.editadoEnSistema,
+            })
             .from(ventasBmcorp)
             .where(
               and(
@@ -218,22 +222,15 @@ export async function syncBoard(
             )
             .limit(1)
 
-          const payload = {
+          // Campos siempre overwriteables desde Monday (datos técnicos / cliente)
+          const camposMondayBase = {
             tenantId,
             empresaId,
             mondayItemId: mapped.mondayItemId,
             cliente: mapped.cliente,
             afiliadoId,
             desarrolloId,
-            asesor: mapped.asesor,
-            monto: mapped.monto,
             financiamiento: mapped.financiamiento,
-            enganche: mapped.enganche,
-            estadoVenta: mapped.estadoVenta,
-            fechaApertura: mapped.fechaApertura,
-            fechaCierre: mapped.fechaCierre,
-            fecha: mapped.fecha,
-            loteAcciones: mapped.loteAcciones,
             paqueteAccion: mapped.paqueteAccion,
             pipelineGroup: mapped.pipelineGroup,
             operativoApertura: mapped.operativoApertura,
@@ -249,15 +246,35 @@ export async function syncBoard(
             updatedAt: new Date(),
           }
 
+          // Campos que el usuario puede editar en sistema — solo overwriteables
+          // si la venta NO fue editada en SIG Jade (conflict resolution).
+          const camposEditablesPorUsuario = {
+            asesor: mapped.asesor,
+            monto: mapped.monto,
+            enganche: mapped.enganche,
+            estadoVenta: mapped.estadoVenta,
+            fechaApertura: mapped.fechaApertura,
+            fechaCierre: mapped.fechaCierre,
+            fecha: mapped.fecha,
+            loteAcciones: mapped.loteAcciones,
+          }
+
           let ventaId: string
           if (existing) {
-            await tx.update(ventasBmcorp).set(payload).where(eq(ventasBmcorp.id, existing.id))
+            // Conflict resolution: si fue editada en sistema, NO sobreescribir
+            // campos editables (sistema gana). Solo update datos técnicos Monday.
+            const updatePayload = existing.editadoEnSistema
+              ? camposMondayBase
+              : { ...camposMondayBase, ...camposEditablesPorUsuario }
+            await tx.update(ventasBmcorp).set(updatePayload).where(eq(ventasBmcorp.id, existing.id))
             ventaId = existing.id
             stats.actualizados++
+            if (existing.editadoEnSistema) stats.preservadasPorEdicion++
           } else {
+            // Venta nueva — siempre toma todo de Monday
             const [created] = await tx
               .insert(ventasBmcorp)
-              .values(payload)
+              .values({ ...camposMondayBase, ...camposEditablesPorUsuario })
               .returning({ id: ventasBmcorp.id })
             ventaId = created!.id
             stats.creados++

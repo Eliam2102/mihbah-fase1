@@ -7,4 +7,7 @@ export interface SyncStats {
   totalItems: number
   boardName: string
   duration: number
+  // Cuántas ventas Monday-sync mantuvo sus campos editables intactos
+  // porque fueron editadas previamente en el sistema (conflict resolution).
+  preservadasPorEdicion: number
 }

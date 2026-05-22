@@ -410,6 +410,15 @@ export const ventasBmcorp = pgTable(
     productoServicio: text('producto_servicio'),
     fecha: date('fecha').notNull(),
     descripcion: text('descripcion'),
+
+    // Notas internas (solo SIG Jade — NO sincronizan a Monday)
+    notasInternas: text('notas_internas'),
+    // Flag: true si esta venta tuvo edición manual en el sistema (no solo sync Monday).
+    // Sirve para conflict resolution futuro cuando sync Monday traiga cambios.
+    editadoEnSistema: boolean('editado_en_sistema').notNull().default(false),
+    editadoPor: text('editado_por').references(() => users.id, { onDelete: 'set null' }),
+    editadoEn: timestamp('editado_en', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

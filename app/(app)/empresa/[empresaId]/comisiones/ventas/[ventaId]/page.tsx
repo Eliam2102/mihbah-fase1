@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react'
 import { RecalcularBoton } from '@/components/comisiones/recalcular-boton'
+import { VentaEditForm } from '@/components/comisiones/venta-edit-form'
 
 export default async function VentaDetalle({
   params,
@@ -67,8 +68,27 @@ export default async function VentaDetalle({
             {venta.loteAcciones ? `Lote ${venta.loteAcciones}` : 'Terreno'}
           </p>
         </div>
-        <RecalcularBoton empresaId={empresaId} ventaId={ventaId} />
+        <div className="flex flex-wrap items-center gap-2">
+          <RecalcularBoton empresaId={empresaId} ventaId={ventaId} />
+        </div>
       </div>
+
+      <VentaEditForm
+        empresaId={empresaId}
+        venta={{
+          id: venta.id,
+          cliente: venta.cliente,
+          estadoVenta: venta.estadoVenta,
+          fechaApertura: venta.fechaApertura,
+          fechaCierre: venta.fechaCierre,
+          monto: String(venta.monto),
+          enganche: venta.enganche ? String(venta.enganche) : null,
+          loteAcciones: venta.loteAcciones,
+          asesor: venta.asesor,
+          notasInternas: venta.notasInternas,
+          editadoEnSistema: venta.editadoEnSistema,
+        }}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card label="Monto venta" value={fmt(venta.monto)} />

@@ -1,0 +1,257 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Save, X, Pencil, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { actualizarVentaAction } from '@/app/actions/comisiones/ventas'
+
+interface VentaEditable {
+  id: string
+  cliente: string
+  estadoVenta: string
+  fechaApertura: string | null
+  fechaCierre: string | null
+  monto: string
+  enganche: string | null
+  loteAcciones: string | null
+  asesor: string | null
+  notasInternas: string | null
+  editadoEnSistema: boolean
+}
+
+const ESTADOS = [
+  { value: 'EN_PROCESO', label: 'En proceso' },
+  { value: 'APROBADO_VENTAS', label: 'Aprobado ventas' },
+  { value: 'APROBADO_JURIDICO', label: 'Aprobado jurídico' },
+  { value: 'ESPERANDO_AUTORIZACION', label: 'Esperando autorización' },
+  { value: 'RECHAZADO', label: 'Rechazado' },
+  { value: 'LIBERADO', label: 'Liberado' },
+  { value: 'FINALIZADA', label: 'Finalizada' },
+  { value: 'FINALIZADO_Y_LIQUIDADO', label: 'Finalizada y liquidada' },
+  { value: 'CANCELADA', label: 'Cancelada' },
+]
+
+export function VentaEditForm({ empresaId, venta }: { empresaId: string; venta: VentaEditable }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    estadoVenta: venta.estadoVenta,
+    fechaApertura: venta.fechaApertura ?? '',
+    fechaCierre: venta.fechaCierre ?? '',
+    monto: Number(venta.monto || 0),
+    enganche: Number(venta.enganche ?? 0),
+    loteAcciones: venta.loteAcciones ?? '',
+    asesor: venta.asesor ?? '',
+    notasInternas: venta.notasInternas ?? '',
+  })
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSuccess(null)
+    startTransition(async () => {
+      const result = await actualizarVentaAction({
+        ventaId: venta.id,
+        empresaId,
+        estadoVenta: form.estadoVenta as never,
+        fechaApertura: form.fechaApertura || null,
+        fechaCierre: form.fechaCierre || null,
+        monto: form.monto,
+        enganche: form.enganche,
+        loteAcciones: form.loteAcciones || null,
+        asesor: form.asesor || null,
+        notasInternas: form.notasInternas || null,
+      })
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      setSuccess(
+        result.data.recalculada
+          ? 'Venta actualizada y comisión recalculada.'
+          : 'Venta actualizada.',
+      )
+      router.refresh()
+      setTimeout(() => setOpen(false), 1000)
+    })
+  }
+
+  if (!open) {
+    return (
+      <div className="flex items-center gap-2">
+        {venta.editadoEnSistema && (
+          <span className="bg-info/10 text-info inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium">
+            <Pencil className="h-3 w-3" />
+            Editado en sistema
+          </span>
+        )}
+        <button
+          onClick={() => setOpen(true)}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Editar venta
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-card rounded-xl border p-5 shadow-sm">
+      <div className="flex items-center justify-between border-b pb-3">
+        <h2 className="text-foreground text-base font-semibold">Editar venta</h2>
+        <button
+          onClick={() => setOpen(false)}
+          disabled={pending}
+          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded p-1"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Field label="Estado de venta">
+          <select
+            value={form.estadoVenta}
+            onChange={(e) => setForm({ ...form, estadoVenta: e.target.value })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
+          >
+            {ESTADOS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Asesor (texto Monday)">
+          <input
+            type="text"
+            value={form.asesor}
+            onChange={(e) => setForm({ ...form, asesor: e.target.value })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
+            placeholder="Nombre asesor"
+          />
+        </Field>
+
+        <Field label="Fecha apertura">
+          <input
+            type="date"
+            value={form.fechaApertura}
+            onChange={(e) => setForm({ ...form, fechaApertura: e.target.value })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
+          />
+        </Field>
+
+        <Field label="Fecha cierre">
+          <input
+            type="date"
+            value={form.fechaCierre}
+            onChange={(e) => setForm({ ...form, fechaCierre: e.target.value })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
+          />
+        </Field>
+
+        <Field label="Monto venta (MXN)" hint="Cambiarlo recalcula comisión">
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            value={form.monto}
+            onChange={(e) => setForm({ ...form, monto: Number(e.target.value) })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm tabular-nums"
+          />
+        </Field>
+
+        <Field label="Enganche (MXN)" hint="Cambiarlo recalcula comisión">
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            value={form.enganche}
+            onChange={(e) => setForm({ ...form, enganche: Number(e.target.value) })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm tabular-nums"
+          />
+        </Field>
+
+        <Field label="Lote / acciones">
+          <input
+            type="text"
+            value={form.loteAcciones}
+            onChange={(e) => setForm({ ...form, loteAcciones: e.target.value })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
+            placeholder="Ej. Lote 14 Mz 3"
+          />
+        </Field>
+
+        <div className="sm:col-span-2">
+          <Field label="Notas internas (no sincronizan a Monday)">
+            <textarea
+              value={form.notasInternas}
+              onChange={(e) => setForm({ ...form, notasInternas: e.target.value })}
+              rows={3}
+              className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
+              placeholder="Contexto, recordatorios, etc."
+            />
+          </Field>
+        </div>
+
+        {error && (
+          <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-md border p-2.5 text-xs sm:col-span-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="border-success/30 bg-success/10 text-success flex items-start gap-2 rounded-md border p-2.5 text-xs sm:col-span-2">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {success}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2 sm:col-span-2">
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            disabled={pending}
+            className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md px-3 py-1.5 text-sm"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-60"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {pending ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <label className="block">
+      <span className="text-muted-foreground mb-1 block text-[11px] font-semibold tracking-wide uppercase">
+        {label}
+      </span>
+      {children}
+      {hint && <p className="text-muted-foreground mt-1 text-[10px]">{hint}</p>}
+    </label>
+  )
+}
