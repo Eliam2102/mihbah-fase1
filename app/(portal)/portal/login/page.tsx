@@ -1,11 +1,11 @@
 'use client'
 
-import { useActionState } from 'react'
+import { Suspense, useActionState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Loader2, LogIn, Wallet, ShieldCheck } from 'lucide-react'
 import { portalLoginAction } from './actions'
 
-export default function PortalLoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams()
   const callbackError = searchParams.get('error')
   const [state, action, pending] = useActionState(portalLoginAction, null)
@@ -107,5 +107,13 @@ export default function PortalLoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PortalLoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
