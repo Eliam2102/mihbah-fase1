@@ -91,6 +91,7 @@ export interface VentasFilter {
   fechaCampo?: 'apertura' | 'cierre' // default apertura
   afiliadoId?: string
   desarrolloId?: string
+  asesor?: string // filtro libre por nombre de asesor
   query?: string
   page?: number
   pageSize?: number
@@ -131,13 +132,14 @@ export async function listarVentas(
 
     if (filter.afiliadoId) conds.push(eq(ventasBmcorp.afiliadoId, filter.afiliadoId))
     if (filter.desarrolloId) conds.push(eq(ventasBmcorp.desarrolloId, filter.desarrolloId))
+    if (filter.asesor?.trim()) conds.push(ilike(ventasBmcorp.asesor, `%${filter.asesor.trim()}%`))
 
     if (filter.query?.trim()) {
       const q = `%${filter.query.trim()}%`
       conds.push(
         or(
           ilike(ventasBmcorp.cliente, q),
-          ilike(ventasBmcorp.mondayItemId, q),
+          ilike(ventasBmcorp.loteAcciones, q),
           ilike(ventasBmcorp.asesor, q),
         )!,
       )
@@ -200,12 +202,14 @@ export async function listarVentas(
     }
     if (filter.afiliadoId) condsSinGrupo.push(eq(ventasBmcorp.afiliadoId, filter.afiliadoId))
     if (filter.desarrolloId) condsSinGrupo.push(eq(ventasBmcorp.desarrolloId, filter.desarrolloId))
+    if (filter.asesor?.trim())
+      condsSinGrupo.push(ilike(ventasBmcorp.asesor, `%${filter.asesor.trim()}%`))
     if (filter.query?.trim()) {
       const q = `%${filter.query.trim()}%`
       condsSinGrupo.push(
         or(
           ilike(ventasBmcorp.cliente, q),
-          ilike(ventasBmcorp.mondayItemId, q),
+          ilike(ventasBmcorp.loteAcciones, q),
           ilike(ventasBmcorp.asesor, q),
         )!,
       )

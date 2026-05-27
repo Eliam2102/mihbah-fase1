@@ -299,13 +299,41 @@ export async function syncBoard(
       }
     })
 
-    // Post-procesamiento: calcular comisiones para cada venta sincronizada.
-    // Importante: NO bloquea el sync ante error individual. Cada error se loguea.
+    // Post-procesamiento: calcular comisiones SOLO para ventas finalizadas.
+    // Las ventas en pipeline (EN_PROCESO, APROBADO_VENTAS, etc.) no generan
+    // dispersiones hasta que lleguen a FINALIZADA/LIBERADO/FINALIZADO_Y_LIQUIDADO.
+    const ESTADOS_CON_COMISION = ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO']
     const { calcularYPersistirComision } =
       await import('@/lib/services/comisiones/comisiones.service')
+
+    // Cargar solo las ventas finalizadas de las procesadas en este sync
+    const ventasFinalizadas =
+      ventaIdsProcesadas.length > 0
+        ? await db.transaction(async (tx) => {
+            await setTenant(tx, tenantId)
+            const rows = await tx
+              .select({ id: ventasBmcorp.id })
+              .from(ventasBmcorp)
+              .where(
+                and(
+                  eq(ventasBmcorp.tenantId, tenantId),
+                  sql`${ventasBmcorp.id} = ANY(ARRAY[${sql.join(
+                    ventaIdsProcesadas.map((id) => sql`${id}::uuid`),
+                    sql`, `,
+                  )}])`,
+                  sql`${ventasBmcorp.estadoVenta} = ANY(ARRAY[${sql.join(
+                    ESTADOS_CON_COMISION.map((e) => sql`${e}`),
+                    sql`, `,
+                  )}]::estado_venta[])`,
+                ),
+              )
+            return rows.map((r) => r.id)
+          })
+        : []
+
     let comisionesOk = 0
     let comisionesError = 0
-    for (const ventaId of ventaIdsProcesadas) {
+    for (const ventaId of ventasFinalizadas) {
       try {
         await calcularYPersistirComision(tenantId, ventaId, { userId })
         comisionesOk++
@@ -318,7 +346,7 @@ export async function syncBoard(
     }
     if (comisionesError > 0) {
       console.warn(
-        `[monday sync] comisiones OK=${comisionesOk}, error=${comisionesError} de ${ventaIdsProcesadas.length}`,
+        `[monday sync] comisiones OK=${comisionesOk}, error=${comisionesError} de ${ventasFinalizadas.length} finalizadas (${ventaIdsProcesadas.length} total sync)`,
       )
     }
 

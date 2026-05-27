@@ -8,6 +8,9 @@
 //   - Resumen del resumen — BM correlacionado con YCDI
 
 import { requireUser } from '@/lib/auth/helpers'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { getEmpresasForUser } from '@/lib/services/empresas'
 import {
   getResumenGeneral,
   getCorrelacionEmpresas,
@@ -43,6 +46,40 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
   const sp = await searchParams
   const user = await requireUser()
   const tenantId = user.tenantId!
+
+  let targetRedirect: string | null = null
+
+  // 1. Redirigir si hay una empresa activa persistida en la cookie de la sesión anterior
+  const cookieStore = await cookies()
+  const empresaActiva = cookieStore.get('mihbah-empresa-activa')?.value
+
+  if (empresaActiva && empresaActiva !== 'TODAS') {
+    try {
+      const empresas = await getEmpresasForUser(user.id, tenantId)
+      if (empresas.some((e) => e.id === empresaActiva)) {
+        targetRedirect = `/empresa/${empresaActiva}/dashboard`
+      }
+    } catch {
+      // Continuar si hay algún fallo
+    }
+  }
+
+  // 2. Redirigir si el usuario solo tiene acceso a exactamente 1 empresa
+  if (!targetRedirect) {
+    try {
+      const empresas = await getEmpresasForUser(user.id, tenantId)
+      if (empresas.length === 1) {
+        targetRedirect = `/empresa/${empresas[0]!.id}/dashboard`
+      }
+    } catch {
+      // Continuar si falla
+    }
+  }
+
+  // Ejecutar el redireccionamiento fuera del try/catch
+  if (targetRedirect) {
+    redirect(targetRedirect)
+  }
 
   const anio = Number(sp.anio ?? new Date().getFullYear())
   const mesActual = sp.mes ? Number(sp.mes) : new Date().getMonth() + 1

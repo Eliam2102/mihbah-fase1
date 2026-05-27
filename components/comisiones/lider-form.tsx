@@ -33,7 +33,6 @@ type FormState = {
   numeroCuenta: string
   nivel: '' | 'JADE' | 'TURQUESA' | 'ONIX_NEGRO'
   coordinaPago: string
-  presupuestoPautasMensual: number
 }
 
 function initialForm(lider: Lider | null): FormState {
@@ -48,7 +47,6 @@ function initialForm(lider: Lider | null): FormState {
     numeroCuenta: lider?.numeroCuenta ?? '',
     nivel: (lider?.nivel ?? '') as FormState['nivel'],
     coordinaPago: lider?.coordinaPago ?? '',
-    presupuestoPautasMensual: Number(lider?.presupuestoPautasMensual ?? 0),
   }
 }
 
@@ -87,7 +85,6 @@ export function LiderForm({
         numeroCuenta: form.numeroCuenta || null,
         nivel: form.nivel || null,
         coordinaPago: form.coordinaPago || null,
-        presupuestoPautasMensual: form.presupuestoPautasMensual || 0,
       }
       const result = editing
         ? await actualizarLiderAction(empresaId, lider.id, payload)
@@ -220,21 +217,6 @@ export function LiderForm({
               </option>
             ))}
           </select>
-        </Field>
-        <Field label="Pauta mensual">
-          <input
-            type="number"
-            min={0}
-            step={1000}
-            value={form.presupuestoPautasMensual}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                presupuestoPautasMensual: Number(e.target.value),
-              })
-            }
-            className="input"
-          />
         </Field>
       </div>
 

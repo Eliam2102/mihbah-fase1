@@ -15,13 +15,23 @@ import {
 } from 'lucide-react'
 import type { DispersionPortal, PerfilPortal } from '@/lib/services/comisiones/portal.service'
 
-type Estado = 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'DIFERIDO'
+type Estado = 'PENDIENTE' | 'EN_REVISION' | 'AUTORIZADA' | 'PARCIAL' | 'PAGADO' | 'DIFERIDO'
 
 const SEMAFORO: Record<Estado, { label: string; pill: string; dot: string }> = {
   PENDIENTE: {
     label: 'Pendiente',
     pill: 'bg-muted text-muted-foreground border-border',
     dot: 'bg-muted-foreground',
+  },
+  EN_REVISION: {
+    label: 'En revisión',
+    pill: 'bg-purple-500/10 text-purple-600 border-purple-500/30',
+    dot: 'bg-purple-500',
+  },
+  AUTORIZADA: {
+    label: 'Liberada',
+    pill: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    dot: 'bg-emerald-500',
   },
   PARCIAL: {
     label: 'Pago parcial',
@@ -44,7 +54,8 @@ type Filtro = 'TODAS' | Estado
 
 const FILTROS: { id: Filtro; label: string }[] = [
   { id: 'TODAS', label: 'Todas' },
-  { id: 'PENDIENTE', label: 'Pendientes' },
+  { id: 'AUTORIZADA', label: 'Liberadas' },
+  { id: 'EN_REVISION', label: 'En revisión' },
   { id: 'PARCIAL', label: 'Parciales' },
   { id: 'PAGADO', label: 'Pagadas' },
   { id: 'DIFERIDO', label: 'Diferidas' },
@@ -67,7 +78,9 @@ export function DashboardAsesor({
       maximumFractionDigits: 2,
     })
 
-  const proximaPago = dispersiones.find((d) => d.estado === 'PENDIENTE' || d.estado === 'PARCIAL')
+  const proximaPago = dispersiones.find((d) =>
+    ['AUTORIZADA', 'EN_REVISION', 'PARCIAL'].includes(d.estado),
+  )
   const pendientesTotal = dispersiones
     .filter((d) => d.estado !== 'PAGADO')
     .reduce((s, d) => s + (d.montoTotal - d.montoPagado), 0)
@@ -95,12 +108,14 @@ export function DashboardAsesor({
   const counts: Record<Filtro, number> = {
     TODAS: dispersiones.length,
     PENDIENTE: 0,
+    EN_REVISION: 0,
+    AUTORIZADA: 0,
     PARCIAL: 0,
     PAGADO: 0,
     DIFERIDO: 0,
   }
   for (const d of dispersiones) {
-    if (d.estado in counts) counts[d.estado as Estado] += 1
+    if (d.estado in counts) counts[d.estado as Filtro] += 1
   }
 
   return (
@@ -282,9 +297,9 @@ export function DashboardAsesor({
                               <p className="text-foreground truncate font-medium">
                                 {d.ventaCliente}
                               </p>
-                              {d.ventaMondayItemId && (
+                              {d.ventaLoteAcciones && (
                                 <p className="text-muted-foreground font-mono text-[10px]">
-                                  ID Monday: {d.ventaMondayItemId}
+                                  Lote: {d.ventaLoteAcciones}
                                 </p>
                               )}
                             </div>
@@ -370,9 +385,9 @@ export function DashboardAsesor({
                             <p className="text-muted-foreground truncate text-[11px]">
                               {d.desarrolloNombre ?? '—'} · {d.tipoProducto}
                             </p>
-                            {d.ventaMondayItemId && (
+                            {d.ventaLoteAcciones && (
                               <p className="text-muted-foreground/80 font-mono text-[10px]">
-                                ID: {d.ventaMondayItemId}
+                                Lote: {d.ventaLoteAcciones}
                               </p>
                             )}
                           </div>

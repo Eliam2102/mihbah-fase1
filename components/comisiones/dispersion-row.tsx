@@ -28,7 +28,8 @@ export function DispersionRow({
   dispersion,
   ventaCliente,
   ventaId,
-  ventaMondayItemId,
+  ventaDesarrolloNombre,
+  ventaLoteAcciones,
   aprobadoPorNombre,
   canModify = false,
 }: {
@@ -36,7 +37,8 @@ export function DispersionRow({
   dispersion: Dispersion
   ventaCliente: string
   ventaId: string
-  ventaMondayItemId?: string | null
+  ventaDesarrolloNombre?: string | null
+  ventaLoteAcciones?: string | null
   aprobadoPorNombre?: string | null
   canModify?: boolean
 }) {
@@ -152,9 +154,15 @@ export function DispersionRow({
           <Link href={`/empresa/${empresaId}/ventas/${ventaId}`} className="hover:underline">
             {ventaCliente}
           </Link>
-          {ventaMondayItemId && (
-            <div className="text-muted-foreground/70 font-mono text-[10px]">
-              ID: {ventaMondayItemId}
+          {ventaDesarrolloNombre && (
+            <div className="text-muted-foreground/80 truncate text-[10px]">
+              {ventaDesarrolloNombre}
+              {ventaLoteAcciones && <span className="font-mono"> · Lote {ventaLoteAcciones}</span>}
+            </div>
+          )}
+          {!ventaDesarrolloNombre && ventaLoteAcciones && (
+            <div className="text-muted-foreground/80 font-mono text-[10px]">
+              Lote {ventaLoteAcciones}
             </div>
           )}
         </td>

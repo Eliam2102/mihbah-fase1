@@ -24,6 +24,10 @@ const ESTADOS_VALIDOS = [
   'FINALIZADO_Y_LIQUIDADO',
 ] as const
 
+// Solo estas etapas de pipeline tienen comisiones reales.
+// Ventas en proceso (EN_PROCESO, APROBADO_VENTAS, etc.) NO generan dispersiones.
+const ESTADOS_CON_COMISION = ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO'] as const
+
 const updateSchema = z.object({
   ventaId: z.string().uuid(),
   empresaId: z.string().uuid(),
@@ -116,10 +120,12 @@ export async function actualizarVentaAction(
         cambios,
       })
 
-      // Si cambió monto o enganche → recalcular comisión
+      // Si cambió monto o enganche → recalcular comisión SOLO si la venta ya está finalizada
       const requiereRecalculo = 'monto' in cambios || 'enganche' in cambios
+      const estadoActual = (campos.estadoVenta ?? antes.estadoVenta) as string
+      const esVentaFinalizada = (ESTADOS_CON_COMISION as readonly string[]).includes(estadoActual)
       let recalculada = false
-      if (requiereRecalculo) {
+      if (requiereRecalculo && esVentaFinalizada) {
         try {
           // calcularYPersistirComision lee enganche/monto actualizado de DB (ya guardado arriba)
           await calcularYPersistirComision(tenantId, ventaId, { userId: user.id })

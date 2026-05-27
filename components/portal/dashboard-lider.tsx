@@ -13,19 +13,27 @@ import {
   Building2,
   Trophy,
   Crown,
-  Megaphone,
 } from 'lucide-react'
 import type { DispersionPortal, PerfilPortal } from '@/lib/services/comisiones/portal.service'
 import type { Asesor } from '@/lib/services/comisiones/alianzas.service'
-import type { PautaPortal } from '@/lib/services/comisiones/pautas.service'
 
-type Estado = 'PENDIENTE' | 'PARCIAL' | 'PAGADO' | 'DIFERIDO'
+type Estado = 'PENDIENTE' | 'EN_REVISION' | 'AUTORIZADA' | 'PARCIAL' | 'PAGADO' | 'DIFERIDO'
 
 const SEMAFORO: Record<Estado, { label: string; pill: string; dot: string }> = {
   PENDIENTE: {
     label: 'Pendiente',
     pill: 'bg-muted text-muted-foreground border-border',
     dot: 'bg-muted-foreground',
+  },
+  EN_REVISION: {
+    label: 'En revisión',
+    pill: 'bg-purple-500/10 text-purple-600 border-purple-500/30',
+    dot: 'bg-purple-500',
+  },
+  AUTORIZADA: {
+    label: 'Liberada',
+    pill: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    dot: 'bg-emerald-500',
   },
   PARCIAL: {
     label: 'Parcial',
@@ -51,13 +59,11 @@ export function DashboardLider({
   dispersiones,
   asesores,
   userName,
-  pauta,
 }: {
   perfil: PerfilPortal
   dispersiones: DispersionPortal[]
   asesores: Asesor[]
   userName: string
-  pauta: PautaPortal | null
 }) {
   const fmt = (n: number) =>
     n.toLocaleString('es-MX', {
@@ -209,9 +215,6 @@ export function DashboardLider({
         />
       </div>
 
-      {/* Pauta del mes */}
-      {pauta && <PautaCard pauta={pauta} fmt={fmt} />}
-
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <TabButton active={tab === 'resumen'} onClick={() => setTab('resumen')}>
@@ -342,9 +345,9 @@ export function DashboardLider({
                         <tr key={d.id} className="hover:bg-muted/30 transition-colors">
                           <td className="text-foreground px-4 py-3 font-medium">
                             <div>{d.ventaCliente}</div>
-                            {d.ventaMondayItemId && (
+                            {d.ventaLoteAcciones && (
                               <div className="text-muted-foreground font-mono text-[10px]">
-                                ID Monday: {d.ventaMondayItemId}
+                                Lote: {d.ventaLoteAcciones}
                               </div>
                             )}
                           </td>
@@ -425,9 +428,9 @@ export function DashboardLider({
                             <p className="text-muted-foreground truncate text-[11px]">
                               {d.asesorNombre ?? '—'}
                             </p>
-                            {d.ventaMondayItemId && (
+                            {d.ventaLoteAcciones && (
                               <p className="text-muted-foreground/80 font-mono text-[10px]">
-                                ID: {d.ventaMondayItemId}
+                                Lote: {d.ventaLoteAcciones}
                               </p>
                             )}
                           </div>
@@ -673,13 +676,19 @@ function BreakdownBar({
 }) {
   const total = dispersiones.reduce((s, d) => s + d.montoTotal, 0) || 1
   const pagado = dispersiones.reduce((s, d) => s + d.montoPagado, 0)
+  const autorizada = dispersiones
+    .filter((d) => d.estado === 'AUTORIZADA')
+    .reduce((s, d) => s + d.montoTotal, 0)
+  const enRevision = dispersiones
+    .filter((d) => d.estado === 'EN_REVISION')
+    .reduce((s, d) => s + d.montoTotal, 0)
   const parcial = dispersiones
     .filter((d) => d.estado === 'PARCIAL')
     .reduce((s, d) => s + (d.montoTotal - d.montoPagado), 0)
+  const diferido = dispersiones.reduce((s, d) => s + d.montoDiferido, 0)
   const pendiente = dispersiones
     .filter((d) => d.estado === 'PENDIENTE')
     .reduce((s, d) => s + d.montoTotal, 0)
-  const diferido = dispersiones.reduce((s, d) => s + d.montoDiferido, 0)
 
   return (
     <div>
@@ -688,6 +697,16 @@ function BreakdownBar({
           className="bg-success h-full"
           style={{ width: `${(pagado / total) * 100}%` }}
           title={`Pagado · ${fmt(pagado)}`}
+        />
+        <div
+          className="h-full bg-emerald-500"
+          style={{ width: `${(autorizada / total) * 100}%` }}
+          title={`Liberada · ${fmt(autorizada)}`}
+        />
+        <div
+          className="h-full bg-purple-500"
+          style={{ width: `${(enRevision / total) * 100}%` }}
+          title={`En revisión · ${fmt(enRevision)}`}
         />
         <div
           className="bg-warning h-full"
@@ -699,17 +718,23 @@ function BreakdownBar({
           style={{ width: `${(diferido / total) * 100}%` }}
           title={`Diferido · ${fmt(diferido)}`}
         />
-        <div
-          className="bg-muted-foreground/30 h-full"
-          style={{ width: `${(pendiente / total) * 100}%` }}
-          title={`Pendiente · ${fmt(pendiente)}`}
-        />
+        {pendiente > 0 && (
+          <div
+            className="bg-muted-foreground/30 h-full"
+            style={{ width: `${(pendiente / total) * 100}%` }}
+            title={`Pendiente · ${fmt(pendiente)}`}
+          />
+        )}
       </div>
       <div className="text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
         <Legend dot="bg-success" label={`Pagado ${fmt(pagado)}`} />
-        <Legend dot="bg-warning" label={`Parcial ${fmt(parcial)}`} />
+        {autorizada > 0 && <Legend dot="bg-emerald-500" label={`Liberada ${fmt(autorizada)}`} />}
+        {enRevision > 0 && <Legend dot="bg-purple-500" label={`En revisión ${fmt(enRevision)}`} />}
+        {parcial > 0 && <Legend dot="bg-warning" label={`Parcial ${fmt(parcial)}`} />}
         <Legend dot="bg-info/60" label={`Diferido ${fmt(diferido)}`} />
-        <Legend dot="bg-muted-foreground/30" label={`Pendiente ${fmt(pendiente)}`} />
+        {pendiente > 0 && (
+          <Legend dot="bg-muted-foreground/30" label={`Pendiente ${fmt(pendiente)}`} />
+        )}
       </div>
     </div>
   )
@@ -740,86 +765,6 @@ function EmptyState({
       </div>
       <p className="text-foreground text-sm font-semibold">{title}</p>
       <p className="text-muted-foreground max-w-xs text-xs">{description}</p>
-    </div>
-  )
-}
-
-const MESES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-]
-
-function PautaCard({ pauta, fmt }: { pauta: PautaPortal; fmt: (n: number) => string }) {
-  const gap = pauta.porcentajeGap
-  const sem =
-    gap === null
-      ? { color: 'text-muted-foreground', bg: 'bg-muted', label: 'Sin dato' }
-      : Math.abs(gap) <= 10
-        ? { color: 'text-success', bg: 'bg-success/15', label: `${gap.toFixed(1)}%` }
-        : Math.abs(gap) <= 20
-          ? { color: 'text-warning', bg: 'bg-warning/15', label: `${gap.toFixed(1)}%` }
-          : { color: 'text-destructive', bg: 'bg-destructive/15', label: `${gap.toFixed(1)}%` }
-
-  const progreso =
-    pauta.montoComprometido > 0
-      ? Math.min(100, (pauta.montoEjecutado / pauta.montoComprometido) * 100)
-      : 0
-
-  return (
-    <div className="bg-card rounded-lg border p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-muted-foreground inline-flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase">
-            <Megaphone className="h-3 w-3" /> Pauta digital · {MESES[pauta.mes - 1]} {pauta.anio}
-          </div>
-          <p className="text-foreground mt-0.5 text-base font-semibold">
-            Compromiso de marketing del mes
-          </p>
-        </div>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${sem.bg} ${sem.color}`}>
-          Gap {sem.label}
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div>
-          <p className="text-muted-foreground text-[11px] uppercase">Comprometido</p>
-          <p className="text-foreground text-lg font-bold tabular-nums">
-            {fmt(pauta.montoComprometido)}
-          </p>
-          <p className="text-muted-foreground text-[11px]">Nivel {pauta.nivel}</p>
-        </div>
-        <div>
-          <p className="text-muted-foreground text-[11px] uppercase">Ejecutado</p>
-          <p className="text-primary text-lg font-bold tabular-nums">{fmt(pauta.montoEjecutado)}</p>
-          <p className="text-muted-foreground text-[11px]">
-            {pauta.capturada ? 'Capturado' : 'Aún sin captura'}
-          </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground text-[11px] uppercase">Avance</p>
-          <p className="text-foreground text-lg font-bold tabular-nums">{progreso.toFixed(0)}%</p>
-          <div className="bg-muted mt-1.5 h-1.5 overflow-hidden rounded-full">
-            <div className="bg-primary h-full rounded-full" style={{ width: `${progreso}%` }} />
-          </div>
-        </div>
-      </div>
-
-      {!pauta.capturada && (
-        <p className="text-muted-foreground mt-3 text-[11px]">
-          Métrica informativa. Sin penalización si no se cumple.
-        </p>
-      )}
     </div>
   )
 }

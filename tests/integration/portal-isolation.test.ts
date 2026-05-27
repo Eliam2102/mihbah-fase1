@@ -147,7 +147,7 @@ beforeAll(async () => {
           beneficiario_nombre, monto_total, estado
         ) VALUES (
           ${tenantId}, ${cId}, ${lidId}, ${asesId}, 'ASESOR',
-          ${asesNombre}, 80000, 'PENDIENTE'
+          ${asesNombre}, 80000, 'AUTORIZADA'
         )
         ON CONFLICT DO NOTHING
       `
@@ -158,7 +158,7 @@ beforeAll(async () => {
           beneficiario_nombre, monto_total, estado
         ) VALUES (
           ${tenantId}, ${cId}, ${lidId}, 'LIDER_SALDO',
-          ${'Líder ' + (aliId === aliAId ? 'A' : 'B')}, 70000, 'PENDIENTE'
+          ${'Líder ' + (aliId === aliAId ? 'A' : 'B')}, 70000, 'AUTORIZADA'
         )
         ON CONFLICT DO NOTHING
       `

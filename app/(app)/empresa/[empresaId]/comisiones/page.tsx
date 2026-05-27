@@ -18,12 +18,11 @@ import {
   Receipt,
   Calculator,
   ShieldCheck,
-  Smile,
   CheckCircle2,
   ArrowRight,
   RefreshCw,
   HelpCircle,
-  Megaphone,
+  Scissors,
 } from 'lucide-react'
 // CheckCircle2 ya importado arriba
 
@@ -232,6 +231,13 @@ export default async function ComisionesLanding({
           accent={(data.stats.disp?.pendientes ?? 0) > 0 ? 'warning' : undefined}
         />
         <Action
+          href={`/empresa/${empresaId}/comisiones/cortes`}
+          icon={<Scissors className="h-5 w-5" />}
+          title="Cortes de dispersión"
+          desc="Lunes y jueves · Aprobar y liberar"
+        />
+
+        <Action
           href={`/empresa/${empresaId}/comisiones/alianzas`}
           icon={<Users className="h-5 w-5" />}
           title="Alianzas, líderes, asesores"
@@ -260,23 +266,12 @@ export default async function ComisionesLanding({
           count={`${data.totalEsquemas} esquemas`}
         />
         <SecondaryLink
-          href={`/empresa/${empresaId}/comisiones/nps`}
-          icon={<Smile className="h-3.5 w-3.5" />}
-          label="NPS interno"
-          count="Captura trimestral"
-        />
-        <SecondaryLink
           href={`/empresa/${empresaId}/comisiones/niveles`}
           icon={<Percent className="h-3.5 w-3.5" />}
           label="Niveles membresía"
           count="Jade · Turquesa · Ónix"
         />
-        <SecondaryLink
-          href={`/empresa/${empresaId}/comisiones/pautas`}
-          icon={<Megaphone className="h-3.5 w-3.5" />}
-          label="Pautas digitales"
-          count="Marketing comprometido vs ejecutado"
-        />
+
         <SecondaryLink
           href={`/empresa/${empresaId}/comisiones/validacion`}
           icon={<CheckCircle2 className="h-3.5 w-3.5" />}

@@ -55,7 +55,6 @@ export default async function NivelesPage({ params }: { params: Promise<{ empres
     alianzaNombre: afiliadoMap.get(l.afiliadoId) ?? 'Sin alianza',
     nivelActual: l.nivel,
     promedioMensual: promedioMap.get(l.afiliadoId) ?? 0,
-    presupuestoPautasMensual: Number(l.presupuestoPautasMensual ?? 0),
   }))
 
   return (

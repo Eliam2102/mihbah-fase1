@@ -13,7 +13,6 @@ import {
   BookOpen,
   Sparkles,
   ChevronDown,
-  Megaphone,
   Smile,
 } from 'lucide-react'
 
@@ -188,19 +187,12 @@ export default async function GuiaPage({ params }: { params: Promise<{ empresaId
 
         {/* Mensual / trimestral */}
         <Seccion
-          icon={<Megaphone className="h-4 w-4" />}
+          icon={<Smile className="h-4 w-4" />}
           color="info"
           title="Tareas mensuales y trimestrales"
           subtitle="Capturas periódicas"
         >
           <div className="space-y-2 p-4">
-            <Accion
-              icon={<Megaphone className="h-4 w-4" />}
-              titulo="Capturar pautas digitales del mes"
-              desc="Niq registra el monto ejecutado por cada líder."
-              link={`${base}/pautas`}
-              cta="Ir"
-            />
             <Accion
               icon={<Percent className="h-4 w-4" />}
               titulo="Revisar niveles de membresía"

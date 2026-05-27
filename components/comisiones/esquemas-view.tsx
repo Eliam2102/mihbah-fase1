@@ -15,6 +15,7 @@ export function EsquemasView({ empresaId, esquemas }: { empresaId: string; esque
     ok: number
     errores: number
     total: number
+    omitidas: number
   } | null>(null)
   const [recalcError, setRecalcError] = useState<string | null>(null)
 
@@ -61,9 +62,15 @@ export function EsquemasView({ empresaId, esquemas }: { empresaId: string; esque
       {recalcResult && (
         <div className="border-success/40 bg-success/10 text-success rounded-md border p-3 text-xs">
           <CheckCircle className="mr-1 inline h-3.5 w-3.5" />
-          Recalculadas {recalcResult.ok} de {recalcResult.total} comisiones.{' '}
+          Recalculadas {recalcResult.ok} de {recalcResult.total} ventas finalizadas.{' '}
+          {recalcResult.omitidas > 0 && (
+            <span className="text-muted-foreground">
+              ({recalcResult.omitidas} en pipeline omitidas — aún no finalizadas)
+            </span>
+          )}
           {recalcResult.errores > 0 && (
             <span className="text-warning">
+              {' '}
               ({recalcResult.errores} con error — revisa con Eliam)
             </span>
           )}

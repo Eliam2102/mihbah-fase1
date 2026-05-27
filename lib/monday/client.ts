@@ -73,6 +73,18 @@ const BOARD_ITEMS_QUERY = `
   }
 `
 
+const LIST_BOARDS_QUERY = `
+  query ListBoards($limit: Int!, $page: Int!) {
+    boards(limit: $limit, page: $page, order_by: created_at) {
+      id
+      name
+      board_kind
+      state
+      updated_at
+    }
+  }
+`
+
 // ─── Core fetch with retry ────────────────────────────────────────────────────
 
 async function mondayFetch<T>(
@@ -169,6 +181,59 @@ export class MondayApiError extends Error {
     super(message)
     this.name = 'MondayApiError'
   }
+}
+
+export interface MondayBoardSummary {
+  id: string
+  name: string
+  boardKind: string
+  state: string
+  updatedAt: string | null
+}
+
+/**
+ * Lists all boards in the Monday workspace (paginated, up to 200).
+ * Filters out sub-items boards (board_kind = 'sub_items_board').
+ * Used to auto-discover boards to sync without hardcoding IDs.
+ */
+export async function listWorkspaceBoards(): Promise<MondayBoardSummary[]> {
+  const PAGE_SIZE = 100
+  const all: MondayBoardSummary[] = []
+  let page = 1
+  let hasMore = true
+
+  while (hasMore) {
+    const data = await mondayFetch<{
+      boards: {
+        id: string
+        name: string
+        board_kind: string
+        state: string
+        updated_at: string | null
+      }[]
+    }>(LIST_BOARDS_QUERY, { limit: PAGE_SIZE, page })
+
+    const boards = data.boards ?? []
+    for (const b of boards) {
+      // Skip sub-items boards and archived boards
+      if (b.board_kind === 'sub_items_board') continue
+      if (b.state === 'archived' || b.state === 'deleted') continue
+      all.push({
+        id: b.id,
+        name: b.name,
+        boardKind: b.board_kind,
+        state: b.state,
+        updatedAt: b.updated_at,
+      })
+    }
+
+    hasMore = boards.length === PAGE_SIZE
+    page++
+    if (page > 5) break // safety: max 500 boards
+  }
+
+  // Sort by name so "Ventas 2022", "Ventas 2023", etc. appear in order
+  return all.sort((a, b) => a.name.localeCompare(b.name, 'es'))
 }
 
 /**

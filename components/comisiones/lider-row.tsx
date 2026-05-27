@@ -122,19 +122,6 @@ export function LiderRow({ empresaId, lider }: { empresaId: string; lider: Lider
             <span className="italic opacity-70">Sin datos de contacto</span>
           )}
         </div>
-
-        {Number(lider.presupuestoPautasMensual ?? 0) > 0 && (
-          <p className="text-muted-foreground mt-1 text-[11px]">
-            Pauta mensual:{' '}
-            <span className="text-foreground tabular-nums">
-              $
-              {Number(lider.presupuestoPautasMensual).toLocaleString('es-MX', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </p>
-        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">

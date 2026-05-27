@@ -22,7 +22,7 @@ import {
   users,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, desc, eq, inArray, or, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, or, isNull, not } from 'drizzle-orm'
 
 export interface PerfilPortal {
   rolPortal: 'LIDER_ALIANZA' | 'ASESOR'
@@ -56,7 +56,7 @@ export interface DispersionPortal {
   ventaId: string
   ventaCliente: string
   ventaMonto: number
-  ventaMondayItemId: string | null
+  ventaLoteAcciones: string | null
   desarrolloNombre: string | null
   tipoProducto: string
   // Si la dispersión tiene un asesor asociado distinto, para contexto del líder
@@ -189,6 +189,7 @@ export async function getComisionesPortalAsesor(userId: string): Promise<Dispers
           eq(dispersiones.tenantId, perfil.tenantId),
           eq(dispersiones.tipoBeneficiario, 'ASESOR'),
           inArray(dispersiones.asesorId, asesorIds),
+          not(eq(dispersiones.estado, 'PENDIENTE')),
         ),
       )
       .orderBy(desc(comisionesCalculadas.createdAt))
@@ -227,6 +228,7 @@ export async function getComisionesPortalLider(userId: string): Promise<Dispersi
           eq(dispersiones.tenantId, perfil.tenantId),
           inArray(dispersiones.liderId, liderIds),
           inArray(dispersiones.tipoBeneficiario, ['LIDER_SALDO', 'ASESOR']),
+          not(eq(dispersiones.estado, 'PENDIENTE')),
         ),
       )
       .orderBy(desc(comisionesCalculadas.createdAt))
@@ -268,11 +270,12 @@ export async function verificarPertenenciaDispersion(
         liderId: dispersiones.liderId,
         asesorId: dispersiones.asesorId,
         tipoBeneficiario: dispersiones.tipoBeneficiario,
+        estado: dispersiones.estado,
       })
       .from(dispersiones)
       .where(and(eq(dispersiones.tenantId, perfil.tenantId), eq(dispersiones.id, dispersionId)))
       .limit(1)
-    if (!row) return false
+    if (!row || row.estado === 'PENDIENTE') return false
     if (perfil.rolPortal === 'ASESOR' && perfil.asesorIds.length > 0) {
       return (
         row.tipoBeneficiario === 'ASESOR' &&
@@ -313,7 +316,7 @@ function toDispersionPortal(r: Row): DispersionPortal {
     ventaId: r.v.id,
     ventaCliente: r.v.cliente,
     ventaMonto: Number(r.v.monto),
-    ventaMondayItemId: r.v.mondayItemId,
+    ventaLoteAcciones: r.v.loteAcciones,
     desarrolloNombre: r.desarrolloNombre,
     tipoProducto: r.c.tipoProducto,
     asesorNombre: r.asesorNombre,

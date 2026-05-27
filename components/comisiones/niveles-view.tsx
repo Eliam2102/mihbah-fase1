@@ -11,7 +11,6 @@ export interface LiderNivelRow {
   alianzaNombre: string
   nivelActual: 'JADE' | 'TURQUESA' | 'ONIX_NEGRO' | null
   promedioMensual: number
-  presupuestoPautasMensual: number
 }
 
 // Doc YESYUCAN v5 §1 — umbrales terrenos (en pesos)
@@ -26,12 +25,6 @@ const NIVEL_COLOR: Record<string, string> = {
   JADE: 'bg-jade-100 text-jade-800',
   TURQUESA: 'bg-cyan-100 text-cyan-800',
   ONIX_NEGRO: 'bg-slate-200 text-slate-800',
-}
-
-const PAUTA_POR_NIVEL: Record<string, number> = {
-  JADE: 15000,
-  TURQUESA: 10000,
-  ONIX_NEGRO: 5000,
 }
 
 export function NivelesView({
@@ -68,9 +61,6 @@ export function NivelesView({
               <th className="px-3 py-2 text-center text-xs font-semibold uppercase">
                 Nivel asignado
               </th>
-              <th className="px-3 py-2 text-right text-xs font-semibold uppercase">
-                Pauta mensual
-              </th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
@@ -105,23 +95,16 @@ function FilaNivel({
   const [nivel, setNivel] = useState<'' | 'JADE' | 'TURQUESA' | 'ONIX_NEGRO'>(
     lider.nivelActual ?? '',
   )
-  const [pauta, setPauta] = useState<number>(lider.presupuestoPautasMensual)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
   const sugerencia = sugerirNivel(lider.promedioMensual)
-  const dirty =
-    (nivel || null) !== (lider.nivelActual ?? null) || pauta !== lider.presupuestoPautasMensual
+  const dirty = (nivel || null) !== (lider.nivelActual ?? null)
 
   function aplicarSugerencia() {
     if (sugerencia) {
       setNivel(sugerencia)
-      setPauta(PAUTA_POR_NIVEL[sugerencia] ?? 0)
     }
-  }
-
-  function aplicarPautaSegunNivel() {
-    if (nivel) setPauta(PAUTA_POR_NIVEL[nivel] ?? 0)
   }
 
   function guardar() {
@@ -130,7 +113,6 @@ function FilaNivel({
     startTransition(async () => {
       const result = await actualizarLiderAction(empresaId, lider.id, {
         nivel: nivel || null,
-        presupuestoPautasMensual: pauta,
       })
       if (!result.ok) {
         setError(result.error)
@@ -175,26 +157,6 @@ function FilaNivel({
           <option value="TURQUESA">Turquesa</option>
           <option value="ONIX_NEGRO">Ónix Negro</option>
         </select>
-      </td>
-      <td className="px-3 py-2 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <input
-            type="number"
-            min={0}
-            step={1000}
-            value={pauta}
-            onChange={(e) => setPauta(Number(e.target.value))}
-            className="input w-28 text-right tabular-nums"
-          />
-          <button
-            onClick={aplicarPautaSegunNivel}
-            disabled={!nivel}
-            title="Aplicar pauta sugerida por nivel"
-            className="text-muted-foreground hover:text-foreground text-[10px] disabled:opacity-30"
-          >
-            auto
-          </button>
-        </div>
       </td>
       <td className="px-3 py-2">
         {error ? (

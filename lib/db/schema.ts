@@ -83,11 +83,24 @@ export const tipoEsquemaEnum = pgEnum('tipo_esquema_comision', [
 ])
 
 export const estadoDispersionEnum = pgEnum('estado_dispersion', [
-  'PENDIENTE',
+  'PENDIENTE', // Calculada, no enviada a aprobación
+  'EN_REVISION', // Joana la incluyó en un corte y lo envió a aprobar
+  'AUTORIZADA', // Jorge o Carla aprobaron → visible en portal lider/asesor
   'PARCIAL',
   'PAGADO',
   'DIFERIDO',
 ])
+
+// Estado del corte de dispersión
+export const estadoCorteEnum = pgEnum('estado_corte', [
+  'BORRADOR', // Joana lo está armando, aún no se envía
+  'EN_REVISION', // Enviado a aprobación, esperando Jorge/Carla
+  'APROBADO', // Aprobado, dispersiones AUTORIZADAS
+  'RECHAZADO', // Rechazado con motivo, dispersiones vuelven a PENDIENTE
+])
+
+// Día del corte según operación del negocio
+export const tipoDiaCorteEnum = pgEnum('tipo_dia_corte', ['LUNES', 'JUEVES'])
 
 // 9 tipos de beneficiario según cascada del doc §4
 export const tipoBeneficiarioEnum = pgEnum('tipo_beneficiario_dispersion', [
@@ -1105,6 +1118,89 @@ export const comisionesCalculadas = pgTable(
   }),
 )
 
+// ─── Cortes de Dispersión ─────────────────────────────────────────────────────
+// Cada lunes o jueves Joana abre un corte que agrupa pagos de ventas.
+// Flujo: BORRADOR → EN_REVISION → APROBADO/RECHAZADO
+// Al aprobar, las dispersiones del corte pasan a AUTORIZADA (visible en portal).
+
+export const cortesDispersion = pgTable(
+  'cortes_dispersion',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    empresaId: uuid('empresa_id')
+      .notNull()
+      .references(() => empresas.id, { onDelete: 'cascade' }),
+    // Fecha del día del corte (el lunes o jueves correspondiente)
+    fechaCorte: date('fecha_corte').notNull(),
+    tipoDia: tipoDiaCorteEnum('tipo_dia').notNull(),
+    estado: estadoCorteEnum('estado').notNull().default('BORRADOR'),
+    // Suma total a dispersar en este corte (calculada al cerrar)
+    totalADispersar: numeric('total_a_dispersar', { precision: 18, scale: 2 }).default('0'),
+    // Notas de Joana para el corte
+    notasJoana: text('notas_joana'),
+    // Quién crea el corte (Joana)
+    creadoPor: text('creado_por')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    // Quién aprueba o rechaza (Jorge o Carla)
+    aprobadoPor: text('aprobado_por').references(() => users.id, { onDelete: 'set null' }),
+    fechaAprobacion: timestamp('fecha_aprobacion', { withTimezone: true }),
+    notasAprobador: text('notas_aprobador'),
+    // Método de pago default del corte (Jorge/Carla pueden override por lider)
+    metodoPagoDefault: metodoPagoLiderEnum('metodo_pago_default').default('EFECTIVO'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('cortes_tenant_idx').on(t.tenantId),
+    empresaIdx: index('cortes_empresa_idx').on(t.empresaId),
+    estadoIdx: index('cortes_estado_idx').on(t.tenantId, t.estado),
+    fechaIdx: index('cortes_fecha_idx').on(t.tenantId, t.fechaCorte),
+  }),
+)
+
+// ─── Ventas Pago Corte ────────────────────────────────────────────────────────
+// Cada venta puede recibir uno o más pagos en distintos cortes.
+// Joana registra aquí cuánto abonó el cliente en ese corte y el sistema
+// calcula dispersiones proporcionales al % pagado.
+
+export const ventasPagoCorte = pgTable(
+  'ventas_pago_corte',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    corteId: uuid('corte_id')
+      .notNull()
+      .references(() => cortesDispersion.id, { onDelete: 'cascade' }),
+    ventaId: uuid('venta_id')
+      .notNull()
+      .references(() => ventasBmcorp.id, { onDelete: 'restrict' }),
+    // Cuánto abonó el cliente en este corte (en pesos)
+    montoPagadoCliente: numeric('monto_pagado_cliente', { precision: 18, scale: 2 }).notNull(),
+    // % del monto total de la venta (calculado: montoPagadoCliente / venta.monto * 100)
+    porcentajePagado: numeric('porcentaje_pagado', { precision: 8, scale: 4 }).notNull(),
+    // Total a dispersar en este corte (puede diferir si Joana ajusta manualmente)
+    montoADispersar: numeric('monto_a_dispersar', { precision: 18, scale: 2 }).notNull(),
+    // Notas de Joana para esta línea
+    notasJoana: text('notas_joana'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('ventas_pago_corte_tenant_idx').on(t.tenantId),
+    corteIdx: index('ventas_pago_corte_corte_idx').on(t.corteId),
+    ventaIdx: index('ventas_pago_corte_venta_idx').on(t.ventaId),
+    // Una venta solo puede aparecer UNA vez por corte
+    corteVentaUnique: uniqueIndex('ventas_pago_corte_unique').on(t.corteId, t.ventaId),
+  }),
+)
+
 // ─── Dispersiones (líneas de pago a beneficiarios) ───────────────────────────
 // Por cada comisión calculada se generan 4 dispersiones:
 // OP_BMCORP, OP_YESYUCAN, LIDER, SOCIOS.
@@ -1119,6 +1215,12 @@ export const dispersiones = pgTable(
     comisionId: uuid('comision_id')
       .notNull()
       .references(() => comisionesCalculadas.id, { onDelete: 'restrict' }),
+    // Corte al que pertenece esta dispersión (null si aún no fue incluida en ningún corte)
+    corteId: uuid('corte_id').references(() => cortesDispersion.id, { onDelete: 'set null' }),
+    // Pago de cliente que originó esta dispersión (trazabilidad)
+    pagoCorteId: uuid('pago_corte_id').references(() => ventasPagoCorte.id, {
+      onDelete: 'set null',
+    }),
     // Líder dueño de la dispersión (null si ASESOR_FLAMINGO o socio fijo/bolsa)
     liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'set null' }),
     // Asesor cuando tipoBeneficiario = ASESOR (null en otros casos)
@@ -1129,6 +1231,8 @@ export const dispersiones = pgTable(
     montoPagado: numeric('monto_pagado', { precision: 18, scale: 2 }).notNull().default('0'),
     montoDiferido: numeric('monto_diferido', { precision: 18, scale: 2 }).notNull().default('0'),
     estado: estadoDispersionEnum('estado').notNull().default('PENDIENTE'),
+    // Método de pago seleccionado por Jorge/Carla al aprobar el corte
+    metodoPago: metodoPagoLiderEnum('metodo_pago'),
     // Si acumulaMensual=true, no se paga al liberar — se agrupa fin de mes (doc §4 Jorge bolsa)
     acumulaMensual: boolean('acumula_mensual').notNull().default(false),
     fechaEstimadaPago: date('fecha_estimada_pago'),
@@ -1142,6 +1246,7 @@ export const dispersiones = pgTable(
   (t) => ({
     tenantIdx: index('dispersiones_tenant_idx').on(t.tenantId),
     comisionIdx: index('dispersiones_comision_idx').on(t.comisionId),
+    corteIdx: index('dispersiones_corte_idx').on(t.corteId),
     estadoIdx: index('dispersiones_estado_idx').on(t.tenantId, t.estado),
     fechaIdx: index('dispersiones_fecha_pago_idx').on(t.fechaPago),
     liderIdx: index('dispersiones_lider_idx').on(t.liderId),
@@ -1153,10 +1258,9 @@ export const dispersiones = pgTable(
       t.tipoBeneficiario,
       t.estado,
     ),
-    comisionTipoUnique: uniqueIndex('dispersiones_comision_tipo_unique').on(
-      t.comisionId,
-      t.tipoBeneficiario,
-    ),
+    comisionTipoUnique: uniqueIndex('dispersiones_comision_tipo_unique')
+      .on(t.comisionId, t.tipoBeneficiario)
+      .where(sql`pago_corte_id IS NULL`),
   }),
 )
 

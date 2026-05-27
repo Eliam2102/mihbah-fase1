@@ -30,11 +30,6 @@ const liderSchema = z.object({
   numeroCuenta: z.string().nullable().optional(),
   nivel: z.enum(['JADE', 'TURQUESA', 'ONIX_NEGRO']).nullable().optional(),
   coordinaPago: z.string().nullable().optional(),
-  presupuestoPautasMensual: z
-    .number()
-    .nonnegative()
-    .transform((v) => v.toString())
-    .optional(),
 })
 
 const asesorSchema = z.object({

@@ -30,6 +30,7 @@ export default async function VentasPage({
     mes?: string
     alianza?: string
     desarrollo?: string
+    asesor?: string
     q?: string
     page?: string
   }>
@@ -43,7 +44,7 @@ export default async function VentasPage({
 
   const grupo: GrupoEstado = GRUPOS_VALIDOS.includes(sp.grupo as GrupoEstado)
     ? (sp.grupo as GrupoEstado)
-    : 'todas'
+    : 'todas' // default: todas las ventas
 
   const anioNum = sp.anio ? Number(sp.anio) : NaN
   const mesNum = sp.mes ? Number(sp.mes) : NaN
@@ -66,6 +67,7 @@ export default async function VentasPage({
   if (anioValido && mesValido) filterForService.mes = mesNum
   if (sp.alianza) filterForService.afiliadoId = sp.alianza
   if (sp.desarrollo) filterForService.desarrolloId = sp.desarrollo
+  if (sp.asesor) filterForService.asesor = sp.asesor
   if (sp.q) filterForService.query = sp.q
 
   const result = await listarVentas(tenantId, empresaId, filterForService)
@@ -78,12 +80,14 @@ export default async function VentasPage({
     mes?: number
     afiliadoId?: string
     desarrolloId?: string
+    asesor?: string
     query?: string
   } = { grupo, page }
   if (anioValido) currentFilter.anio = anioNum
   if (anioValido && mesValido) currentFilter.mes = mesNum
   if (sp.alianza) currentFilter.afiliadoId = sp.alianza
   if (sp.desarrollo) currentFilter.desarrolloId = sp.desarrollo
+  if (sp.asesor) currentFilter.asesor = sp.asesor
   if (sp.q) currentFilter.query = sp.q
 
   return (

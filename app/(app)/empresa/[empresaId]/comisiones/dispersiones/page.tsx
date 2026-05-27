@@ -1,7 +1,13 @@
 import { requireUser, isSuperAdminOrAbove } from '@/lib/auth/helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { db } from '@/lib/db'
-import { dispersiones, comisionesCalculadas, ventasBmcorp, users } from '@/lib/db/schema'
+import {
+  dispersiones,
+  comisionesCalculadas,
+  ventasBmcorp,
+  users,
+  desarrollos,
+} from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, eq } from 'drizzle-orm'
 import {
@@ -28,11 +34,13 @@ export default async function DispersionesPage({
       .select({
         d: dispersiones,
         venta: ventasBmcorp,
+        desarrolloNombre: desarrollos.nombre,
         aprobadoPorNombre: users.name,
       })
       .from(dispersiones)
       .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
       .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+      .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
       .leftJoin(users, eq(dispersiones.aprobadoPor, users.id))
       .where(and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
       .orderBy(dispersiones.tipoBeneficiario, dispersiones.estado)
@@ -42,7 +50,8 @@ export default async function DispersionesPage({
     d: r.d,
     ventaCliente: r.venta.cliente,
     ventaId: r.venta.id,
-    ventaMondayItemId: r.venta.mondayItemId,
+    ventaDesarrolloNombre: r.desarrolloNombre ?? null,
+    ventaLoteAcciones: r.venta.loteAcciones ?? null,
     aprobadoPorNombre: r.aprobadoPorNombre,
   }))
 

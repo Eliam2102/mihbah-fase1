@@ -262,6 +262,13 @@ export async function recalcularComisionAction(
 }
 
 // ─── Forzar recálculo de una venta (sin cambiar enganche) ───────────────────
+// Solo permitido si la venta ya está en etapa finalizada.
+
+const ESTADOS_CON_COMISION_DISPERSIONES = [
+  'FINALIZADA',
+  'LIBERADO',
+  'FINALIZADO_Y_LIQUIDADO',
+] as const
 
 export async function recalcularVentaAction(
   empresaId: string,
@@ -271,6 +278,24 @@ export async function recalcularVentaAction(
     const user = await requireUser()
     await requireEmpresaAccess(user, empresaId, 'comisiones')
     const tenantId = user.tenantId!
+
+    // Verificar que la venta esté en etapa con comisión
+    const { ventasBmcorp } = await import('@/lib/db/schema')
+    const { eq, and } = await import('drizzle-orm')
+    const { db } = await import('@/lib/db')
+    const [venta] = await db
+      .select({ estadoVenta: ventasBmcorp.estadoVenta })
+      .from(ventasBmcorp)
+      .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.id, ventaId)))
+      .limit(1)
+    if (!venta) return { ok: false, error: 'Venta no encontrada' }
+    if (!(ESTADOS_CON_COMISION_DISPERSIONES as readonly string[]).includes(venta.estadoVenta)) {
+      return {
+        ok: false,
+        error: `La venta está en estado "${venta.estadoVenta}". Solo se calculan comisiones para ventas Finalizadas, Liberadas o Finalizadas y Liquidadas.`,
+      }
+    }
+
     await calcularYPersistirComision(tenantId, ventaId, { userId: user.id })
     revalidate(empresaId)
     return { ok: true, data: { ventaId } }
@@ -280,12 +305,12 @@ export async function recalcularVentaAction(
 }
 
 // ─── Recalcular TODAS las comisiones del tenant ─────────────────────────────
-// Usar después de editar un esquema global o matriz para que comisiones
-// existentes reflejen los nuevos %. Snapshot anterior se sobreescribe.
+// Solo procesa ventas FINALIZADAS / LIBERADAS / FINALIZADAS_Y_LIQUIDADAS.
+// Ventas aún en pipeline se ignoran — no tienen comisión real generada.
 
 export async function recalcularTodasComisionesAction(
   empresaId: string,
-): Promise<ActionResult<{ ok: number; errores: number; total: number }>> {
+): Promise<ActionResult<{ ok: number; errores: number; total: number; omitidas: number }>> {
   try {
     const user = await requireUser()
     if (!user.tenantId) return { ok: false, error: 'Sin tenant' }
@@ -295,12 +320,27 @@ export async function recalcularTodasComisionesAction(
     // Importar lazy para evitar circular
     const { db } = await import('@/lib/db')
     const { ventasBmcorp } = await import('@/lib/db/schema')
-    const { eq } = await import('drizzle-orm')
+    const { eq, and, inArray } = await import('drizzle-orm')
 
+    // SOLO ventas finalizadas — las de pipeline no generan dispersiones
     const ventas = await db
       .select({ id: ventasBmcorp.id })
       .from(ventasBmcorp)
+      .where(
+        and(
+          eq(ventasBmcorp.tenantId, tenantId),
+          inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO']),
+        ),
+      )
+
+    const totalConComision = ventas.length
+
+    // Contar las omitidas (pipeline) para informar
+    const [countTotal] = await db
+      .select({ total: (await import('drizzle-orm')).sql<number>`COUNT(*)::int` })
+      .from(ventasBmcorp)
       .where(eq(ventasBmcorp.tenantId, tenantId))
+    const omitidas = (countTotal?.total ?? totalConComision) - totalConComision
 
     let ok = 0
     let errores = 0
@@ -315,7 +355,7 @@ export async function recalcularTodasComisionesAction(
 
     revalidate(empresaId)
     revalidatePath(`/empresa/${empresaId}/comisiones/esquemas`)
-    return { ok: true, data: { ok, errores, total: ventas.length } }
+    return { ok: true, data: { ok, errores, total: totalConComision, omitidas } }
   } catch (err) {
     return handleError(err)
   }

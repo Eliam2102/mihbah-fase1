@@ -1,9 +1,18 @@
+import { Fragment } from 'react'
 import { requireUser } from '@/lib/auth/helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { db } from '@/lib/db'
-import { comisionesCalculadas, ventasBmcorp, dispersiones, afiliados, users } from '@/lib/db/schema'
+import {
+  comisionesCalculadas,
+  ventasBmcorp,
+  dispersiones,
+  afiliados,
+  users,
+  ventasPagoCorte,
+  cortesDispersion,
+} from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull, sql, not } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react'
@@ -45,20 +54,55 @@ export default async function VentaDetalle({
       ? await tx
           .select()
           .from(dispersiones)
-          .where(and(eq(dispersiones.tenantId, tenantId), eq(dispersiones.comisionId, comision.id)))
+          .where(
+            and(
+              eq(dispersiones.tenantId, tenantId),
+              eq(dispersiones.comisionId, comision.id),
+              // Solo mostrar las dispersiones "padre" (con corteId nulo) para evitar duplicados en desglose general
+              isNull(dispersiones.corteId),
+            ),
+          )
           .orderBy(dispersiones.tipoBeneficiario)
       : []
+    const pagosCorte = await tx
+      .select({
+        pago: ventasPagoCorte,
+        corte: cortesDispersion,
+      })
+      .from(ventasPagoCorte)
+      .innerJoin(cortesDispersion, eq(ventasPagoCorte.corteId, cortesDispersion.id))
+      .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.ventaId, ventaId)))
+      .orderBy(cortesDispersion.fechaCorte)
+
+    const childDispersiones = comision
+      ? await tx
+          .select()
+          .from(dispersiones)
+          .where(
+            and(
+              eq(dispersiones.tenantId, tenantId),
+              eq(dispersiones.comisionId, comision.id),
+              // Solo mostrar dispersiones "hijas" (asociadas a un corte)
+              not(isNull(dispersiones.corteId)),
+            ),
+          )
+          .orderBy(dispersiones.tipoBeneficiario)
+      : []
+
     return {
       venta: venta.venta,
       afiliadoNombre: venta.afiliado,
       editorNombre: venta.editorNombre,
       comision,
       lines,
+      pagosCorte,
+      childDispersiones,
     }
   })
 
   if (!data) notFound()
-  const { venta, afiliadoNombre, editorNombre, comision, lines } = data
+  const { venta, afiliadoNombre, editorNombre, comision, lines, pagosCorte, childDispersiones } =
+    data
   const fmt = (n: string | number) =>
     Number(n).toLocaleString('es-MX', {
       style: 'currency',
@@ -66,6 +110,22 @@ export default async function VentaDetalle({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
+
+  // Avance de cobro: solo cuenta lo de cortes YA APROBADOS (no borrador/revisión).
+  const totalPagadoCliente = pagosCorte
+    .filter((p) => p.corte.estado === 'APROBADO')
+    .reduce((s, p) => s + Number(p.pago.montoPagadoCliente), 0)
+  const pctPagadoCliente =
+    Number(venta.monto) > 0 ? (totalPagadoCliente / Number(venta.monto)) * 100 : 0
+
+  // Avance de comisiones: dispersiones ya autorizadas (aprobadas en corte) sobre la comisión bruta.
+  // AUTORIZADA cuenta como "se va a pagar" — sin gate de marcar entregado.
+  const ESTADOS_AUTORIZADOS = ['AUTORIZADA', 'PARCIAL', 'PAGADO']
+  const comisionAutorizada = childDispersiones
+    .filter((d) => ESTADOS_AUTORIZADOS.includes(d.estado))
+    .reduce((s, d) => s + Number(d.montoTotal), 0)
+  const comisionBruta = comision ? Number(comision.comisionBrutaTotal) : 0
+  const pctComisionAutorizada = comisionBruta > 0 ? (comisionAutorizada / comisionBruta) * 100 : 0
 
   return (
     <section className="3xl:p-12 w-full space-y-6 p-4 sm:p-6 xl:p-10">
@@ -108,14 +168,11 @@ export default async function VentaDetalle({
         }}
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card label="Monto venta" value={fmt(venta.monto)} />
         <Card label="Enganche pagado" value={fmt(venta.enganche ?? '0')} />
-        <Card
-          label="Comisión bruta"
-          value={comision ? fmt(comision.comisionBrutaTotal) : '—'}
-          accent
-        />
+        <Card label="Cobrado (aprobado)" value={fmt(totalPagadoCliente)} accent />
+        <Card label="Avance de cobro" value={`${pctPagadoCliente.toFixed(2)}%`} />
       </div>
 
       {!comision ? (
@@ -140,6 +197,8 @@ export default async function VentaDetalle({
             <Card label="Liberable" value={fmt(comision.montoLiberable)} accent />
             <Card label="Diferido" value={fmt(comision.montoDiferido)} />
             <Card label="Tipo producto" value={comision.tipoProducto} />
+            <Card label="Comisión autorizada" value={fmt(comisionAutorizada)} accent />
+            <Card label="% comisión pagada" value={`${pctComisionAutorizada.toFixed(2)}%`} />
           </div>
 
           <div className="bg-card overflow-hidden rounded-lg border">
@@ -183,6 +242,133 @@ export default async function VentaDetalle({
               </tbody>
             </table>
           </div>
+
+          {pagosCorte.length > 0 && (
+            <div className="bg-card overflow-hidden rounded-lg border">
+              <h2 className="border-b px-4 py-2 text-sm font-semibold">
+                Historial de pagos registrados en cortes ({pagosCorte.length} abonos)
+              </h2>
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Fecha corte</th>
+                    <th className="px-3 py-2 text-left font-medium">Día</th>
+                    <th className="px-3 py-2 text-right font-medium">Abono cliente</th>
+                    <th className="px-3 py-2 text-right font-medium">% del total</th>
+                    <th className="px-3 py-2 text-right font-medium">Monto a dispersar</th>
+                    <th className="px-3 py-2 text-center font-medium">Estado corte</th>
+                    <th className="px-3 py-2 text-left font-medium">Notas Joana</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {pagosCorte.map(({ pago, corte }) => {
+                    const estadoMap: Record<string, string> = {
+                      BORRADOR: 'bg-muted text-muted-foreground',
+                      EN_REVISION: 'bg-purple-100 text-purple-800',
+                      APROBADO: 'bg-emerald-100 text-emerald-800',
+                      RECHAZADO: 'bg-rose-100 text-rose-800',
+                    }
+                    const dispsDeEstePago = childDispersiones.filter(
+                      (d) => d.pagoCorteId === pago.id,
+                    )
+
+                    return (
+                      <Fragment key={pago.id}>
+                        <tr className="hover:bg-muted/10 transition-colors">
+                          <td className="px-3 py-2 font-mono text-xs">
+                            <Link
+                              href={`/empresa/${empresaId}/comisiones/cortes/${corte.id}`}
+                              className="text-primary font-semibold hover:underline"
+                            >
+                              {corte.fechaCorte}
+                            </Link>
+                          </td>
+                          <td className="text-muted-foreground px-3 py-2 text-xs">
+                            {corte.tipoDia}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium tabular-nums">
+                            {fmt(pago.montoPagadoCliente)}
+                          </td>
+                          <td className="text-muted-foreground px-3 py-2 text-right tabular-nums">
+                            {Number(pago.porcentajePagado).toFixed(2)}%
+                          </td>
+                          <td className="text-success px-3 py-2 text-right font-semibold tabular-nums">
+                            {fmt(pago.montoADispersar)}
+                          </td>
+                          <td className="px-3 py-2 text-center text-xs">
+                            <span
+                              className={`rounded-full px-2 py-0.5 font-medium ${estadoMap[corte.estado] ?? 'bg-muted'}`}
+                            >
+                              {corte.estado}
+                            </span>
+                          </td>
+                          <td className="text-muted-foreground max-w-[200px] truncate px-3 py-2 text-xs">
+                            {pago.notasJoana ?? '—'}
+                          </td>
+                        </tr>
+                        {dispsDeEstePago.length > 0 && (
+                          <tr className="bg-muted/10">
+                            <td
+                              colSpan={7}
+                              className="border-primary/40 bg-muted/20 border-l-2 px-6 py-2"
+                            >
+                              <div className="flex flex-col gap-1 py-1">
+                                <span className="text-primary text-[10px] font-bold tracking-wider uppercase">
+                                  Comisiones dispersadas por este abono ({dispsDeEstePago.length}{' '}
+                                  beneficiarios):
+                                </span>
+                                <div className="mt-1.5 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5">
+                                  {dispsDeEstePago.map((cd) => (
+                                    <div
+                                      key={cd.id}
+                                      className="bg-card flex flex-col justify-between rounded-md border p-2 text-xs shadow-sm"
+                                    >
+                                      <div>
+                                        <span
+                                          className="text-foreground block truncate font-semibold"
+                                          title={cd.beneficiarioNombre}
+                                        >
+                                          {cd.beneficiarioNombre}
+                                        </span>
+                                        <span className="text-muted-foreground block text-[10px] font-medium uppercase">
+                                          {cd.tipoBeneficiario
+                                            .replace('SOCIO_BOLSA_', 'Socio ')
+                                            .replace('SOCIO_FIJO_', 'Socio ')
+                                            .replace('LIDER_SALDO', 'Líder')}
+                                        </span>
+                                      </div>
+                                      <div className="mt-2 flex items-center justify-between border-t pt-1.5">
+                                        <span className="text-foreground font-bold tabular-nums">
+                                          {fmt(cd.montoTotal)}
+                                        </span>
+                                        <span
+                                          className={`rounded px-1.5 text-[9px] font-bold uppercase ${
+                                            cd.estado === 'AUTORIZADA'
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : cd.estado === 'EN_REVISION'
+                                                ? 'bg-purple-100 text-purple-800'
+                                                : cd.estado === 'PAGADO'
+                                                  ? 'bg-jade-100 text-jade-800'
+                                                  : 'bg-muted text-muted-foreground'
+                                          }`}
+                                        >
+                                          {cd.estado}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </section>
@@ -205,6 +391,8 @@ function Card({ label, value, accent }: { label: string; value: string; accent?:
 function EstadoBadge({ estado }: { estado: string }) {
   const map: Record<string, string> = {
     PENDIENTE: 'bg-muted text-muted-foreground',
+    EN_REVISION: 'bg-purple-100 text-purple-800',
+    AUTORIZADA: 'bg-emerald-100 text-emerald-800',
     PARCIAL: 'bg-amber-100 text-amber-800',
     PAGADO: 'bg-jade-100 text-jade-800',
     DIFERIDO: 'bg-blue-100 text-blue-800',

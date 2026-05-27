@@ -9,7 +9,8 @@ export interface DispersionTableRow {
   d: Dispersion
   ventaCliente: string
   ventaId: string
-  ventaMondayItemId: string | null
+  ventaDesarrolloNombre: string | null
+  ventaLoteAcciones: string | null
   aprobadoPorNombre: string | null
 }
 
@@ -68,7 +69,8 @@ export function DispersionesTable({
       (r.d.fechaPago?.toLowerCase().includes(q) ?? false) ||
       (r.d.fechaEstimadaPago?.toLowerCase().includes(q) ?? false) ||
       (r.aprobadoPorNombre?.toLowerCase().includes(q) ?? false) ||
-      (r.ventaMondayItemId?.toLowerCase().includes(q) ?? false) ||
+      (r.ventaDesarrolloNombre?.toLowerCase().includes(q) ?? false) ||
+      (r.ventaLoteAcciones?.toLowerCase().includes(q) ?? false) ||
       r.d.tipoBeneficiario.toLowerCase().includes(q)
     )
   })
@@ -106,7 +108,7 @@ export function DispersionesTable({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar venta, beneficiario, estado, fecha, ID Monday, aprobado por..."
+              placeholder="Buscar cliente, desarrollo, lote, beneficiario, estado..."
               className="bg-background border-input focus:border-ring focus:ring-ring/20 w-full rounded-md border py-2 pr-8 pl-8 text-xs focus:ring-2 focus:outline-none"
             />
             {query && (
@@ -207,7 +209,8 @@ export function DispersionesTable({
                         dispersion={r.d}
                         ventaCliente={r.ventaCliente}
                         ventaId={r.ventaId}
-                        ventaMondayItemId={r.ventaMondayItemId}
+                        ventaDesarrolloNombre={r.ventaDesarrolloNombre}
+                        ventaLoteAcciones={r.ventaLoteAcciones}
                         aprobadoPorNombre={r.aprobadoPorNombre}
                         canModify={canModify}
                       />
