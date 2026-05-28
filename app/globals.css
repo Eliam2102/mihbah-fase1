@@ -184,3 +184,17 @@
     @apply bg-background border-input focus:border-ring focus:ring-ring/20 w-full rounded-md border px-2.5 py-1.5 text-sm focus:ring-2 focus:outline-none;
   }
 }
+
+@layer base {
+  /* Ocultar flechas de inputs numéricos en navegadores Webkit (Chrome, Safari, Edge) */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Ocultar flechas de inputs numéricos en Firefox */
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}

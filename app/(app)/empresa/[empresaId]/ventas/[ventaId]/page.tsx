@@ -211,79 +211,47 @@ export default async function VentaDetalle({
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Card label="Liberable" value={fmt(comision.montoLiberable)} accent />
-            <Card label="Diferido" value={fmt(comision.montoDiferido)} />
-            <Card label="Tipo producto" value={comision.tipoProducto} />
-            <Card label="Comisión autorizada" value={fmt(comisionAutorizada)} accent />
-            <Card label="% comisión pagada" value={`${pctComisionAutorizada.toFixed(2)}%`} />
-          </div>
-
-          <div className="bg-card overflow-hidden rounded-lg border">
-            <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-semibold">Distribución de Comisiones</h2>
-              <p className="text-muted-foreground mt-0.5 text-xs">
-                Resumen de cómo se divide la comisión de esta venta. El detalle de pagos, diferidos
-                y beneficiarios se gestiona en Tesorería.
-              </p>
+          {/* Resumen comisión — englobado. El desglose se gestiona en Comisiones → Corte */}
+          <div className="bg-card overflow-hidden rounded-xl border">
+            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+              <div>
+                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Comisión total calculada
+                </p>
+                <p className="text-foreground mt-1 text-2xl font-bold tabular-nums">
+                  {fmt(comisionBruta)}
+                </p>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  {((comisionBruta / Number(venta.monto)) * 100).toFixed(1)}% de la venta ·{' '}
+                  {comision.tipoProducto}
+                </p>
+              </div>
+              <div className="min-w-[160px]">
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Cubierto en cortes</span>
+                  <span className="font-semibold">{pctComisionAutorizada.toFixed(1)}%</span>
+                </div>
+                <div className="bg-muted h-2.5 overflow-hidden rounded-full">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all"
+                    style={{ width: `${Math.min(100, pctComisionAutorizada)}%` }}
+                  />
+                </div>
+                <p className="text-muted-foreground mt-1 text-right text-xs tabular-nums">
+                  {fmt(comisionAutorizada)} / {fmt(comisionBruta)}
+                </p>
+              </div>
             </div>
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium">Concepto</th>
-                  <th className="px-4 py-2 text-right font-medium">% de la Venta</th>
-                  <th className="px-4 py-2 text-right font-medium">Monto Asignado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {[
-                  { concepto: 'Operativa BM Corp', monto: Number(comision.montoOpBmcorp) },
-                  { concepto: 'Operativa YESYUCAN', monto: Number(comision.montoOpYesyucan) },
-                  { concepto: 'Afiliación / Alianza', monto: Number(comision.montoLiderSaldo) },
-                  { concepto: 'Asesor (Cobro directo)', monto: Number(comision.montoAsesor) },
-                  {
-                    concepto: 'Bolsa Comercial Socios',
-                    monto:
-                      Number(comision.montoSocioBolsaJorge) +
-                      Number(comision.montoSocioBolsaKass) +
-                      Number(comision.montoSocioBolsaDiana),
-                  },
-                  {
-                    concepto: 'Socios Fijos',
-                    monto:
-                      Number(comision.montoSocioFijoJorge) + Number(comision.montoSocioFijoKass),
-                  },
-                ]
-                  .filter((item) => item.monto > 0)
-                  .map((item, idx) => {
-                    const pct =
-                      Number(venta.monto) > 0 ? (item.monto / Number(venta.monto)) * 100 : 0
-                    return (
-                      <tr key={idx} className="hover:bg-muted/10 transition-colors">
-                        <td className="px-4 py-3 font-medium">{item.concepto}</td>
-                        <td className="text-muted-foreground px-4 py-3 text-right tabular-nums">
-                          {pct.toFixed(1).replace('.0', '')}%
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                          {fmt(item.monto)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-              </tbody>
-              <tfoot className="bg-muted/10 font-semibold">
-                <tr>
-                  <td className="px-4 py-3 text-left">
-                    Total de Comisiones ({((comisionBruta / Number(venta.monto)) * 100).toFixed(0)}
-                    %)
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums"></td>
-                  <td className="text-primary px-4 py-3 text-right tabular-nums">
-                    {fmt(comisionBruta)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+            <div className="bg-muted/20 text-muted-foreground border-t px-4 py-2.5 text-xs">
+              El desglose por beneficiario (BMCorp, YesYuCan, Afiliación, Socios) se gestiona en{' '}
+              <Link
+                href={`/empresa/${empresaId}/comisiones/cortes`}
+                className="text-primary font-medium hover:underline"
+              >
+                Comisiones → Cortes
+              </Link>
+              .
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -302,18 +270,17 @@ export default async function VentaDetalle({
           {pagosCorte.length > 0 && (
             <div className="bg-card overflow-hidden rounded-lg border">
               <h2 className="border-b px-4 py-2 text-sm font-semibold">
-                Historial de pagos registrados en cortes ({pagosCorte.length} abonos)
+                Historial de abonos ({pagosCorte.length})
               </h2>
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Fecha corte</th>
-                    <th className="px-3 py-2 text-left font-medium">Día</th>
+                    <th className="px-3 py-2 text-left font-medium">Corte</th>
                     <th className="px-3 py-2 text-right font-medium">Abono cliente</th>
-                    <th className="px-3 py-2 text-right font-medium">% del total</th>
-                    <th className="px-3 py-2 text-right font-medium">Monto a dispersar</th>
-                    <th className="px-3 py-2 text-center font-medium">Estado corte</th>
-                    <th className="px-3 py-2 text-left font-medium">Notas Joana</th>
+                    <th className="px-3 py-2 text-right font-medium">% venta</th>
+                    <th className="px-3 py-2 text-right font-medium">Comisión dispersada</th>
+                    <th className="px-3 py-2 text-center font-medium">Estado</th>
+                    <th className="px-3 py-2 text-left font-medium">Notas</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -324,101 +291,36 @@ export default async function VentaDetalle({
                       APROBADO: 'bg-emerald-100 text-emerald-800',
                       RECHAZADO: 'bg-rose-100 text-rose-800',
                     }
-                    const dispsDeEstePago = childDispersiones.filter(
-                      (d) => d.pagoCorteId === pago.id,
-                    )
-
                     return (
-                      <Fragment key={pago.id}>
-                        <tr className="hover:bg-muted/10 transition-colors">
-                          <td className="px-3 py-2 font-mono text-xs">
-                            <Link
-                              href={`/empresa/${empresaId}/comisiones/cortes/${corte.id}`}
-                              className="text-primary font-semibold hover:underline"
-                            >
-                              {corte.fechaCorte}
-                            </Link>
-                          </td>
-                          <td className="text-muted-foreground px-3 py-2 text-xs">
-                            {corte.tipoDia}
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium tabular-nums">
-                            {fmt(pago.montoPagadoCliente)}
-                          </td>
-                          <td className="text-muted-foreground px-3 py-2 text-right tabular-nums">
-                            {Number(pago.porcentajePagado).toFixed(2)}%
-                          </td>
-                          <td className="text-success px-3 py-2 text-right font-semibold tabular-nums">
-                            {fmt(pago.montoADispersar)}
-                          </td>
-                          <td className="px-3 py-2 text-center text-xs">
-                            <span
-                              className={`rounded-full px-2 py-0.5 font-medium ${estadoMap[corte.estado] ?? 'bg-muted'}`}
-                            >
-                              {corte.estado}
-                            </span>
-                          </td>
-                          <td className="text-muted-foreground max-w-[200px] truncate px-3 py-2 text-xs">
-                            {pago.notasJoana ?? '—'}
-                          </td>
-                        </tr>
-                        {dispsDeEstePago.length > 0 && (
-                          <tr className="bg-muted/10">
-                            <td
-                              colSpan={7}
-                              className="border-primary/40 bg-muted/20 border-l-2 px-6 py-2"
-                            >
-                              <div className="flex flex-col gap-1 py-1">
-                                <span className="text-primary text-[10px] font-bold tracking-wider uppercase">
-                                  Comisiones dispersadas por este abono ({dispsDeEstePago.length}{' '}
-                                  beneficiarios):
-                                </span>
-                                <div className="mt-1.5 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5">
-                                  {dispsDeEstePago.map((cd) => (
-                                    <div
-                                      key={cd.id}
-                                      className="bg-card flex flex-col justify-between rounded-md border p-2 text-xs shadow-sm"
-                                    >
-                                      <div>
-                                        <span
-                                          className="text-foreground block truncate font-semibold"
-                                          title={cd.beneficiarioNombre}
-                                        >
-                                          {cd.beneficiarioNombre}
-                                        </span>
-                                        <span className="text-muted-foreground block text-[10px] font-medium uppercase">
-                                          {cd.tipoBeneficiario
-                                            .replace('SOCIO_BOLSA_', 'Socio ')
-                                            .replace('SOCIO_FIJO_', 'Socio ')
-                                            .replace('LIDER_SALDO', 'Líder')}
-                                        </span>
-                                      </div>
-                                      <div className="mt-2 flex items-center justify-between border-t pt-1.5">
-                                        <span className="text-foreground font-bold tabular-nums">
-                                          {fmt(cd.montoTotal)}
-                                        </span>
-                                        <span
-                                          className={`rounded px-1.5 text-[9px] font-bold uppercase ${
-                                            cd.estado === 'AUTORIZADA'
-                                              ? 'bg-emerald-100 text-emerald-800'
-                                              : cd.estado === 'EN_REVISION'
-                                                ? 'bg-purple-100 text-purple-800'
-                                                : cd.estado === 'PAGADO'
-                                                  ? 'bg-jade-100 text-jade-800'
-                                                  : 'bg-muted text-muted-foreground'
-                                          }`}
-                                        >
-                                          {cd.estado}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
+                      <tr key={pago.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="px-3 py-2 font-mono text-xs">
+                          <Link
+                            href={`/empresa/${empresaId}/comisiones/cortes/${corte.id}`}
+                            className="text-primary font-semibold hover:underline"
+                          >
+                            {corte.fechaCorte} {corte.tipoDia}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium tabular-nums">
+                          {fmt(pago.montoPagadoCliente)}
+                        </td>
+                        <td className="text-muted-foreground px-3 py-2 text-right tabular-nums">
+                          {Number(pago.porcentajePagado).toFixed(2)}%
+                        </td>
+                        <td className="text-success px-3 py-2 text-right font-semibold tabular-nums">
+                          {fmt(pago.montoADispersar)}
+                        </td>
+                        <td className="px-3 py-2 text-center text-xs">
+                          <span
+                            className={`rounded-full px-2 py-0.5 font-medium ${estadoMap[corte.estado] ?? 'bg-muted'}`}
+                          >
+                            {corte.estado}
+                          </span>
+                        </td>
+                        <td className="text-muted-foreground max-w-[200px] truncate px-3 py-2 text-xs">
+                          {pago.notasJoana ?? '—'}
+                        </td>
+                      </tr>
                     )
                   })}
                 </tbody>

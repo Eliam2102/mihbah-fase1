@@ -602,42 +602,42 @@ export default function CorteDetailView({
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-400">
+                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
                           Monto pagado ($MXN)
                         </label>
                         <div className="relative">
-                          <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-sm font-bold">
-                            $
-                          </span>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             step="0.01"
                             min="0"
                             value={addForm.montoPagadoCliente}
-                            onChange={(e) => handleMontoChange(e.target.value)}
+                            onChange={(e) =>
+                              handleMontoChange(e.target.value.replace(/[^0-9.]/g, ''))
+                            }
                             placeholder="0.00"
-                            className="focus:border-primary/60 focus:bg-background focus:ring-primary/10 dark:focus:bg-background w-full [appearance:textfield] rounded-xl border border-slate-200 bg-slate-50 py-3 pr-4 pl-9 text-sm font-semibold shadow-sm transition-all hover:bg-slate-100/50 focus:ring-4 focus:outline-none dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-3 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-400">
+                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
                           Porcentaje del total (%)
                         </label>
                         <div className="relative">
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             step="0.01"
                             min="0"
                             max="100"
                             value={porcentajeInput}
-                            onChange={(e) => handlePctChange(e.target.value)}
+                            onChange={(e) =>
+                              handlePctChange(e.target.value.replace(/[^0-9.]/g, ''))
+                            }
                             placeholder="0.00"
-                            className="focus:border-primary/60 focus:bg-background focus:ring-primary/10 dark:focus:bg-background w-full [appearance:textfield] rounded-xl border border-slate-200 bg-slate-50 py-3 pr-9 pl-4 text-sm font-semibold shadow-sm transition-all hover:bg-slate-100/50 focus:ring-4 focus:outline-none dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-8 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
                           />
-                          <span className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-sm font-bold">
-                            %
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -667,7 +667,7 @@ export default function CorteDetailView({
                     )}
 
                     <div>
-                      <label className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-400">
+                      <label className="text-muted-foreground mb-1 block text-xs font-semibold">
                         Notas (opcional)
                       </label>
                       <input
@@ -675,7 +675,7 @@ export default function CorteDetailView({
                         value={addForm.notasJoana}
                         onChange={(e) => setAddForm((f) => ({ ...f, notasJoana: e.target.value }))}
                         placeholder="Ej: Abono, enganche, liquidación..."
-                        className="focus:border-primary/60 focus:bg-background focus:ring-primary/10 dark:focus:bg-background w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium shadow-sm transition-all hover:bg-slate-100/50 focus:ring-4 focus:outline-none dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900"
+                        className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-1 focus:outline-none dark:border-slate-800"
                       />
                     </div>
                   </div>
