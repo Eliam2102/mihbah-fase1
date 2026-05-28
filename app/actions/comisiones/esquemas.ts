@@ -196,3 +196,71 @@ export async function desactivarMatrizAction(
     return handleError(err)
   }
 }
+
+// ─── Nivel Override (bono por meta) ──────────────────────────────────────────
+
+const nivelOverrideSchema = z.object({
+  porcentajeAfiliacion: z.number().min(0).max(100),
+  porcentajeJorgeBolsa: z.number().min(0).max(100),
+  porcentajeKassBolsa: z.number().min(0).max(100),
+  porcentajeDianaBolsa: z.number().min(0).max(100),
+})
+
+export async function getNivelOverridesAction(
+  matrizId: string,
+): Promise<ActionResult<service.NivelOverride[]>> {
+  try {
+    const user = await requireUser()
+    const rows = await service.getNivelOverrides(user.tenantId!, matrizId)
+    return { ok: true, data: rows }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+export async function upsertNivelOverrideAction(
+  empresaId: string,
+  matrizId: string,
+  nivel: 'ONIX_NEGRO' | 'TURQUESA' | 'JADE',
+  input: z.input<typeof nivelOverrideSchema>,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireUser()
+    const parsed = nivelOverrideSchema.safeParse(input)
+    if (!parsed.success)
+      return {
+        ok: false,
+        error: 'Validación falló',
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      }
+    const suma =
+      parsed.data.porcentajeAfiliacion +
+      parsed.data.porcentajeJorgeBolsa +
+      parsed.data.porcentajeKassBolsa +
+      parsed.data.porcentajeDianaBolsa
+    if (Math.abs(suma - 15) > 0.01)
+      return {
+        ok: false,
+        error: `Los porcentajes deben sumar 15% (bolsa comercial). Suma actual: ${suma.toFixed(2)}%`,
+      }
+    const row = await service.upsertNivelOverride(user.tenantId!, matrizId, nivel, parsed.data)
+    revalidateComisiones(empresaId)
+    return { ok: true, data: { id: row.id } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+export async function eliminarNivelOverrideAction(
+  empresaId: string,
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireUser()
+    await service.eliminarNivelOverride(user.tenantId!, id)
+    revalidateComisiones(empresaId)
+    return { ok: true, data: { id } }
+  } catch (err) {
+    return handleError(err)
+  }
+}

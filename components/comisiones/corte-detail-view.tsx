@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -102,6 +102,18 @@ export default function CorteDetailView({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [showAddVenta, setShowAddVenta] = useState(false)
+
+  // Bloquear el scroll del fondo cuando el modal está abierto
+  useEffect(() => {
+    if (showAddVenta) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showAddVenta])
   const [addForm, setAddForm] = useState({ ventaId: '', montoPagadoCliente: '', notasJoana: '' })
   const [addError, setAddError] = useState<string | null>(null)
   const [selectedVentaInfo, setSelectedVentaInfo] = useState<{
@@ -421,7 +433,7 @@ export default function CorteDetailView({
 
           return (
             <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md">
-              <div className="bg-card animate-scale-up relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200/80 p-6 shadow-2xl dark:border-slate-800/80">
+              <div className="bg-card animate-scale-up relative flex max-h-[90vh] w-full max-w-[90%] flex-col rounded-2xl border border-slate-200/80 p-6 shadow-2xl dark:border-slate-800/80">
                 <button
                   onClick={resetModal}
                   className="text-muted-foreground hover:text-foreground absolute top-4 right-4 rounded-lg p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -590,11 +602,11 @@ export default function CorteDetailView({
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
+                        <label className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-400">
                           Monto pagado ($MXN)
                         </label>
                         <div className="relative">
-                          <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-sm font-semibold">
+                          <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-sm font-bold">
                             $
                           </span>
                           <input
@@ -604,12 +616,12 @@ export default function CorteDetailView({
                             value={addForm.montoPagadoCliente}
                             onChange={(e) => handleMontoChange(e.target.value)}
                             placeholder="0.00"
-                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-3 pl-7 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                            className="focus:border-primary/60 focus:bg-background focus:ring-primary/10 dark:focus:bg-background w-full [appearance:textfield] rounded-xl border border-slate-200 bg-slate-50 py-3 pr-4 pl-9 text-sm font-semibold shadow-sm transition-all hover:bg-slate-100/50 focus:ring-4 focus:outline-none dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
+                        <label className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-400">
                           Porcentaje del total (%)
                         </label>
                         <div className="relative">
@@ -621,9 +633,9 @@ export default function CorteDetailView({
                             value={porcentajeInput}
                             onChange={(e) => handlePctChange(e.target.value)}
                             placeholder="0.00"
-                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-8 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                            className="focus:border-primary/60 focus:bg-background focus:ring-primary/10 dark:focus:bg-background w-full [appearance:textfield] rounded-xl border border-slate-200 bg-slate-50 py-3 pr-9 pl-4 text-sm font-semibold shadow-sm transition-all hover:bg-slate-100/50 focus:ring-4 focus:outline-none dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
-                          <span className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-sm font-semibold">
+                          <span className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-sm font-bold">
                             %
                           </span>
                         </div>
@@ -655,7 +667,7 @@ export default function CorteDetailView({
                     )}
 
                     <div>
-                      <label className="text-muted-foreground mb-1 block text-xs font-semibold">
+                      <label className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-400">
                         Notas (opcional)
                       </label>
                       <input
@@ -663,7 +675,7 @@ export default function CorteDetailView({
                         value={addForm.notasJoana}
                         onChange={(e) => setAddForm((f) => ({ ...f, notasJoana: e.target.value }))}
                         placeholder="Ej: Abono, enganche, liquidación..."
-                        className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-1 focus:outline-none dark:border-slate-800"
+                        className="focus:border-primary/60 focus:bg-background focus:ring-primary/10 dark:focus:bg-background w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium shadow-sm transition-all hover:bg-slate-100/50 focus:ring-4 focus:outline-none dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900"
                       />
                     </div>
                   </div>

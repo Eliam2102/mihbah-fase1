@@ -23,6 +23,7 @@ import { AsesorForm } from './asesor-form'
 import { AsesorRow } from './asesor-row'
 import { ConfirmInline } from './confirm-inline'
 import { MatrizDialog } from './matriz-dialog'
+import { NivelOverrideDialog } from './nivel-override-dialog'
 
 export function AlianzaPanel({
   empresaId,
@@ -41,6 +42,10 @@ export function AlianzaPanel({
   const [matrizModal, setMatrizModal] = useState<{
     tipoProducto: 'TERRENO' | 'ACCION'
     actual: Matriz | null
+  } | null>(null)
+  const [nivelModal, setNivelModal] = useState<{
+    matrizId: string
+    matrizNombre: string
   } | null>(null)
 
   async function handleDeleteAlianza() {
@@ -171,11 +176,29 @@ export function AlianzaPanel({
           onConfig={() =>
             setMatrizModal({ tipoProducto: 'TERRENO', actual: alianza.matrizTerreno })
           }
+          {...(alianza.matrizTerreno?.id
+            ? {
+                onNiveles: () =>
+                  setNivelModal({
+                    matrizId: alianza.matrizTerreno!.id,
+                    matrizNombre: `${alianza.afiliado.nombre} · Terrenos`,
+                  }),
+              }
+            : {})}
         />
         <MatrizCard
           tipo="ACCION"
           matriz={alianza.matrizAccion}
           onConfig={() => setMatrizModal({ tipoProducto: 'ACCION', actual: alianza.matrizAccion })}
+          {...(alianza.matrizAccion?.id
+            ? {
+                onNiveles: () =>
+                  setNivelModal({
+                    matrizId: alianza.matrizAccion!.id,
+                    matrizNombre: `${alianza.afiliado.nombre} · YCD`,
+                  }),
+              }
+            : {})}
         />
       </div>
 
@@ -255,6 +278,15 @@ export function AlianzaPanel({
           onClose={() => setMatrizModal(null)}
         />
       )}
+
+      {nivelModal && (
+        <NivelOverrideDialog
+          empresaId={empresaId}
+          matrizId={nivelModal.matrizId}
+          matrizNombre={nivelModal.matrizNombre}
+          onClose={() => setNivelModal(null)}
+        />
+      )}
     </div>
   )
 }
@@ -263,10 +295,12 @@ function MatrizCard({
   tipo,
   matriz,
   onConfig,
+  onNiveles,
 }: {
   tipo: 'TERRENO' | 'ACCION'
   matriz: Matriz | null
   onConfig: () => void
+  onNiveles?: () => void
 }) {
   const titulo = tipo === 'TERRENO' ? 'Matriz Terrenos' : 'Matriz YCD'
   const ok = matriz && !matriz.requiereConfig
@@ -301,14 +335,26 @@ function MatrizCard({
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onConfig}
-          className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
-        >
-          <Settings2 className="h-3 w-3" />
-          Configurar
-        </button>
+        <div className="flex shrink-0 flex-col gap-1">
+          <button
+            type="button"
+            onClick={onConfig}
+            className="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
+          >
+            <Settings2 className="h-3 w-3" />
+            Configurar
+          </button>
+          {onNiveles && ok && (
+            <button
+              type="button"
+              onClick={onNiveles}
+              className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+            >
+              <TerminalSquare className="h-3 w-3" />
+              Bonos nivel
+            </button>
+          )}
+        </div>
       </div>
       {tieneNota && (
         <div className="bg-warning/10 border-warning/30 text-warning rounded-md border px-2.5 py-1.5 text-[11px] leading-relaxed">

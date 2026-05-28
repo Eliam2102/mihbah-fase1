@@ -7,7 +7,7 @@
  */
 
 import { db } from '@/lib/db'
-import { esquemasComision, matrizAlianzaProducto } from '@/lib/db/schema'
+import { esquemasComision, matrizAlianzaProducto, matrizNivelOverride } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, asc, eq, isNull, lte, or, gte, sql } from 'drizzle-orm'
 
@@ -15,6 +15,8 @@ export type Esquema = typeof esquemasComision.$inferSelect
 export type EsquemaInsert = typeof esquemasComision.$inferInsert
 export type Matriz = typeof matrizAlianzaProducto.$inferSelect
 export type MatrizInsert = typeof matrizAlianzaProducto.$inferInsert
+export type NivelOverride = typeof matrizNivelOverride.$inferSelect
+export type NivelStr = 'ONIX_NEGRO' | 'TURQUESA' | 'JADE'
 
 export type TipoProductoStr = 'TERRENO' | 'ACCION'
 
@@ -203,5 +205,78 @@ export async function desactivarMatriz(tenantId: string, id: string): Promise<vo
       .update(matrizAlianzaProducto)
       .set({ activo: false, deletedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(matrizAlianzaProducto.tenantId, tenantId), eq(matrizAlianzaProducto.id, id)))
+  })
+}
+
+// ─── Nivel Override (bono por meta) ──────────────────────────────────────────
+
+export async function getNivelOverrides(
+  tenantId: string,
+  matrizId: string,
+): Promise<NivelOverride[]> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    return tx
+      .select()
+      .from(matrizNivelOverride)
+      .where(
+        and(eq(matrizNivelOverride.tenantId, tenantId), eq(matrizNivelOverride.matrizId, matrizId)),
+      )
+      .orderBy(matrizNivelOverride.nivel)
+  })
+}
+
+export interface NivelOverrideInput {
+  porcentajeAfiliacion: number
+  porcentajeJorgeBolsa: number
+  porcentajeKassBolsa: number
+  porcentajeDianaBolsa: number
+}
+
+export async function upsertNivelOverride(
+  tenantId: string,
+  matrizId: string,
+  nivel: NivelStr,
+  input: NivelOverrideInput,
+): Promise<NivelOverride> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    const [row] = await tx
+      .insert(matrizNivelOverride)
+      .values({
+        tenantId,
+        matrizId,
+        nivel,
+        porcentajeAfiliacion: input.porcentajeAfiliacion.toFixed(2),
+        porcentajeJorgeBolsa: input.porcentajeJorgeBolsa.toFixed(2),
+        porcentajeKassBolsa: input.porcentajeKassBolsa.toFixed(2),
+        porcentajeDianaBolsa: input.porcentajeDianaBolsa.toFixed(2),
+      })
+      .onConflictDoUpdate({
+        target: [
+          matrizNivelOverride.tenantId,
+          matrizNivelOverride.matrizId,
+          matrizNivelOverride.nivel,
+        ],
+        set: {
+          porcentajeAfiliacion: input.porcentajeAfiliacion.toFixed(2),
+          porcentajeJorgeBolsa: input.porcentajeJorgeBolsa.toFixed(2),
+          porcentajeKassBolsa: input.porcentajeKassBolsa.toFixed(2),
+          porcentajeDianaBolsa: input.porcentajeDianaBolsa.toFixed(2),
+          updatedAt: new Date(),
+        },
+      })
+      .returning()
+    if (!row) throw new Error('No se pudo guardar el override de nivel')
+    return row
+  })
+}
+
+export async function eliminarNivelOverride(tenantId: string, id: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    await tx
+      .delete(matrizNivelOverride)
+      .where(and(eq(matrizNivelOverride.tenantId, tenantId), eq(matrizNivelOverride.id, id)))
   })
 }
