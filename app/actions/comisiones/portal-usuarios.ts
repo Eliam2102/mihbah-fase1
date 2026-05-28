@@ -13,7 +13,7 @@ import { z } from 'zod'
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string }
 
 const crearSchema = z.object({
-  rolPortal: z.enum(['LIDER_ALIANZA', 'ASESOR']),
+  rolPortal: z.enum(['LIDER_ALIANZA', 'ADMINISTRATIVO', 'ASESOR']),
   liderId: z.string().uuid().nullable().optional(),
   asesorId: z.string().uuid().nullable().optional(),
   email: z.string().email(),
@@ -40,8 +40,8 @@ export async function crearUsuarioPortalAction(
     if (!parsed.success) return { ok: false, error: 'Validación falló' }
     const { rolPortal, liderId, asesorId, email, nombre, password } = parsed.data
 
-    if (rolPortal === 'LIDER_ALIANZA' && !liderId) {
-      return { ok: false, error: 'liderId requerido para rol LIDER_ALIANZA' }
+    if ((rolPortal === 'LIDER_ALIANZA' || rolPortal === 'ADMINISTRATIVO') && !liderId) {
+      return { ok: false, error: `liderId requerido para rol ${rolPortal}` }
     }
     if (rolPortal === 'ASESOR' && !asesorId) {
       return { ok: false, error: 'asesorId requerido para rol ASESOR' }
@@ -78,7 +78,12 @@ export async function crearUsuarioPortalAction(
         email,
         name: nombre,
         emailVerified: true, // creado por admin, no necesita verificación
-        role: rolPortal === 'LIDER_ALIANZA' ? 'lider_alianza' : 'asesor',
+        role:
+          rolPortal === 'LIDER_ALIANZA'
+            ? 'lider_alianza'
+            : rolPortal === 'ADMINISTRATIVO'
+              ? 'administrativo'
+              : 'asesor',
         tenantId: admin.tenantId,
       })
 

@@ -43,6 +43,7 @@ export async function getEmpresaById(
   empresaId: string,
   tenantId: string,
 ): Promise<EmpresaBasic | null> {
+  if (!empresaId || empresaId === 'undefined') return null
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
     const rows = await tx

@@ -300,9 +300,9 @@ export async function syncBoard(
     })
 
     // Post-procesamiento: calcular comisiones SOLO para ventas finalizadas.
-    // Las ventas en pipeline (EN_PROCESO, APROBADO_VENTAS, etc.) no generan
-    // dispersiones hasta que lleguen a FINALIZADA/LIBERADO/FINALIZADO_Y_LIQUIDADO.
-    const ESTADOS_CON_COMISION = ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO']
+    // Pipeline (EN_PROCESO, APROBADO_VENTAS, etc.) no genera dispersiones.
+    // LIBERADO tampoco: indica venta caída (cancelada) — no se paga.
+    const ESTADOS_CON_COMISION = ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']
     const { calcularYPersistirComision } =
       await import('@/lib/services/comisiones/comisiones.service')
 

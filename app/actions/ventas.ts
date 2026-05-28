@@ -9,6 +9,7 @@ import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { requireUser } from '@/lib/auth/helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { calcularYPersistirComision } from '@/lib/services/comisiones/comisiones.service'
+import { crearVenta } from '@/lib/services/ventas/ventas-create.service'
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -26,7 +27,8 @@ const ESTADOS_VALIDOS = [
 
 // Solo estas etapas de pipeline tienen comisiones reales.
 // Ventas en proceso (EN_PROCESO, APROBADO_VENTAS, etc.) NO generan dispersiones.
-const ESTADOS_CON_COMISION = ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO'] as const
+// LIBERADO NO cuenta: indica venta caída (cancelada). Solo finalizadas pagan.
+const ESTADOS_CON_COMISION = ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO'] as const
 
 const updateSchema = z.object({
   ventaId: z.string().uuid(),
@@ -147,6 +149,72 @@ export async function actualizarVentaAction(
       ok: false,
       error: err instanceof Error ? err.message : 'Error desconocido',
     }
+  }
+}
+
+// ─── Alta manual de venta ────────────────────────────────────────────────────
+// Captura interna en formato 2026, ligada a una alianza configurada. La venta
+// nace con editadoEnSistema=true (sync Monday no la pisa). Si nace finalizada,
+// dispara el cálculo de comisión.
+
+const fechaRegex = /^\d{4}-\d{2}-\d{2}$/
+
+const createSchema = z.object({
+  empresaId: z.string().uuid(),
+  cliente: z.string().trim().min(1, 'Cliente requerido'),
+  // Forzar liga a alianza: el objetivo de la captura es homologar la venta.
+  afiliadoId: z.string().uuid('Selecciona una alianza'),
+  desarrolloId: z.string().uuid().nullable().optional(),
+  producto: z.enum(['TERRENO', 'ACCION']),
+  asesor: z.string().trim().nullable().optional(),
+  monto: z.number().min(0),
+  enganche: z.number().min(0).nullable().optional(),
+  financiamiento: z.string().trim().nullable().optional(),
+  estadoVenta: z.enum(ESTADOS_VALIDOS),
+  fecha: z.string().regex(fechaRegex, 'Formato YYYY-MM-DD'),
+  fechaApertura: z.string().regex(fechaRegex, 'Formato YYYY-MM-DD').nullable().optional(),
+  fechaCierre: z.string().regex(fechaRegex, 'Formato YYYY-MM-DD').nullable().optional(),
+  loteAcciones: z.string().trim().nullable().optional(),
+  notasInternas: z.string().trim().nullable().optional(),
+})
+
+export async function crearVentaAction(
+  input: z.input<typeof createSchema>,
+): Promise<ActionResult<{ ventaId: string; calculada: boolean }>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+
+    const parsed = createSchema.safeParse(input)
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.errors[0]?.message ?? 'Validación falló' }
+    }
+    const d = parsed.data
+    await requireEmpresaAccess(user, d.empresaId, 'ventas')
+
+    const { ventaId, calculada } = await crearVenta(user.tenantId, d.empresaId, user.id, {
+      cliente: d.cliente,
+      afiliadoId: d.afiliadoId,
+      desarrolloId: d.desarrolloId ?? null,
+      producto: d.producto,
+      asesor: d.asesor ?? null,
+      monto: d.monto,
+      enganche: d.enganche ?? null,
+      financiamiento: d.financiamiento ?? null,
+      estadoVenta: d.estadoVenta,
+      fecha: d.fecha,
+      fechaApertura: d.fechaApertura ?? null,
+      fechaCierre: d.fechaCierre ?? null,
+      loteAcciones: d.loteAcciones ?? null,
+      notasInternas: d.notasInternas ?? null,
+    })
+
+    revalidatePath(`/empresa/${d.empresaId}/ventas`)
+    revalidatePath(`/empresa/${d.empresaId}/ventas/${ventaId}`)
+    return { ok: true, data: { ventaId, calculada } }
+  } catch (err) {
+    console.error('[crearVentaAction]', err)
+    return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' }
   }
 }
 

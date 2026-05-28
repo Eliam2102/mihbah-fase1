@@ -23,17 +23,22 @@ interface BoardSummary {
   updatedAt: string | null
 }
 
+// Board de ventas 2026 — único formato homologado. Es el default de sync.
+function is2026Board(name: string) {
+  return /^ventas?\s+2026$/.test(name.toLowerCase().trim())
+}
+
+// Boards de ventas históricos (2020-2025) — NO homologados. Disponibles pero
+// no preseleccionados: solo entran si el usuario los marca a propósito.
+function isHistoricoVentasBoard(name: string) {
+  return /^ventas?\s+202[0-5]$/.test(name.toLowerCase().trim())
+}
+
+// Cualquier board de ventas (para agrupar). Incluye "Seguimiento General".
 function isVentasBoard(name: string) {
   const normalized = name.toLowerCase().trim()
-
-  // 1. Coincidencia exacta para "Seguimiento General"
   if (normalized === 'seguimiento general') return true
-
-  // 2. Coincidencia para "Ventas 2020" hasta "Ventas 2026" (plural o singular)
-  const matchVentasYear = normalized.match(/^ventas?\s+(202[0-6])$/)
-  if (matchVentasYear) return true
-
-  return false
+  return /^ventas?\s+(202[0-6])$/.test(normalized)
 }
 
 export function MondaySyncButton({ empresaId }: Props) {
@@ -56,8 +61,9 @@ export function MondaySyncButton({ empresaId }: Props) {
       const res = await getWorkspaceBoardsAction()
       if (res.ok) {
         setBoards(res.boards)
-        // Pre-select ventas boards
-        setSelectedIds(new Set(res.boards.filter((b) => isVentasBoard(b.name)).map((b) => b.id)))
+        // Default: SOLO board 2026 (formato homologado). Los históricos no entran
+        // por accidente — el usuario debe marcarlos explícitamente.
+        setSelectedIds(new Set(res.boards.filter((b) => is2026Board(b.name)).map((b) => b.id)))
       } else {
         setBoardsError(res.error ?? 'Error desconocido')
       }
@@ -91,8 +97,10 @@ export function MondaySyncButton({ empresaId }: Props) {
     }
   }
 
-  const ventasBoards = boards.filter((b) => isVentasBoard(b.name))
-  const otherBoards = boards.filter((b) => !isVentasBoard(b.name))
+  const boards2026 = boards.filter((b) => is2026Board(b.name))
+  const historicoBoards = boards.filter((b) => isHistoricoVentasBoard(b.name))
+  const otherBoards = boards.filter((b) => !is2026Board(b.name) && !isHistoricoVentasBoard(b.name))
+  const historicoSeleccionados = historicoBoards.filter((b) => selectedIds.has(b.id)).length
 
   return (
     <div className="space-y-5">
@@ -105,18 +113,27 @@ export function MondaySyncButton({ empresaId }: Props) {
           <div className="flex items-center gap-2 text-xs">
             <button
               onClick={() =>
-                setSelectedIds(
-                  new Set(boards.filter((b) => isVentasBoard(b.name)).map((b) => b.id)),
-                )
+                setSelectedIds(new Set(boards.filter((b) => is2026Board(b.name)).map((b) => b.id)))
               }
               className="text-primary font-medium hover:underline"
             >
-              Solo ventas
+              Solo 2026
+            </button>
+            <span className="text-muted-foreground">·</span>
+            <button
+              onClick={() =>
+                setSelectedIds(
+                  new Set(boards.filter((b) => isHistoricoVentasBoard(b.name)).map((b) => b.id)),
+                )
+              }
+              className="text-muted-foreground hover:underline"
+            >
+              Históricos
             </button>
             <span className="text-muted-foreground">·</span>
             <button
               onClick={() => setSelectedIds(new Set(boards.map((b) => b.id)))}
-              className="text-primary font-medium hover:underline"
+              className="text-muted-foreground hover:underline"
             >
               Todos
             </button>
@@ -155,14 +172,14 @@ export function MondaySyncButton({ empresaId }: Props) {
         {/* Boards as chips — grouped */}
         {!loadingBoards && boards.length > 0 && (
           <div className="space-y-3">
-            {/* Ventas boards first */}
-            {ventasBoards.length > 0 && (
+            {/* 2026 — formato homologado (default) */}
+            {boards2026.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-                  Boards de ventas
+                  Homologado — ventas 2026
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {ventasBoards.map((b) => (
+                  {boards2026.map((b) => (
                     <BoardChip
                       key={b.id}
                       board={b}
@@ -175,8 +192,36 @@ export function MondaySyncButton({ empresaId }: Props) {
               </div>
             )}
 
-            {/* Other boards */}
-            {otherBoards.length > 0 && (
+            {/* Históricos 2020-2025 — NO homologados */}
+            {historicoBoards.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+                  Histórico (no homologado)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {historicoBoards.map((b) => (
+                    <BoardChip
+                      key={b.id}
+                      board={b}
+                      selected={selectedIds.has(b.id)}
+                      onToggle={() => toggle(b.id)}
+                    />
+                  ))}
+                </div>
+                {historicoSeleccionados > 0 && (
+                  <div className="border-warning/30 bg-warning/10 text-warning flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-[11px]">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    Seleccionaste {historicoSeleccionados} board
+                    {historicoSeleccionados === 1 ? '' : 's'} histórico
+                    {historicoSeleccionados === 1 ? '' : 's'}. Su formato no está homologado y puede
+                    reintroducir ventas/alianzas que ya se limpiaron.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Otros boards (Seguimiento General, etc.) */}
+            {false && otherBoards.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
                   Otros boards

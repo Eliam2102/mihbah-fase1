@@ -10,6 +10,7 @@ import {
   Users,
   ShieldCheck,
   ShoppingCart,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -62,6 +63,11 @@ const COMISIONES_MODULES = (empresaId: string): ModuleItem[] => [
     label: 'Comisiones',
     href: `/empresa/${empresaId}/comisiones`,
     icon: Percent,
+  },
+  {
+    label: 'Tesorería',
+    href: `/empresa/${empresaId}/comisiones/tesoreria`,
+    icon: Wallet,
   },
   {
     label: 'Alianzas y red',

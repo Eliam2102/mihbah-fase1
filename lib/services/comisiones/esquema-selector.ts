@@ -22,6 +22,7 @@ import {
   type Matriz,
   type TipoProductoStr,
 } from './esquemas.service'
+import { getNivelDelMes, getMatrizOverride } from './niveles.service'
 import type { EsquemaConfig, MatrizConfig } from './calculator'
 
 export interface ResolucionEsquema {
@@ -31,6 +32,7 @@ export interface ResolucionEsquema {
   liderId: string | null
   liderNombre: string | null
   asesorNombre: string | null
+  nivelAplicado: string | null
   ventaRaw: typeof ventasBmcorp.$inferSelect
   esquemaRowId: string
   matrizRowId: string | null
@@ -175,6 +177,27 @@ export async function resolverParaVenta(
     }
   }
 
+  // 3b. Bono por nivel: si la alianza alcanzó un nivel ese mes y hay override de
+  // matriz configurado, se usa la variante (cambia el reparto de la bolsa, no el
+  // total). Config-driven: si no hay override, queda la matriz base.
+  let nivelAplicado: string | null = null
+  if (matrizRow && venta.afiliadoId && venta.fecha) {
+    const nivelMes = await getNivelDelMes(tenantId, venta.afiliadoId, venta.fecha, tipoProducto)
+    if (nivelMes) {
+      const override = await getMatrizOverride(tenantId, matrizRow.id, nivelMes.nivel)
+      if (override) {
+        matrizRow = {
+          ...matrizRow,
+          porcentajeAfiliacion: override.porcentajeAfiliacion,
+          porcentajeJorgeBolsa: override.porcentajeJorgeBolsa,
+          porcentajeKassBolsa: override.porcentajeKassBolsa,
+          porcentajeDianaBolsa: override.porcentajeDianaBolsa,
+        }
+        nivelAplicado = nivelMes.nivel
+      }
+    }
+  }
+
   // 4. Nombre del asesor (texto libre desde Monday por ahora; entidad asesor opcional)
   const asesorNombre = venta.asesor ?? null
 
@@ -190,6 +213,7 @@ export async function resolverParaVenta(
     liderId: matrizRow?.liderId ?? null,
     liderNombre,
     asesorNombre,
+    nivelAplicado,
     ventaRaw: venta,
     esquemaRowId: esquemaRow.id,
     matrizRowId: matrizRow?.id ?? null,

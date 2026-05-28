@@ -18,6 +18,8 @@ import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react'
 import { RecalcularBoton } from '@/components/comisiones/recalcular-boton'
 import { VentaEditForm } from '@/components/ventas/venta-edit-form'
+import { RegistrarAbonoForm } from '@/components/ventas/registrar-abono-form'
+import { getCortesBorradorAction, getProximosDiasCorte } from '@/app/actions/cortes'
 
 export default async function VentaDetalle({
   params,
@@ -127,6 +129,12 @@ export default async function VentaDetalle({
   const comisionBruta = comision ? Number(comision.comisionBrutaTotal) : 0
   const pctComisionAutorizada = comisionBruta > 0 ? (comisionAutorizada / comisionBruta) * 100 : 0
 
+  // Abono solo tiene sentido si hay comisión calculada (con config) que dispersar.
+  const puedeAbonar = Boolean(comision) && !comision?.sinConfig
+  const cortesBorradorRes = puedeAbonar ? await getCortesBorradorAction(empresaId) : null
+  const cortesBorrador = cortesBorradorRes?.ok ? cortesBorradorRes.data : []
+  const proximosDias = puedeAbonar ? await getProximosDiasCorte() : { lunes: '', jueves: '' }
+
   return (
     <section className="3xl:p-12 w-full space-y-6 p-4 sm:p-6 xl:p-10">
       <Link
@@ -145,7 +153,9 @@ export default async function VentaDetalle({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <RecalcularBoton empresaId={empresaId} ventaId={ventaId} />
+          {['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO'].includes(venta.estadoVenta) && (
+            <RecalcularBoton empresaId={empresaId} ventaId={ventaId} />
+          )}
         </div>
       </div>
 
@@ -176,9 +186,17 @@ export default async function VentaDetalle({
       </div>
 
       {!comision ? (
-        <div className="bg-card border-warning/40 text-warning rounded-lg border p-4 text-sm">
-          Sin comisión calculada. Click <RefreshCw className="inline h-3 w-3" /> Recalcular arriba.
-        </div>
+        ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO'].includes(venta.estadoVenta) ? (
+          <div className="bg-card border-warning/40 text-warning rounded-lg border p-4 text-sm">
+            Sin comisión calculada. Click <RefreshCw className="inline h-3 w-3" /> Recalcular
+            arriba.
+          </div>
+        ) : (
+          <div className="bg-card text-muted-foreground rounded-lg border p-4 text-sm">
+            La venta está en estado <strong>{venta.estadoVenta}</strong> y no ha cerrado. Las
+            comisiones se calculan automáticamente cuando la venta se finaliza.
+          </div>
+        )
       ) : comision.sinConfig ? (
         <div className="border-warning/40 bg-warning/10 text-warning flex items-start gap-2 rounded-lg border p-4 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -241,6 +259,19 @@ export default async function VentaDetalle({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-foreground text-sm font-semibold">Abonos del cliente</p>
+            <RegistrarAbonoForm
+              empresaId={empresaId}
+              ventaId={ventaId}
+              montoVenta={Number(venta.monto)}
+              cortesBorrador={cortesBorrador}
+              proximosDias={proximosDias}
+              engancheSugerido={Number(venta.enganche ?? 0)}
+              esPrimerAbono={pagosCorte.length === 0}
+            />
           </div>
 
           {pagosCorte.length > 0 && (

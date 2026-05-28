@@ -41,9 +41,11 @@ export type GrupoEstado = 'todas' | 'por_cerrar' | 'cerradas' | 'en_proceso' | '
 
 const GRUPOS_ESTADOS: Record<Exclude<GrupoEstado, 'todas'>, EstadoVenta[]> = {
   por_cerrar: ['EN_PROCESO', 'APROBADO_VENTAS', 'APROBADO_JURIDICO', 'ESPERANDO_AUTORIZACION'],
-  cerradas: ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO'],
+  // Solo estas pagan comisión / entran a corte. LIBERADO NO (venta caída).
+  cerradas: ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO'],
   en_proceso: ['RECHAZADO'],
-  canceladas: ['CANCELADA'],
+  // LIBERADO = venta liberada/caída → se agrupa con canceladas (no se paga).
+  canceladas: ['CANCELADA', 'LIBERADO'],
 }
 
 export interface VentaListItem {

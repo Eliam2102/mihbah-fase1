@@ -25,7 +25,7 @@ import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, desc, eq, inArray, or, isNull, not } from 'drizzle-orm'
 
 export interface PerfilPortal {
-  rolPortal: 'LIDER_ALIANZA' | 'ASESOR'
+  rolPortal: 'LIDER_ALIANZA' | 'ASESOR' | 'ADMINISTRATIVO'
   tenantId: string
   // Líder primario (compat con UI / tests). Para queries usa liderIds.
   liderId: string | null
@@ -113,6 +113,12 @@ export async function getPerfilPortal(userId: string): Promise<PerfilPortal | nu
     alianzasIds = lideres.map((l) => l.afiliadoId)
     // Fallback al liderId del usuariosPortal si email matching no encontró nada.
     if (liderIds.length === 0 && row.usuario.liderId) {
+      liderIds = [row.usuario.liderId]
+      if (row.lider?.afiliadoId) alianzasIds = [row.lider.afiliadoId]
+    }
+  } else if (row.usuario.rolPortal === 'ADMINISTRATIVO') {
+    // Administrativo se basa estrictamente en el liderId asignado
+    if (row.usuario.liderId) {
       liderIds = [row.usuario.liderId]
       if (row.lider?.afiliadoId) alianzasIds = [row.lider.afiliadoId]
     }

@@ -44,6 +44,16 @@ const asesorRole = ac.newRole({
   comisiones: ['ver'],
   comprobantes: ['ver'],
 })
+const administrativoRole = ac.newRole({
+  portal: ['acceder'],
+  comisiones: ['ver'],
+  comprobantes: ['ver'],
+})
+// Rol operativo: ejecuta pagos del corte y sube comprobantes (no es admin general)
+const tesoreriaRole = ac.newRole({
+  comisiones: ['ver', 'pagar'],
+  comprobantes: ['ver', 'subir'],
+})
 import { db } from '@/lib/db'
 import { accounts, sessions, users, verifications } from '@/lib/db/schema'
 
@@ -148,7 +158,9 @@ export const auth = betterAuth({
         super_admin: superAdminRole,
         super_admin_dev: superAdminDevRole,
         lider_alianza: liderAlianzaRole,
+        administrativo: administrativoRole,
         asesor: asesorRole,
+        tesoreria: tesoreriaRole,
       },
       defaultRole: 'user',
       adminRoles: ['admin', 'super_admin', 'super_admin_dev'],

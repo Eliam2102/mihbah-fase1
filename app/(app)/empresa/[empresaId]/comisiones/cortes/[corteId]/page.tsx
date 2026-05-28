@@ -69,7 +69,7 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
         and(
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
-          inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO']),
+          inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
         ),
       )
 

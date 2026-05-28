@@ -43,7 +43,9 @@ export function PortalUsuariosView({
 }) {
   const [dialog, setDialog] = useState(false)
   const [query, setQuery] = useState('')
-  const [rolFilter, setRolFilter] = useState<'TODOS' | 'LIDER_ALIANZA' | 'ASESOR'>('TODOS')
+  const [rolFilter, setRolFilter] = useState<
+    'TODOS' | 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR'
+  >('TODOS')
   const [estadoFilter, setEstadoFilter] = useState<'TODOS' | 'ACTIVO' | 'INACTIVO'>('TODOS')
 
   const usuariosFiltrados = useMemo(() => {
@@ -64,10 +66,11 @@ export function PortalUsuariosView({
 
   const counts = useMemo(() => {
     const lideres = usuarios.filter((u) => u.usuario.rolPortal === 'LIDER_ALIANZA').length
+    const administrativos = usuarios.filter((u) => u.usuario.rolPortal === 'ADMINISTRATIVO').length
     const asesores = usuarios.filter((u) => u.usuario.rolPortal === 'ASESOR').length
     const activos = usuarios.filter((u) => u.usuario.activo).length
     const inactivos = usuarios.length - activos
-    return { total: usuarios.length, lideres, asesores, activos, inactivos }
+    return { total: usuarios.length, lideres, administrativos, asesores, activos, inactivos }
   }, [usuarios])
 
   return (
@@ -86,7 +89,8 @@ export function PortalUsuariosView({
               <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Usuarios del portal</h1>
               <p className="text-jade-50/90 mt-1 text-sm">
                 {counts.total} cuenta{counts.total === 1 ? '' : 's'} totales · {counts.lideres}{' '}
-                líder{counts.lideres === 1 ? '' : 'es'} · {counts.asesores} asesor
+                líder{counts.lideres === 1 ? '' : 'es'} · {counts.administrativos} admin
+                {counts.administrativos === 1 ? '' : 's'} · {counts.asesores} asesor
                 {counts.asesores === 1 ? '' : 'es'}
               </p>
             </div>
@@ -152,6 +156,13 @@ export function PortalUsuariosView({
             icon={<Crown className="h-3 w-3" />}
           >
             Líderes <Badge>{counts.lideres}</Badge>
+          </Chip>
+          <Chip
+            active={rolFilter === 'ADMINISTRATIVO'}
+            onClick={() => setRolFilter('ADMINISTRATIVO')}
+            icon={<ShieldCheck className="h-3 w-3" />}
+          >
+            Admins <Badge>{counts.administrativos}</Badge>
           </Chip>
           <Chip
             active={rolFilter === 'ASESOR'}
@@ -341,6 +352,7 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
       .join('') || 'U'
 
   const esLider = usuario.usuario.rolPortal === 'LIDER_ALIANZA'
+  const esAdmin = usuario.usuario.rolPortal === 'ADMINISTRATIVO'
 
   return (
     <>
@@ -354,7 +366,9 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
               style={{
                 background: esLider
                   ? 'linear-gradient(135deg, #16a34a, #14532d)'
-                  : 'linear-gradient(135deg, #4ade80, #16a34a)',
+                  : esAdmin
+                    ? 'linear-gradient(135deg, #0ea5e9, #0369a1)'
+                    : 'linear-gradient(135deg, #4ade80, #16a34a)',
               }}
             >
               {initials}
@@ -370,11 +384,19 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
               esLider
                 ? 'bg-jade-600 text-jade-900 ring-jade-300 dark:bg-jade-400 dark:text-jade-500 dark:ring-jade-800'
-                : 'bg-muted text-foreground ring-border'
+                : esAdmin
+                  ? 'bg-blue-100 text-blue-700 ring-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-800'
+                  : 'bg-muted text-foreground ring-border'
             }`}
           >
-            {esLider ? <Crown className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
-            {esLider ? 'Líder' : 'Asesor'}
+            {esLider ? (
+              <Crown className="h-3 w-3" />
+            ) : esAdmin ? (
+              <ShieldCheck className="h-3 w-3" />
+            ) : (
+              <User className="h-3 w-3" />
+            )}
+            {esLider ? 'Líder' : esAdmin ? 'Admin' : 'Asesor'}
           </span>
         </td>
         <td className="text-muted-foreground px-4 py-3 text-xs">
@@ -567,7 +589,7 @@ function NuevoUsuarioDialog({
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
-    rolPortal: 'ASESOR' as 'LIDER_ALIANZA' | 'ASESOR',
+    rolPortal: 'ASESOR' as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR',
     liderId: '',
     asesorId: '',
     email: '',
@@ -581,7 +603,10 @@ function NuevoUsuarioDialog({
     startTransition(async () => {
       const result = await crearUsuarioPortalAction(empresaId, {
         rolPortal: form.rolPortal,
-        liderId: form.rolPortal === 'LIDER_ALIANZA' ? form.liderId : null,
+        liderId:
+          form.rolPortal === 'LIDER_ALIANZA' || form.rolPortal === 'ADMINISTRATIVO'
+            ? form.liderId
+            : null,
         asesorId: form.rolPortal === 'ASESOR' ? form.asesorId : null,
         email: form.email,
         nombre: form.nombre,
@@ -617,17 +642,18 @@ function NuevoUsuarioDialog({
               onChange={(e) =>
                 setForm({
                   ...form,
-                  rolPortal: e.target.value as 'LIDER_ALIANZA' | 'ASESOR',
+                  rolPortal: e.target.value as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR',
                 })
               }
               className="input"
             >
               <option value="ASESOR">Asesor</option>
               <option value="LIDER_ALIANZA">Líder de alianza</option>
+              <option value="ADMINISTRATIVO">Administrativo</option>
             </select>
           </Field>
 
-          {form.rolPortal === 'LIDER_ALIANZA' ? (
+          {form.rolPortal === 'LIDER_ALIANZA' || form.rolPortal === 'ADMINISTRATIVO' ? (
             <Field label="Líder *">
               <select
                 required

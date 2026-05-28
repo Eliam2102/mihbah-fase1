@@ -46,15 +46,32 @@ export default async function ComprobantesPortalPage({
       .where(and(eq(dispersiones.tenantId, perfil.tenantId), eq(dispersiones.id, dispersionId)))
       .limit(1)
     if (!disp) return null
-    const comprobantes = await tx
-      .select()
-      .from(comprobantesPago)
-      .where(
-        and(
-          eq(comprobantesPago.tenantId, perfil.tenantId),
-          eq(comprobantesPago.dispersionId, dispersionId),
-        ),
-      )
+    type Comprobante = typeof comprobantesPago.$inferSelect
+    let comprobantes: Comprobante[] = []
+
+    if (disp.comprobanteId) {
+      comprobantes = await tx
+        .select()
+        .from(comprobantesPago)
+        .where(
+          and(
+            eq(comprobantesPago.tenantId, perfil.tenantId),
+            eq(comprobantesPago.id, disp.comprobanteId),
+          ),
+        )
+    } else {
+      // Fallback legacy
+      comprobantes = await tx
+        .select()
+        .from(comprobantesPago)
+        .where(
+          and(
+            eq(comprobantesPago.tenantId, perfil.tenantId),
+            eq(comprobantesPago.dispersionId, dispersionId),
+          ),
+        )
+    }
+
     return { disp, comprobantes }
   })
 
@@ -168,7 +185,7 @@ export default async function ComprobantesPortalPage({
                       </p>
                     </div>
                     <a
-                      href={`/api/comisiones/comprobantes/${c.id}`}
+                      href={`/api/comprobantes/${c.id}`}
                       className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium shadow-sm"
                       title="Descargar"
                     >

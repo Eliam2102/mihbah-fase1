@@ -175,6 +175,9 @@ export async function calcularYPersistirComision(
         })
         .onConflictDoUpdate({
           target: [dispersiones.comisionId, dispersiones.tipoBeneficiario],
+          // El unique es parcial (WHERE pago_corte_id IS NULL): el arbiter debe
+          // incluir el mismo predicado o Postgres rechaza el ON CONFLICT.
+          targetWhere: sql`${dispersiones.pagoCorteId} IS NULL`,
           set: {
             beneficiarioNombre: linea.beneficiarioNombre,
             montoTotal: linea.montoTotal.toFixed(2),

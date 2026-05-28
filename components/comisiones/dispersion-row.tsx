@@ -203,6 +203,18 @@ export function DispersionRow({
                   question="¿Revertir pago?"
                 />
               )}
+              {dispersion.comprobanteId && (
+                <a
+                  href={`/api/comprobantes/${dispersion.comprobanteId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Ver comprobante"
+                  className="ml-2 inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-600 shadow-sm transition-colors hover:bg-blue-100"
+                >
+                  <FileText className="h-3 w-3" />
+                  <span className="hidden xl:inline">Comprobante</span>
+                </a>
+              )}
             </div>
           ) : (
             tienePago && (

@@ -9,7 +9,7 @@
  */
 
 import { db } from '@/lib/db'
-import { afiliados, asesores, lideresAlianza } from '@/lib/db/schema'
+import { afiliados, asesores, lideresAlianza, matrizAlianzaProducto } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { decryptField, encryptField } from '@/lib/crypto/field-encryption'
 import { and, asc, eq, isNull } from 'drizzle-orm'
@@ -56,6 +56,38 @@ export async function getAfiliados(tenantId: string, soloActivos = true): Promis
       .select()
       .from(afiliados)
       .where(and(...filters))
+      .orderBy(asc(afiliados.nombre))
+  })
+}
+
+/**
+ * Alianzas configuradas = con al menos una matriz activa. Es lo que el alta de
+ * ventas debe ofrecer: ligar una venta solo a una alianza ya configurada. Las
+ * auto-creadas por sync Monday (sin matriz) NO aparecen aquí hasta que el admin
+ * las configure en Comisiones › Alianzas.
+ */
+export async function getAlianzasConfiguradas(
+  tenantId: string,
+): Promise<{ id: string; nombre: string }[]> {
+  return db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    return tx
+      .selectDistinct({ id: afiliados.id, nombre: afiliados.nombre })
+      .from(afiliados)
+      .innerJoin(
+        matrizAlianzaProducto,
+        and(
+          eq(matrizAlianzaProducto.afiliadoId, afiliados.id),
+          isNull(matrizAlianzaProducto.deletedAt),
+        ),
+      )
+      .where(
+        and(
+          eq(afiliados.tenantId, tenantId),
+          isNull(afiliados.deletedAt),
+          eq(afiliados.activo, true),
+        ),
+      )
       .orderBy(asc(afiliados.nombre))
   })
 }

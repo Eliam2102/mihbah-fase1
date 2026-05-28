@@ -29,7 +29,7 @@ const ESTADOS = [
   { value: 'APROBADO_JURIDICO', label: 'Aprobado jurídico' },
   { value: 'ESPERANDO_AUTORIZACION', label: 'Esperando autorización' },
   { value: 'RECHAZADO', label: 'Rechazado' },
-  { value: 'LIBERADO', label: 'Liberado' },
+  { value: 'LIBERADO', label: 'Liberada (caída)' },
   { value: 'FINALIZADA', label: 'Finalizada' },
   { value: 'FINALIZADO_Y_LIQUIDADO', label: 'Finalizada y liquidada' },
   { value: 'CANCELADA', label: 'Cancelada' },

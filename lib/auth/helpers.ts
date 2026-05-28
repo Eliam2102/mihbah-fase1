@@ -51,6 +51,21 @@ export function isAdminOrAbove(role?: string | null): boolean {
   return role === 'super_admin_dev' || role === 'super_admin' || role === 'admin'
 }
 
+export function isTesoreria(role?: string | null): boolean {
+  return role === 'tesoreria'
+}
+
+// Tesorería o cualquier admin pueden ejecutar/marcar pagos del corte.
+export function isTesoreriaOrAdmin(role?: string | null): boolean {
+  return isTesoreria(role) || isAdminOrAbove(role)
+}
+
+export async function requireTesoreriaOrAdmin(): Promise<AuthUser> {
+  const user = await requireUser()
+  if (!isTesoreriaOrAdmin(user.role)) throw new Error('Acceso denegado — solo Tesorería o admin')
+  return user
+}
+
 export async function requireSuperAdminDev(): Promise<AuthUser> {
   const user = await requireUser()
   if (!isSuperAdminDev(user.role)) throw new Error('Acceso denegado — permisos insuficientes')

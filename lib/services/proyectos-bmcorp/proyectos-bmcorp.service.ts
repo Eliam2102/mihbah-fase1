@@ -26,7 +26,7 @@ export async function getProyectosBmcorp(
         ventasTotal: count(ventasBmcorp.id),
         montoTotal: sum(ventasBmcorp.monto),
         comisionesTotal: sum(ventasBmcorp.comisionBmcorp),
-        ventasProceso: sql<number>`COUNT(*) FILTER (WHERE ${ventasBmcorp.estadoVenta} IN ('EN_PROCESO','APROBADO_VENTAS','ESPERANDO_AUTORIZACION','APROBADO_JURIDICO','LIBERADO'))`,
+        ventasProceso: sql<number>`COUNT(*) FILTER (WHERE ${ventasBmcorp.estadoVenta} IN ('EN_PROCESO','APROBADO_VENTAS','ESPERANDO_AUTORIZACION','APROBADO_JURIDICO'))`,
         ventasFinalizadas: sql<number>`COUNT(*) FILTER (WHERE ${ventasBmcorp.estadoVenta} IN ('FINALIZADA','FINALIZADO_Y_LIQUIDADO'))`,
       })
       .from(desarrollos)
@@ -104,15 +104,9 @@ export async function getDesarrolloDetalle(
       lote: v.lote,
     }))
 
-    const activos = [
-      'EN_PROCESO',
-      'APROBADO_VENTAS',
-      'ESPERANDO_AUTORIZACION',
-      'APROBADO_JURIDICO',
-      'LIBERADO',
-    ]
+    const activos = ['EN_PROCESO', 'APROBADO_VENTAS', 'ESPERANDO_AUTORIZACION', 'APROBADO_JURIDICO']
     const finalizados = ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']
-    const cancelados = ['CANCELADA']
+    const cancelados = ['CANCELADA', 'LIBERADO'] // LIBERADO = venta caída
 
     return {
       ...dev,

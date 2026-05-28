@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Wallet, ShieldCheck } from 'lucide-react'
+import { Wallet, ShieldCheck, CreditCard } from 'lucide-react'
 import { requireUser } from '@/lib/auth/helpers'
 import { getPerfilPortal } from '@/lib/services/comisiones/portal.service'
 import { PortalLogoutButton } from '@/components/portal/logout-button'
@@ -79,6 +79,15 @@ export default async function PortalLayout({ children }: { children: React.React
               <Wallet className="h-3.5 w-3.5" />
               Mi dashboard
             </Link>
+            {perfilData.rol === 'Líder de alianza' && (
+              <Link
+                href="/portal/datos-pago"
+                className="text-foreground hover:bg-muted/60 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Datos de pago
+              </Link>
+            )}
             <div className="flex-1" />
             <div className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
               <ShieldCheck className="text-success h-3 w-3" />

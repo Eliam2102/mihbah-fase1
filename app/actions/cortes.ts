@@ -1,7 +1,7 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import {
@@ -16,11 +16,13 @@ import {
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { requireUser, isAdminOrAbove } from '@/lib/auth/helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
+import { deltaCascadaAbono, type TipoBeneficiarioCascada } from '@/lib/services/comisiones/cascada'
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string }
 
 // ─── Estados válidos para generar dispersión en un corte ──────────────────────
-const ESTADOS_CON_COMISION = ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO'] as const
+// LIBERADO NO cuenta: indica que la venta se cayó (cancelada) — no se paga comisión.
+const ESTADOS_CON_COMISION = ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO'] as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -117,13 +119,180 @@ export async function crearCorteAction(
 // ─── 2. Agregar venta al corte + registrar pago del cliente ──────────────────
 // Calcula las dispersiones proporcionales al % que pagó el cliente.
 
+const METODOS_PAGO = ['EFECTIVO', 'DEPOSITO', 'TRANSFERENCIA', 'OTRO'] as const
+const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/
+
 const agregarVentaSchema = z.object({
   empresaId: z.string().uuid(),
   corteId: z.string().uuid(),
   ventaId: z.string().uuid(),
   montoPagadoCliente: z.number().positive('El monto pagado debe ser positivo'),
+  metodoPagoCliente: z.enum(METODOS_PAGO).nullable().optional(),
+  fechaPagoCliente: z.string().regex(FECHA_RE, 'Formato YYYY-MM-DD').nullable().optional(),
   notasJoana: z.string().nullable().optional(),
 })
+
+type DrizzleTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+interface AgregarVentaParams {
+  corteId: string
+  ventaId: string
+  montoPagadoCliente: number
+  metodoPagoCliente?: (typeof METODOS_PAGO)[number] | null | undefined
+  fechaPagoCliente?: string | null | undefined
+  notasJoana?: string | null | undefined
+}
+
+// Núcleo compartido: registra el abono del cliente en un corte BORRADOR y genera
+// las dispersiones proporcionales al % pagado. Lo usan agregarVentaAlCorteAction
+// (desde el corte) y registrarAbonoVentaAction (desde la venta).
+async function agregarVentaACorteTx(
+  tx: DrizzleTx,
+  tenantId: string,
+  p: AgregarVentaParams,
+): Promise<{ pagoCorteId: string; dispersionesCreadas: number }> {
+  // Validar corte existe y está en BORRADOR
+  const [corte] = await tx
+    .select()
+    .from(cortesDispersion)
+    .where(and(eq(cortesDispersion.tenantId, tenantId), eq(cortesDispersion.id, p.corteId)))
+    .limit(1)
+  if (!corte) throw new Error('Corte no encontrado')
+  if (corte.estado !== 'BORRADOR')
+    throw new Error('El corte ya no está en borrador — no se pueden agregar ventas')
+
+  // Validar venta está finalizada
+  const [venta] = await tx
+    .select({
+      id: ventasBmcorp.id,
+      monto: ventasBmcorp.monto,
+      estadoVenta: ventasBmcorp.estadoVenta,
+      descuentoDesarrolladoraPct: ventasBmcorp.descuentoDesarrolladoraPct,
+    })
+    .from(ventasBmcorp)
+    .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.id, p.ventaId)))
+    .limit(1)
+  if (!venta) throw new Error('Venta no encontrada')
+  if (!(ESTADOS_CON_COMISION as readonly string[]).includes(venta.estadoVenta)) {
+    throw new Error(
+      `La venta está en estado "${venta.estadoVenta}". Solo ventas FINALIZADAS pueden incluirse en un corte.`,
+    )
+  }
+
+  const montoVenta = Number(venta.monto ?? 0)
+  if (montoVenta <= 0) throw new Error('La venta no tiene monto registrado')
+  if (p.montoPagadoCliente > montoVenta)
+    throw new Error('El monto pagado no puede superar el monto total de la venta')
+
+  // Calcular % pagado
+  const porcentajePagado = (p.montoPagadoCliente / montoVenta) * 100
+
+  // Obtener comisión calculada de la venta
+  const [comision] = await tx
+    .select()
+    .from(comisionesCalculadas)
+    .where(
+      and(eq(comisionesCalculadas.tenantId, tenantId), eq(comisionesCalculadas.ventaId, p.ventaId)),
+    )
+    .limit(1)
+  if (!comision)
+    throw new Error(
+      'Esta venta no tiene comisión calculada. Sincroniza Monday o recalcula primero.',
+    )
+
+  // Plantilla = dispersiones "padre" (sin corte ni pago), líneas completas de comisión.
+  const dispPadre = await tx
+    .select()
+    .from(dispersiones)
+    .where(
+      and(
+        eq(dispersiones.tenantId, tenantId),
+        eq(dispersiones.comisionId, comision.id),
+        isNull(dispersiones.corteId),
+        isNull(dispersiones.pagoCorteId),
+      ),
+    )
+  if (dispPadre.length === 0) {
+    throw new Error(
+      'No hay dispersiones calculadas para esta comisión. Recalcula la comisión primero.',
+    )
+  }
+
+  // Acumulado pagado por el cliente ANTES de este abono (otros cortes de la venta).
+  const [prevAgg] = await tx
+    .select({ suma: sql<string>`COALESCE(SUM(${ventasPagoCorte.montoPagadoCliente}), 0)` })
+    .from(ventasPagoCorte)
+    .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.ventaId, p.ventaId)))
+  const cumPrevio = Number(prevAgg?.suma ?? 0)
+  const cumNuevo = cumPrevio + p.montoPagadoCliente
+
+  // Las líneas padre ya tienen descuento aplicado; el pago se reduce por el mismo
+  // factor para casar montos (igual criterio que calculator.ts).
+  const descuentoPct = Number(venta.descuentoDesarrolladoraPct ?? 5)
+  const factor = 1 - descuentoPct / 100
+
+  // CASCADA DE PRIORIDAD: lo que se libera con ESTE abono =
+  // cascada(acumulado nuevo) − cascada(acumulado previo). Master §4.
+  const lineasCascada = dispPadre.map((d) => ({
+    id: d.id,
+    tipoBeneficiario: d.tipoBeneficiario as TipoBeneficiarioCascada,
+    montoTotal: Number(d.montoTotal),
+  }))
+  const delta = deltaCascadaAbono(lineasCascada, cumPrevio * factor, cumNuevo * factor)
+  const montoADispersar = [...delta.values()].reduce((s, v) => s + v, 0)
+
+  // Registrar pago del cliente
+  const [pagoCorte] = await tx
+    .insert(ventasPagoCorte)
+    .values({
+      tenantId,
+      corteId: p.corteId,
+      ventaId: p.ventaId,
+      montoPagadoCliente: p.montoPagadoCliente.toFixed(2),
+      porcentajePagado: porcentajePagado.toFixed(4),
+      montoADispersar: montoADispersar.toFixed(2),
+      metodoPagoCliente: p.metodoPagoCliente ?? null,
+      fechaPagoCliente: p.fechaPagoCliente ?? null,
+      notasJoana: p.notasJoana ?? null,
+    })
+    .returning({ id: ventasPagoCorte.id })
+  if (!pagoCorte) throw new Error('No se pudo registrar el abono')
+
+  // Dispersiones "hija" = delta de cascada por línea (solo las que liberaron > 0).
+  const nuevasDispersiones = dispPadre
+    .filter((d) => (delta.get(d.id) ?? 0) > 0)
+    .map((d) => ({
+      tenantId,
+      comisionId: comision.id,
+      corteId: p.corteId,
+      pagoCorteId: pagoCorte.id,
+      liderId: d.liderId,
+      asesorId: d.asesorId,
+      tipoBeneficiario: d.tipoBeneficiario,
+      beneficiarioNombre: d.beneficiarioNombre,
+      montoTotal: (delta.get(d.id) ?? 0).toFixed(2),
+      montoPagado: '0',
+      montoDiferido: '0',
+      estado: 'PENDIENTE' as const,
+      acumulaMensual: d.acumulaMensual,
+    }))
+
+  if (nuevasDispersiones.length > 0) {
+    await tx.insert(dispersiones).values(nuevasDispersiones)
+  }
+
+  // Actualizar total del corte
+  const [totalActual] = await tx
+    .select({ suma: sql<string>`COALESCE(SUM(${ventasPagoCorte.montoADispersar}), 0)` })
+    .from(ventasPagoCorte)
+    .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.corteId, p.corteId)))
+  await tx
+    .update(cortesDispersion)
+    .set({ totalADispersar: totalActual?.suma ?? '0', updatedAt: new Date() })
+    .where(eq(cortesDispersion.id, p.corteId))
+
+  return { pagoCorteId: pagoCorte.id, dispersionesCreadas: nuevasDispersiones.length }
+}
 
 export async function agregarVentaAlCorteAction(
   input: z.input<typeof agregarVentaSchema>,
@@ -135,131 +304,140 @@ export async function agregarVentaAlCorteAction(
     if (!parsed.success)
       return { ok: false, error: parsed.error.errors[0]?.message ?? 'Validación falló' }
 
-    const { empresaId, corteId, ventaId, montoPagadoCliente, notasJoana } = parsed.data
+    const {
+      empresaId,
+      corteId,
+      ventaId,
+      montoPagadoCliente,
+      metodoPagoCliente,
+      fechaPagoCliente,
+      notasJoana,
+    } = parsed.data
     await requireEmpresaAccess(user, empresaId, 'comisiones')
     const tenantId = user.tenantId
 
     const result = await db.transaction(async (tx) => {
       await setTenant(tx, tenantId)
-
-      // Validar corte existe y está en BORRADOR
-      const [corte] = await tx
-        .select()
-        .from(cortesDispersion)
-        .where(and(eq(cortesDispersion.tenantId, tenantId), eq(cortesDispersion.id, corteId)))
-        .limit(1)
-      if (!corte) throw new Error('Corte no encontrado')
-      if (corte.estado !== 'BORRADOR')
-        throw new Error('El corte ya no está en borrador — no se pueden agregar ventas')
-
-      // Validar venta está finalizada
-      const [venta] = await tx
-        .select({
-          id: ventasBmcorp.id,
-          monto: ventasBmcorp.monto,
-          estadoVenta: ventasBmcorp.estadoVenta,
-        })
-        .from(ventasBmcorp)
-        .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.id, ventaId)))
-        .limit(1)
-      if (!venta) throw new Error('Venta no encontrada')
-      if (!(ESTADOS_CON_COMISION as readonly string[]).includes(venta.estadoVenta)) {
-        throw new Error(
-          `La venta está en estado "${venta.estadoVenta}". Solo ventas FINALIZADAS pueden incluirse en un corte.`,
-        )
-      }
-
-      const montoVenta = Number(venta.monto ?? 0)
-      if (montoVenta <= 0) throw new Error('La venta no tiene monto registrado')
-      if (montoPagadoCliente > montoVenta)
-        throw new Error('El monto pagado no puede superar el monto total de la venta')
-
-      // Calcular % pagado
-      const porcentajePagado = (montoPagadoCliente / montoVenta) * 100
-
-      // Obtener comisión calculada de la venta
-      const [comision] = await tx
-        .select()
-        .from(comisionesCalculadas)
-        .where(
-          and(
-            eq(comisionesCalculadas.tenantId, tenantId),
-            eq(comisionesCalculadas.ventaId, ventaId),
-          ),
-        )
-        .limit(1)
-      if (!comision)
-        throw new Error(
-          'Esta venta no tiene comisión calculada. Sincroniza Monday o recalcula primero.',
-        )
-
-      const comisionBruta = Number(comision.comisionBrutaTotal)
-      // Total a dispersar = proporción de la comisión según el % pagado por el cliente
-      const montoADispersar = (comisionBruta * porcentajePagado) / 100
-
-      // Registrar pago del cliente
-      const [pagoCorte] = await tx
-        .insert(ventasPagoCorte)
-        .values({
-          tenantId,
-          corteId,
-          ventaId,
-          montoPagadoCliente: montoPagadoCliente.toFixed(2),
-          porcentajePagado: porcentajePagado.toFixed(4),
-          montoADispersar: montoADispersar.toFixed(2),
-          notasJoana: notasJoana ?? null,
-        })
-        .returning({ id: ventasPagoCorte.id })
-
-      // Generar dispersiones proporcionales para este corte
-      // Basadas en las dispersiones existentes de la comisión, proporcionales al % pagado
-      const dispExistentes = await tx
-        .select()
-        .from(dispersiones)
-        .where(and(eq(dispersiones.tenantId, tenantId), eq(dispersiones.comisionId, comision.id)))
-
-      if (dispExistentes.length === 0) {
-        throw new Error(
-          'No hay dispersiones calculadas para esta comisión. Recalcula la comisión primero.',
-        )
-      }
-
-      // Crear nuevas dispersiones proporcionales para este corte
-      // (son dispersiones "hija" vinculadas al corte y al pago)
-      const nuevasDispersiones = dispExistentes.map((d) => ({
-        tenantId,
-        comisionId: comision.id,
+      return agregarVentaACorteTx(tx, tenantId, {
         corteId,
-        pagoCorteId: pagoCorte!.id,
-
-        liderId: d.liderId,
-        asesorId: d.asesorId,
-        tipoBeneficiario: d.tipoBeneficiario,
-        beneficiarioNombre: d.beneficiarioNombre,
-        montoTotal: ((Number(d.montoTotal) * porcentajePagado) / 100).toFixed(2),
-        montoPagado: '0',
-        montoDiferido: '0',
-        estado: 'PENDIENTE' as const,
-        acumulaMensual: d.acumulaMensual,
-      }))
-
-      await tx.insert(dispersiones).values(nuevasDispersiones)
-
-      // Actualizar total del corte
-      const [totalActual] = await tx
-        .select({ suma: sql<string>`COALESCE(SUM(${ventasPagoCorte.montoADispersar}), 0)` })
-        .from(ventasPagoCorte)
-        .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.corteId, corteId)))
-      await tx
-        .update(cortesDispersion)
-        .set({ totalADispersar: totalActual?.suma ?? '0', updatedAt: new Date() })
-        .where(eq(cortesDispersion.id, corteId))
-
-      return { pagoCorteId: pagoCorte!.id, dispersionesCreadas: nuevasDispersiones.length }
+        ventaId,
+        montoPagadoCliente,
+        metodoPagoCliente,
+        fechaPagoCliente,
+        notasJoana,
+      })
     })
 
     revalidateCortes(empresaId, corteId)
     return { ok: true, data: result }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+// ─── 2b. Registrar abono desde la VENTA (crea corte si no se elige uno) ──────
+
+const registrarAbonoSchema = z
+  .object({
+    empresaId: z.string().uuid(),
+    ventaId: z.string().uuid(),
+    montoPagadoCliente: z.number().positive('El monto abonado debe ser positivo'),
+    metodoPagoCliente: z.enum(METODOS_PAGO).nullable().optional(),
+    fechaPagoCliente: z.string().regex(FECHA_RE, 'Formato YYYY-MM-DD').nullable().optional(),
+    // O eliges un corte BORRADOR existente, o creas uno nuevo:
+    corteId: z.string().uuid().nullable().optional(),
+    nuevoCorteFecha: z.string().regex(FECHA_RE, 'Formato YYYY-MM-DD').nullable().optional(),
+    nuevoCorteTipo: z.enum(['LUNES', 'JUEVES']).nullable().optional(),
+    notasJoana: z.string().nullable().optional(),
+  })
+  .refine((d) => d.corteId || (d.nuevoCorteFecha && d.nuevoCorteTipo), {
+    message: 'Elige un corte existente o crea uno nuevo (fecha + día)',
+  })
+
+export async function registrarAbonoVentaAction(
+  input: z.input<typeof registrarAbonoSchema>,
+): Promise<ActionResult<{ corteId: string; pagoCorteId: string; dispersionesCreadas: number }>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+    const parsed = registrarAbonoSchema.safeParse(input)
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.errors[0]?.message ?? 'Validación falló' }
+
+    const d = parsed.data
+    await requireEmpresaAccess(user, d.empresaId, 'comisiones')
+    const tenantId = user.tenantId
+
+    let corteId = d.corteId ?? ''
+    const result = await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+
+      // Crear corte BORRADOR si no se eligió uno existente
+      if (!corteId) {
+        const [nuevo] = await tx
+          .insert(cortesDispersion)
+          .values({
+            tenantId,
+            empresaId: d.empresaId,
+            fechaCorte: d.nuevoCorteFecha!,
+            tipoDia: d.nuevoCorteTipo!,
+            estado: 'BORRADOR',
+            creadoPor: user.id,
+          })
+          .returning({ id: cortesDispersion.id })
+        if (!nuevo) throw new Error('No se pudo crear el corte')
+        corteId = nuevo.id
+      }
+
+      return agregarVentaACorteTx(tx, tenantId, {
+        corteId,
+        ventaId: d.ventaId,
+        montoPagadoCliente: d.montoPagadoCliente,
+        metodoPagoCliente: d.metodoPagoCliente,
+        fechaPagoCliente: d.fechaPagoCliente,
+        notasJoana: d.notasJoana,
+      })
+    })
+
+    revalidateCortes(d.empresaId, corteId)
+    return { ok: true, data: { corteId, ...result } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+// ─── 2c. Cortes en BORRADOR de la empresa (para el selector de abono) ─────────
+
+export async function getCortesBorradorAction(
+  empresaId: string,
+): Promise<ActionResult<{ id: string; fechaCorte: string; tipoDia: string }[]>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
+    const tenantId = user.tenantId
+
+    const rows = await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+      return tx
+        .select({
+          id: cortesDispersion.id,
+          fechaCorte: cortesDispersion.fechaCorte,
+          tipoDia: cortesDispersion.tipoDia,
+        })
+        .from(cortesDispersion)
+        .where(
+          and(
+            eq(cortesDispersion.tenantId, tenantId),
+            eq(cortesDispersion.empresaId, empresaId),
+            eq(cortesDispersion.estado, 'BORRADOR'),
+            isNull(cortesDispersion.deletedAt),
+          ),
+        )
+        .orderBy(cortesDispersion.fechaCorte)
+    })
+
+    return { ok: true, data: rows }
   } catch (err) {
     return handleError(err)
   }

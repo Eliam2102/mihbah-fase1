@@ -15,6 +15,10 @@ import {
   Wallet,
   Calendar,
   Package,
+  Layers,
+  MapPin,
+  UserCircle2,
+  Briefcase,
 } from 'lucide-react'
 import type {
   VentaListItem,
@@ -26,15 +30,33 @@ type Alianza = { id: string; nombre: string }
 type Desarrollo = { id: string; nombre: string }
 
 const ESTADO_LABELS: Record<string, { label: string; color: string }> = {
-  EN_PROCESO: { label: 'En pipeline', color: 'bg-muted text-muted-foreground' },
-  APROBADO_VENTAS: { label: 'Aprobado ventas', color: 'bg-info/10 text-info' },
-  APROBADO_JURIDICO: { label: 'Aprobado jurídico', color: 'bg-info/15 text-info' },
-  ESPERANDO_AUTORIZACION: { label: 'Esperando autorización', color: 'bg-warning/10 text-warning' },
-  RECHAZADO: { label: 'Rechazado', color: 'bg-destructive/10 text-destructive' },
-  LIBERADO: { label: 'Finalizada', color: 'bg-success/10 text-success' },
-  FINALIZADA: { label: 'Finalizada', color: 'bg-success/10 text-success' },
-  FINALIZADO_Y_LIQUIDADO: { label: 'Finalizada y liquidada', color: 'bg-success/15 text-success' },
-  CANCELADA: { label: 'Cancelada', color: 'bg-muted text-muted-foreground line-through' },
+  EN_PROCESO: { label: 'En pipeline', color: 'border-muted/50 bg-muted/30 text-muted-foreground' },
+  APROBADO_VENTAS: { label: 'Aprobado ventas', color: 'border-info/20 bg-info/10 text-info' },
+  APROBADO_JURIDICO: { label: 'Aprobado jurídico', color: 'border-info/30 bg-info/15 text-info' },
+  ESPERANDO_AUTORIZACION: {
+    label: 'Esperando autorización',
+    color: 'border-warning/20 bg-warning/10 text-warning',
+  },
+  RECHAZADO: {
+    label: 'Rechazado',
+    color: 'border-destructive/20 bg-destructive/10 text-destructive',
+  },
+  LIBERADO: {
+    label: 'Liberada (caída)',
+    color: 'border-muted/50 bg-muted/30 text-muted-foreground line-through',
+  },
+  FINALIZADA: {
+    label: 'Finalizada',
+    color: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+  },
+  FINALIZADO_Y_LIQUIDADO: {
+    label: 'Finalizada y liquidada',
+    color: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  },
+  CANCELADA: {
+    label: 'Cancelada',
+    color: 'border-muted/50 bg-muted/30 text-muted-foreground line-through',
+  },
 }
 
 export function VentasListingView({
@@ -102,241 +124,272 @@ export function VentasListingView({
     (currentFilter.query !== undefined && currentFilter.query !== '')
 
   return (
-    <div className="space-y-6">
-      {/* Hero stats */}
-      <div className="from-jade-700 via-jade-800 to-jade-900 relative overflow-hidden rounded-2xl bg-gradient-to-br p-6 text-white shadow-sm">
-        <div className="bg-jade-400/20 absolute -top-12 -right-12 h-48 w-48 rounded-full blur-3xl" />
-        <div className="bg-jade-300/10 absolute -bottom-16 -left-12 h-56 w-56 rounded-full blur-3xl" />
-        <div className="relative">
-          <div className="text-jade-100 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
-            <TrendingUp className="h-3.5 w-3.5" />
+    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8 duration-500">
+      {/* Hero stats with Glassmorphism */}
+      <div className="border-primary/20 from-primary/10 via-background to-background relative overflow-hidden rounded-3xl border bg-gradient-to-br p-8 shadow-sm backdrop-blur-xl transition-all hover:shadow-md">
+        <div className="bg-primary/20 absolute -top-32 -right-32 h-64 w-64 rounded-full blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+
+        <div className="relative z-10">
+          <div className="border-primary/20 bg-primary/5 text-primary inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide uppercase shadow-sm backdrop-blur-md">
+            <Layers className="h-3.5 w-3.5" />
             Ventas BM CORP
           </div>
-          <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Ventas</h1>
-          <p className="text-jade-50/90 mt-1 text-sm">
-            {result.total} venta{result.total === 1 ? '' : 's'} en el filtro actual
-          </p>
+          <div className="mt-4 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <h1 className="text-foreground text-3xl font-extrabold tracking-tight sm:text-4xl">
+                Panel de Ventas
+              </h1>
+              <p className="text-muted-foreground mt-2 text-sm font-medium">
+                <span className="text-foreground">{result.total}</span> venta
+                {result.total === 1 ? '' : 's'} encontradas con el filtro actual
+              </p>
+            </div>
+          </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <HeroStat
-              icon={<Wallet className="h-4 w-4" />}
+              icon={<Wallet className="text-amber-500" />}
               label="Total vendido"
               value={fmt(result.stats.totalVendido)}
-              sub={`${result.stats.contadores.todas} ventas`}
+              sub={`${result.stats.contadores.todas} ventas registradas`}
+              accent="amber"
             />
             <HeroStat
-              icon={<TrendingUp className="h-4 w-4" />}
+              icon={<TrendingUp className="text-indigo-500" />}
               label="Comisión generada"
               value={fmt(result.stats.totalComisionGenerada)}
-              sub="Esperada BM CORP"
+              sub="Esperada para BM CORP"
+              accent="indigo"
             />
             <HeroStat
-              icon={<CheckCircle2 className="h-4 w-4" />}
+              icon={<CheckCircle2 className="text-emerald-500" />}
               label="Comisión pagada"
               value={fmt(result.stats.totalComisionPagada)}
-              sub={`${result.stats.porcentajeConciliado.toFixed(2)}% conciliado`}
+              sub={`${result.stats.porcentajeConciliado.toFixed(1)}% conciliado`}
+              accent="emerald"
             />
             <HeroStat
-              icon={<Clock className="h-4 w-4" />}
+              icon={<Clock className="text-rose-500" />}
               label="Pendiente"
               value={fmt(result.stats.totalComisionGenerada - result.stats.totalComisionPagada)}
-              sub="Por pagar"
+              sub="Por cobrar / dispersar"
+              accent="rose"
             />
           </div>
         </div>
       </div>
 
-      {/* Filtros + búsqueda */}
-      <div className="bg-card space-y-3 rounded-xl border p-3 shadow-sm sm:p-4">
-        {/* Búsqueda libre */}
-        <form
-          onSubmit={handleSearch}
-          className="border-border focus-within:border-primary focus-within:ring-primary/20 bg-background flex items-center gap-2 rounded-lg border px-3 py-2 transition focus-within:ring-2"
-        >
-          <Search className="text-muted-foreground h-4 w-4 shrink-0" />
-          <input
-            type="search"
-            value={queryLocal}
-            onChange={(e) => setQueryLocal(e.target.value)}
-            placeholder="Buscar cliente, lote, asesor..."
-            className="text-foreground placeholder:text-muted-foreground flex-1 bg-transparent text-sm outline-none"
-          />
-          {queryLocal && (
-            <button
-              type="button"
-              onClick={() => {
-                setQueryLocal('')
-                updateParams({ q: undefined })
-              }}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground rounded p-1"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <button
-            type="submit"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1 text-xs font-medium"
-          >
-            Buscar
-          </button>
-        </form>
-
-        {/* Filtros desplegables */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Filter className="text-muted-foreground h-3.5 w-3.5" />
-
-          <select
-            value={currentFilter.anio?.toString() ?? ''}
-            onChange={(e) => updateParams({ anio: e.target.value || undefined })}
-            className="border-border bg-background rounded-md border px-2.5 py-1.5 text-xs"
-          >
-            <option value="">Todos los años</option>
-            {anios.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-
-          {currentFilter.anio && (
-            <select
-              value={currentFilter.mes?.toString() ?? ''}
-              onChange={(e) => updateParams({ mes: e.target.value || undefined })}
-              className="border-border bg-background rounded-md border px-2.5 py-1.5 text-xs"
-            >
-              <option value="">Todos los meses</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>
-                  {new Date(2026, m - 1, 1).toLocaleDateString('es-MX', { month: 'long' })}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <select
-            value={currentFilter.afiliadoId ?? ''}
-            onChange={(e) => updateParams({ alianza: e.target.value || undefined })}
-            className="border-border bg-background rounded-md border px-2.5 py-1.5 text-xs"
-          >
-            <option value="">Todas las alianzas</option>
-            {alianzas.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.nombre}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={currentFilter.desarrolloId ?? ''}
-            onChange={(e) => updateParams({ desarrollo: e.target.value || undefined })}
-            className="border-border bg-background rounded-md border px-2.5 py-1.5 text-xs"
-          >
-            <option value="">Todos los desarrollos</option>
-            {desarrollos.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.nombre}
-              </option>
-            ))}
-          </select>
-
-          {/* Filtro asesor — texto libre con submit */}
+      {/* Modern Filter Bar */}
+      <div className="border-border/50 bg-background/80 sticky top-0 z-20 -mx-4 rounded-b-2xl border-b px-4 py-4 shadow-sm backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:border sm:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <form
             onSubmit={handleSearch}
-            className="border-border bg-background flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs"
+            className="group relative flex w-full items-center gap-2 lg:max-w-md"
           >
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search className="text-muted-foreground group-focus-within:text-primary h-4 w-4 transition-colors" />
+            </div>
             <input
-              type="text"
-              value={asesorLocal}
-              onChange={(e) => setAsesorLocal(e.target.value)}
-              placeholder="Asesor..."
-              className="text-foreground placeholder:text-muted-foreground w-28 bg-transparent outline-none"
+              type="search"
+              value={queryLocal}
+              onChange={(e) => setQueryLocal(e.target.value)}
+              placeholder="Buscar cliente, lote..."
+              className="border-border/50 bg-muted/30 focus:border-primary/50 focus:bg-background focus:ring-primary/10 w-full rounded-xl border py-2.5 pr-10 pl-10 text-sm transition-all outline-none focus:ring-4"
             />
-            {asesorLocal && (
+            {queryLocal && (
               <button
                 type="button"
                 onClick={() => {
-                  setAsesorLocal('')
-                  updateParams({ asesor: undefined })
+                  setQueryLocal('')
+                  updateParams({ q: undefined })
                 }}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-16 flex items-center pr-3"
               >
-                <X className="h-3 w-3" />
+                <X className="h-4 w-4" />
               </button>
             )}
+            <button
+              type="submit"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 absolute top-1.5 right-1.5 bottom-1.5 rounded-lg px-4 text-xs font-medium transition-all hover:shadow-sm"
+            >
+              Buscar
+            </button>
           </form>
 
-          {filtersActive && (
-            <button
-              onClick={() => {
-                setQueryLocal('')
-                setAsesorLocal('')
-                startTransition(() => router.push('?'))
-              }}
-              className="text-primary text-xs hover:underline"
-            >
-              Limpiar filtros
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="border-border/50 bg-muted/30 flex items-center gap-2 rounded-xl border px-3 py-1.5">
+              <Filter className="text-muted-foreground h-4 w-4" />
+              <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+                Filtros
+              </span>
+            </div>
 
-          {pending && <span className="text-muted-foreground ml-auto text-xs">Cargando...</span>}
+            <SelectFilter
+              value={currentFilter.anio?.toString() ?? ''}
+              onChange={(v) => updateParams({ anio: v || undefined })}
+              options={[
+                { value: '', label: 'Año' },
+                ...anios.map((y) => ({ value: String(y), label: String(y) })),
+              ]}
+            />
+
+            {currentFilter.anio && (
+              <SelectFilter
+                value={currentFilter.mes?.toString() ?? ''}
+                onChange={(v) => updateParams({ mes: v || undefined })}
+                options={[
+                  { value: '', label: 'Mes' },
+                  ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
+                    value: String(m),
+                    label: new Date(2026, m - 1, 1).toLocaleDateString('es-MX', { month: 'long' }),
+                  })),
+                ]}
+              />
+            )}
+
+            <SelectFilter
+              value={currentFilter.afiliadoId ?? ''}
+              onChange={(v) => updateParams({ alianza: v || undefined })}
+              options={[
+                { value: '', label: 'Alianza' },
+                ...alianzas.map((a) => ({ value: a.id, label: a.nombre })),
+              ]}
+            />
+
+            <SelectFilter
+              value={currentFilter.desarrolloId ?? ''}
+              onChange={(v) => updateParams({ desarrollo: v || undefined })}
+              options={[
+                { value: '', label: 'Desarrollo' },
+                ...desarrollos.map((d) => ({ value: d.id, label: d.nombre })),
+              ]}
+            />
+
+            {/* Asesor input filter */}
+            <form
+              onSubmit={handleSearch}
+              className="border-border/50 bg-muted/30 focus-within:border-primary/50 focus-within:bg-background focus-within:ring-primary/10 flex items-center gap-1 rounded-xl border px-3 py-1.5 transition-all focus-within:ring-2"
+            >
+              <UserCircle2 className="text-muted-foreground h-4 w-4" />
+              <input
+                type="text"
+                value={asesorLocal}
+                onChange={(e) => setAsesorLocal(e.target.value)}
+                placeholder="Asesor"
+                className="placeholder:text-muted-foreground w-24 bg-transparent text-xs outline-none"
+              />
+              {asesorLocal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAsesorLocal('')
+                    updateParams({ asesor: undefined })
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </form>
+
+            {filtersActive && (
+              <button
+                onClick={() => {
+                  setQueryLocal('')
+                  setAsesorLocal('')
+                  startTransition(() => router.push('?'))
+                }}
+                className="border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors"
+              >
+                <X className="h-3 w-3" /> Limpiar
+              </button>
+            )}
+
+            {pending && (
+              <div className="text-primary flex items-center gap-2 px-2 text-xs font-medium">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Actualizando...
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-        <div className="bg-muted/30 border-b px-4 py-2.5">
-          <p className="text-muted-foreground text-xs font-medium">
-            {result.rows.length} de {result.total} ventas mostradas
-          </p>
+      {/* Premium Table Area */}
+      <div className="border-border/50 bg-card/60 overflow-hidden rounded-2xl border shadow-sm backdrop-blur-xl">
+        <div className="border-border/50 bg-muted/20 flex items-center justify-between border-b px-6 py-4">
+          <div>
+            <h2 className="text-foreground text-lg font-bold">Listado de Ventas</h2>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              Mostrando {result.rows.length} registros
+            </p>
+          </div>
         </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-muted/20 text-muted-foreground text-xs">
+          <table className="w-full text-sm">
+            <thead className="border-border/50 bg-muted/30 text-muted-foreground border-b text-xs">
               <tr>
-                <th className="px-3 py-2.5 text-left font-medium">Cliente</th>
-                <th className="px-3 py-2.5 text-left font-medium">Alianza · Asesor</th>
-                <th className="px-3 py-2.5 text-left font-medium">Desarrollo · Lote</th>
-                <th className="px-3 py-2.5 text-right font-medium">Monto total</th>
-                <th className="px-3 py-2.5 text-center font-medium">Avance pago</th>
-                <th className="px-3 py-2.5 text-center font-medium">% Comisión pagada</th>
-                <th className="px-3 py-2.5 text-center font-medium">Estado</th>
-                <th className="px-3 py-2.5 text-center font-medium">Tiempo</th>
-                <th className="px-3 py-2.5" />
+                <th className="px-6 py-4 text-left font-semibold tracking-wider uppercase">
+                  Cliente
+                </th>
+                <th className="px-6 py-4 text-left font-semibold tracking-wider uppercase">
+                  Asignación
+                </th>
+                <th className="px-6 py-4 text-left font-semibold tracking-wider uppercase">
+                  Ubicación
+                </th>
+                <th className="px-6 py-4 text-right font-semibold tracking-wider uppercase">
+                  Monto Total
+                </th>
+                <th className="px-6 py-4 text-center font-semibold tracking-wider uppercase">
+                  Avance Pago
+                </th>
+                <th className="px-6 py-4 text-center font-semibold tracking-wider uppercase">
+                  Comisión
+                </th>
+                <th className="px-6 py-4 text-center font-semibold tracking-wider uppercase">
+                  Estado
+                </th>
+                <th className="px-6 py-4 text-center font-semibold tracking-wider uppercase">
+                  Tiempo
+                </th>
+                <th className="px-6 py-4 text-center font-semibold tracking-wider uppercase"></th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-border/50 divide-y">
               {result.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-muted-foreground px-4 py-12 text-center">
-                    <Package className="mx-auto mb-3 h-8 w-8 opacity-30" />
-                    <p className="text-foreground font-medium">
-                      Sin ventas con los filtros actuales
-                    </p>
-                    <p className="mt-1 text-xs">
-                      Intentá limpiar o cambiar los filtros manuales, o ejecutá una sincronización
-                      de Monday.
-                    </p>
-                    <div className="mt-4 flex justify-center gap-2">
-                      {filtersActive && (
-                        <button
-                          onClick={() => {
-                            setQueryLocal('')
-                            setAsesorLocal('')
-                            updateParams({
-                              anio: undefined,
-                              mes: undefined,
-                              alianza: undefined,
-                              desarrollo: undefined,
-                              asesor: undefined,
-                              q: undefined,
-                            })
-                          }}
-                          className="border-border hover:bg-muted rounded-md border px-3 py-1.5 text-xs font-medium"
-                        >
-                          Quitar filtros
-                        </button>
-                      )}
+                  <td colSpan={9} className="px-6 py-20 text-center">
+                    <div className="bg-muted/50 mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full">
+                      <Package className="text-muted-foreground/50 h-10 w-10" />
                     </div>
+                    <h3 className="text-foreground text-lg font-semibold">
+                      No hay ventas que coincidan
+                    </h3>
+                    <p className="text-muted-foreground mx-auto mt-2 max-w-sm text-sm">
+                      Intenta ajustar o limpiar tus filtros actuales para encontrar lo que buscas.
+                    </p>
+                    {filtersActive && (
+                      <button
+                        onClick={() => {
+                          setQueryLocal('')
+                          setAsesorLocal('')
+                          updateParams({
+                            anio: undefined,
+                            mes: undefined,
+                            alianza: undefined,
+                            desarrollo: undefined,
+                            asesor: undefined,
+                            q: undefined,
+                          })
+                        }}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 mt-6 rounded-lg px-6 py-2 text-sm font-semibold transition-all hover:shadow-md"
+                      >
+                        Limpiar todos los filtros
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -349,24 +402,26 @@ export function VentasListingView({
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between gap-2 border-t px-4 py-3">
-            <p className="text-muted-foreground text-xs">
-              Página {currentFilter.page} de {totalPages}
+          <div className="border-border/50 bg-muted/10 flex items-center justify-between border-t px-6 py-4">
+            <p className="text-muted-foreground text-xs font-medium">
+              Mostrando página{' '}
+              <span className="text-foreground font-bold">{currentFilter.page}</span> de{' '}
+              <span className="text-foreground font-bold">{totalPages}</span>
             </p>
             <div className="flex gap-2">
               <button
                 disabled={currentFilter.page <= 1}
                 onClick={() => updateParams({ page: String(currentFilter.page - 1) })}
-                className="border-border hover:bg-muted rounded-md border px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                className="border-border/50 bg-background text-foreground hover:bg-muted flex items-center gap-1 rounded-lg border px-4 py-2 text-xs font-semibold shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Anterior
+                <ChevronLeft className="h-4 w-4" /> Anterior
               </button>
               <button
                 disabled={currentFilter.page >= totalPages}
                 onClick={() => updateParams({ page: String(currentFilter.page + 1) })}
-                className="border-border hover:bg-muted rounded-md border px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                className="border-border/50 bg-background text-foreground hover:bg-muted flex items-center gap-1 rounded-lg border px-4 py-2 text-xs font-semibold shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Siguiente
+                Siguiente <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -376,25 +431,74 @@ export function VentasListingView({
   )
 }
 
+function SelectFilter({
+  value,
+  onChange,
+  options,
+}: {
+  value: string
+  onChange: (val: string) => void
+  options: { value: string; label: string }[]
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="border-border/50 bg-muted/30 focus:border-primary/50 focus:bg-background focus:ring-primary/10 hover:bg-muted/50 cursor-pointer appearance-none rounded-xl border px-3 py-1.5 text-xs transition-all outline-none focus:ring-2"
+      style={{
+        paddingRight: '2rem',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
+        backgroundPosition: 'right 0.5rem center',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: '1.5em 1.5em',
+      }}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 function HeroStat({
   icon,
   label,
   value,
   sub,
+  accent = 'primary',
 }: {
   icon: React.ReactNode
   label: string
   value: string
   sub?: string
+  accent?: 'primary' | 'amber' | 'indigo' | 'emerald' | 'rose'
 }) {
+  const accentClasses = {
+    primary: 'border-primary/20 bg-primary/5 text-primary',
+    amber: 'border-amber-500/20 bg-amber-500/5 text-amber-600',
+    indigo: 'border-indigo-500/20 bg-indigo-500/5 text-indigo-600',
+    emerald: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600',
+    rose: 'border-rose-500/20 bg-rose-500/5 text-rose-600',
+  }
+
   return (
-    <div className="bg-jade-950/30 rounded-xl px-3 py-2.5 backdrop-blur-sm">
-      <div className="text-jade-200 inline-flex items-center gap-1 text-[11px] font-medium tracking-wide uppercase">
-        {icon}
-        {label}
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-5 backdrop-blur-sm transition-transform hover:scale-[1.02] ${accentClasses[accent].split(' ').slice(0, 2).join(' ')}`}
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <div className="bg-background/50 border-border/50 rounded-full border p-2 shadow-sm">
+          {icon}
+        </div>
+        <p className="text-muted-foreground text-xs font-bold tracking-wider uppercase">{label}</p>
       </div>
-      <p className="mt-0.5 text-lg font-bold tabular-nums sm:text-xl">{value}</p>
-      {sub && <p className="text-jade-100/80 text-[11px]">{sub}</p>}
+      <p
+        className={`text-2xl font-extrabold tracking-tight tabular-nums ${accentClasses[accent].split(' ').pop()}`}
+      >
+        {value}
+      </p>
+      {sub && <p className="text-muted-foreground mt-1 text-[11px] font-medium uppercase">{sub}</p>}
     </div>
   )
 }
@@ -408,9 +512,12 @@ function FilaVenta({
   empresaId: string
   fmt: (n: number) => string
 }) {
-  const estado = ESTADO_LABELS[v.estadoVenta] ?? { label: v.estadoVenta, color: 'bg-muted' }
+  const estado = ESTADO_LABELS[v.estadoVenta] ?? {
+    label: v.estadoVenta,
+    color: 'border-muted/50 bg-muted/30 text-muted-foreground',
+  }
 
-  // Días desde apertura (tiempo real en el cliente siempre es igual al server-side)
+  // Días desde apertura
   const diasDesdeApertura = v.diasEnPipeline
 
   // Avance pago del cliente: enganche pagado / monto total de la venta
@@ -420,35 +527,50 @@ function FilaVenta({
   const pctComisionPagada = v.porcentajeAvancePago
 
   return (
-    <tr className="hover:bg-muted/30 transition-colors">
+    <tr className="group hover:bg-muted/30 transition-colors">
       {/* Cliente */}
-      <td className="px-3 py-3">
-        <Link href={`/empresa/${empresaId}/ventas/${v.ventaId}`} className="hover:underline">
-          <p className="text-foreground leading-tight font-medium">{v.cliente}</p>
+      <td className="px-6 py-4">
+        <Link
+          href={`/empresa/${empresaId}/ventas/${v.ventaId}`}
+          className="group-hover:text-primary block transition-colors"
+        >
+          <p className="text-foreground font-bold">{v.cliente}</p>
+          <p className="text-muted-foreground mt-0.5 text-xs">ID: {v.ventaId.slice(0, 8)}</p>
         </Link>
       </td>
 
       {/* Alianza · Asesor */}
-      <td className="px-3 py-3 text-xs">
-        <p className="text-foreground">{v.alianzaNombre ?? '—'}</p>
-        <p className="text-muted-foreground">{v.asesor ?? '—'}</p>
+      <td className="px-6 py-4 text-xs">
+        <div className="text-foreground mb-1 flex items-center gap-1.5 font-medium">
+          <Briefcase className="text-primary/70 h-3 w-3" />
+          {v.alianzaNombre ?? 'Sin alianza'}
+        </div>
+        <div className="text-muted-foreground flex items-center gap-1.5">
+          <UserCircle2 className="h-3 w-3" />
+          {v.asesor ?? 'Sin asesor'}
+        </div>
       </td>
 
       {/* Desarrollo · Lote */}
-      <td className="px-3 py-3 text-xs">
-        <p className="text-foreground">{v.desarrolloNombre ?? '—'}</p>
+      <td className="px-6 py-4 text-xs">
+        <div className="text-foreground mb-1 flex items-center gap-1.5 font-medium">
+          <MapPin className="h-3 w-3 text-emerald-500/70" />
+          {v.desarrolloNombre ?? '—'}
+        </div>
         {v.loteAcciones && (
-          <p className="text-muted-foreground font-mono">Lote: {v.loteAcciones}</p>
+          <div className="bg-muted/50 text-muted-foreground inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[10px]">
+            Lote: {v.loteAcciones}
+          </div>
         )}
       </td>
 
       {/* Monto total */}
-      <td className="text-foreground px-3 py-3 text-right font-medium tabular-nums">
-        {fmt(v.monto)}
+      <td className="px-6 py-4 text-right">
+        <span className="text-foreground font-bold tabular-nums">{fmt(v.monto)}</span>
       </td>
 
-      {/* Avance pago cliente (enganche/monto) */}
-      <td className="px-3 py-3 text-center">
+      {/* Avance pago cliente */}
+      <td className="px-6 py-4 text-center">
         <ProgressMini
           pct={avancePagoCliente}
           label={`${avancePagoCliente.toFixed(1)}%`}
@@ -457,11 +579,11 @@ function FilaVenta({
       </td>
 
       {/* % Comisión pagada */}
-      <td className="px-3 py-3 text-center">
+      <td className="px-6 py-4 text-center">
         {v.sinEsquema ? (
-          <span className="text-warning inline-flex items-center gap-1 text-xs">
+          <span className="border-warning/20 bg-warning/10 text-warning inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide uppercase">
             <AlertCircle className="h-3 w-3" />
-            Sin esquema
+            Sin config
           </span>
         ) : (
           <ProgressMini
@@ -473,18 +595,18 @@ function FilaVenta({
       </td>
 
       {/* Estado */}
-      <td className="px-3 py-3 text-center">
+      <td className="px-6 py-4 text-center">
         <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${estado.color}`}
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase ${estado.color}`}
         >
           {estado.label}
         </span>
       </td>
 
       {/* Tiempo desde apertura */}
-      <td className="px-3 py-3 text-center text-xs">
+      <td className="px-6 py-4 text-center text-xs">
         {diasDesdeApertura !== null ? (
-          <div className="text-muted-foreground inline-flex items-center gap-1">
+          <div className="border-border/50 bg-muted/30 text-muted-foreground inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-medium">
             <Calendar className="h-3 w-3" />
             {diasDesdeApertura}d
           </div>
@@ -494,10 +616,10 @@ function FilaVenta({
       </td>
 
       {/* Acción */}
-      <td className="px-3 py-3 text-right">
+      <td className="px-6 py-4 text-right">
         <Link
           href={`/empresa/${empresaId}/ventas/${v.ventaId}`}
-          className="text-muted-foreground hover:text-foreground inline-block"
+          className="bg-muted/50 text-muted-foreground hover:border-border hover:bg-background hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent transition-all hover:shadow-sm"
         >
           <ChevronRight className="h-4 w-4" />
         </Link>
@@ -516,14 +638,53 @@ function ProgressMini({
   color?: 'primary' | 'success'
 }) {
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <div className="bg-muted h-1.5 w-20 overflow-hidden rounded-full">
+    <div className="flex flex-col items-center gap-1">
+      <div className="bg-muted/50 h-2 w-24 overflow-hidden rounded-full shadow-inner">
         <div
-          className={`h-full rounded-full ${color === 'success' ? 'bg-success' : 'bg-primary'}`}
-          style={{ width: `${Math.min(100, pct)}%` }}
+          className={`h-full rounded-full transition-all duration-1000 ease-out ${color === 'success' ? 'bg-emerald-500' : 'bg-primary'}`}
+          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
         />
       </div>
-      <p className="text-muted-foreground text-[10px] tabular-nums">{label}</p>
+      <p className="text-muted-foreground text-[10px] font-bold tabular-nums">{label}</p>
     </div>
+  )
+}
+
+function ChevronLeft(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
+function RefreshCw(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
   )
 }

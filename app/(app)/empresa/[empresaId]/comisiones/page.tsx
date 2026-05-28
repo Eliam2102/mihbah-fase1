@@ -249,12 +249,14 @@ export default async function ComisionesLanding({
           title="Usuarios del portal"
           desc={`${data.totalPortal} cuentas creadas`}
         />
-        <Action
-          href={`/empresa/${empresaId}/comisiones/precalculo`}
-          icon={<Calculator className="h-5 w-5" />}
-          title="Precálculo"
-          desc="Simulador antes de procesar"
-        />
+        {false && (
+          <Action
+            href={`/empresa/${empresaId}/comisiones/precalculo`}
+            icon={<Calculator className="h-5 w-5" />}
+            title="Precálculo"
+            desc="Simulador antes de procesar"
+          />
+        )}
       </div>
 
       {/* Cards secundarias compactas — 1 col mobile, 3 col tablet+ */}
@@ -272,12 +274,14 @@ export default async function ComisionesLanding({
           count="Jade · Turquesa · Ónix"
         />
 
+        {/*
         <SecondaryLink
           href={`/empresa/${empresaId}/comisiones/validacion`}
           icon={<CheckCircle2 className="h-3.5 w-3.5" />}
           label="Validación cálculos"
           count="Comparar vs Excel manual"
         />
+        */}
         <SecondaryLink
           href={`/empresa/${empresaId}/comisiones/guia`}
           icon={<HelpCircle className="h-3.5 w-3.5" />}

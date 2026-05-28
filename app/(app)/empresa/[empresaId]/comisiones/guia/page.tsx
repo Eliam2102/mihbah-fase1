@@ -168,20 +168,24 @@ export default async function GuiaPage({ params }: { params: Promise<{ empresaId
               link={`${base}/dispersiones`}
               cta="Ir"
             />
-            <Accion
-              icon={<Calculator className="h-4 w-4" />}
-              titulo="Simular antes de pagar (precálculo)"
-              desc="Si tienes dudas con un caso, simula sin tocar datos reales."
-              link={`${base}/precalculo`}
-              cta="Ir"
-            />
-            <Accion
-              icon={<CheckCircle2 className="h-4 w-4" />}
-              titulo="Validar cálculos del sistema"
-              desc="Comparar contra el Excel manual. Descargar reporte completo."
-              link={`${base}/validacion`}
-              cta="Ir"
-            />
+            {false && (
+              <Accion
+                icon={<Calculator className="h-4 w-4" />}
+                titulo="Simular antes de pagar (precálculo)"
+                desc="Si tienes dudas con un caso, simula sin tocar datos reales."
+                link={`${base}/precalculo`}
+                cta="Ir"
+              />
+            )}
+            {false && (
+              <Accion
+                icon={<CheckCircle2 className="h-4 w-4" />}
+                titulo="Validar cálculos del sistema"
+                desc="Comparar contra el Excel manual. Descargar reporte completo."
+                link={`${base}/validacion`}
+                cta="Ir"
+              />
+            )}
           </div>
         </Seccion>
 
@@ -284,12 +288,14 @@ export default async function GuiaPage({ params }: { params: Promise<{ empresaId
           subtitle="Resolución de problemas comunes"
         >
           <div className="space-y-3 p-4">
-            <Problema
-              problema="El cálculo no cuadra con mi reporte manual"
-              solucion="Abre Validación cálculos, descarga el Excel del sistema y compara línea por línea con tu Excel. Si el % difiere, revisa la matriz de esa alianza."
-              link={`${base}/validacion`}
-              cta="Ir a Validación"
-            />
+            {false && (
+              <Problema
+                problema="El cálculo no cuadra con mi reporte manual"
+                solucion="Abre Validación cálculos, descarga el Excel del sistema y compara línea por línea con tu Excel. Si el % difiere, revisa la matriz de esa alianza."
+                link={`${base}/validacion`}
+                cta="Ir a Validación"
+              />
+            )}
             <Problema
               problema="Una venta dice 'Sin config'"
               solucion="La alianza no tiene matriz configurada. Ve a Alianzas, abre la alianza, configura los % de Terrenos o YCD según corresponda."

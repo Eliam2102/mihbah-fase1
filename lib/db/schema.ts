@@ -12,6 +12,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ export const reglaEspecialAlianzaEnum = pgEnum('regla_especial_alianza', [
   'LGI_YCD_ACUMULA', // Comisiones YCD se acumulan, Kass define dispersión mes siguiente
 ])
 
-export const rolPortalEnum = pgEnum('rol_portal', ['LIDER_ALIANZA', 'ASESOR'])
+export const rolPortalEnum = pgEnum('rol_portal', ['LIDER_ALIANZA', 'ADMINISTRATIVO', 'ASESOR'])
 
 // Método con el que se le paga a cada líder (trazabilidad operativa).
 // Default EFECTIVO según práctica actual confirmada por cliente 2026-05-20.
@@ -1046,6 +1047,47 @@ export const matrizAlianzaProducto = pgTable(
   }),
 )
 
+// ─── Override de matriz por NIVEL de membresía ───────────────────────────────
+// La matriz base (matrizAlianzaProducto) = reparto SIN meta. Cuando la alianza
+// alcanza un nivel (ÓNIX/TURQUESA/JADE), el bono cambia cómo se divide la bolsa:
+// estas filas guardan la variante de reparto por nivel. El cliente las edita
+// (config-driven) sin tocar código. Si no hay override para el nivel del mes,
+// el motor usa la matriz base.
+export const matrizNivelOverride = pgTable(
+  'matriz_nivel_override',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    matrizId: uuid('matriz_id')
+      .notNull()
+      .references(() => matrizAlianzaProducto.id, { onDelete: 'cascade' }),
+    nivel: nivelAlianzaEnum('nivel').notNull(),
+    porcentajeAfiliacion: numeric('porcentaje_afiliacion', { precision: 5, scale: 2 }).notNull(),
+    porcentajeJorgeBolsa: numeric('porcentaje_jorge_bolsa', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    porcentajeKassBolsa: numeric('porcentaje_kass_bolsa', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    porcentajeDianaBolsa: numeric('porcentaje_diana_bolsa', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    activo: boolean('activo').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('matriz_override_tenant_idx').on(t.tenantId),
+    matrizNivelUnique: uniqueIndex('matriz_override_matriz_nivel_unique').on(
+      t.tenantId,
+      t.matrizId,
+      t.nivel,
+    ),
+  }),
+)
+
 // ─── Comisiones Calculadas ───────────────────────────────────────────────────
 // Snapshot del cálculo de comisión para una venta. Se recalcula si cambia enganchePagado.
 
@@ -1189,6 +1231,10 @@ export const ventasPagoCorte = pgTable(
     montoADispersar: numeric('monto_a_dispersar', { precision: 18, scale: 2 }).notNull(),
     // Notas de Joana para esta línea
     notasJoana: text('notas_joana'),
+    // Cómo y cuándo abonó el cliente (captura manual; opcional). El método de
+    // pago del beneficiario va en dispersiones/comprobantes, esto es del CLIENTE.
+    metodoPagoCliente: metodoPagoLiderEnum('metodo_pago_cliente'),
+    fechaPagoCliente: date('fecha_pago_cliente'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1237,6 +1283,11 @@ export const dispersiones = pgTable(
     acumulaMensual: boolean('acumula_mensual').notNull().default(false),
     fechaEstimadaPago: date('fecha_estimada_pago'),
     fechaPago: date('fecha_pago'),
+    // Pago/comprobante que cubrió esta dispersión (null si aún no pagada). Flujo Tesorería.
+    comprobanteId: uuid('comprobante_id').references((): AnyPgColumn => comprobantesPago.id, {
+      onDelete: 'set null',
+    }),
+    pagadoPor: text('pagado_por').references(() => users.id, { onDelete: 'set null' }),
     aprobadoPor: text('aprobado_por').references(() => users.id, { onDelete: 'set null' }),
     fechaAprobacion: timestamp('fecha_aprobacion', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -1352,6 +1403,39 @@ export const asesoresNiveles = pgTable(
   }),
 )
 
+// ─── Config de Niveles de Membresía (umbrales editables) ─────────────────────
+// Define, por (nivel, tipoProducto), el rango de promedio mensual de ventas que
+// otorga ese nivel y el % de bono. Hace el módulo de niveles dinámico: Joana
+// edita umbrales/bonos sin tocar código. umbralMax null = nivel tope (sin techo).
+export const nivelesMembresiaConfig = pgTable(
+  'niveles_membresia_config',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    nivel: nivelAlianzaEnum('nivel').notNull(),
+    tipoProducto: tipoProductoComisionEnum('tipo_producto').notNull(),
+    // Promedio mensual de ventas mínimo para alcanzar el nivel
+    umbralMin: numeric('umbral_min', { precision: 18, scale: 2 }).notNull(),
+    // Tope del rango (null = nivel más alto, sin techo)
+    umbralMax: numeric('umbral_max', { precision: 18, scale: 2 }),
+    // Bono % adicional al alcanzar el nivel
+    porcentajeBono: numeric('porcentaje_bono', { precision: 5, scale: 2 }).notNull().default('0'),
+    activo: boolean('activo').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('niveles_config_tenant_idx').on(t.tenantId),
+    nivelProductoUnique: uniqueIndex('niveles_config_nivel_producto_unique').on(
+      t.tenantId,
+      t.nivel,
+      t.tipoProducto,
+    ),
+  }),
+)
+
 // ─── Pautas Digitales (compromiso vs ejecutado) ──────────────────────────────
 // NO entra al cálculo de comisión. Métrica complementaria de compromiso de
 // marketing budget: Jade→$15k/mes, Turquesa→$10k/mes, Onix→$5k/mes (doc §1 y §2).
@@ -1396,6 +1480,9 @@ export const pautasDigitales = pgTable(
 // ─── Comprobantes de Pago ────────────────────────────────────────────────────
 // Archivos (PDF/imagen) que acreditan que se pagó una dispersión.
 
+// Evento de pago: un comprobante cubre el pago a UN beneficiario en UN corte
+// (puede abarcar varias dispersiones de ese beneficiario). Las dispersiones cubiertas
+// apuntan aquí vía dispersiones.comprobanteId. `dispersionId` queda legacy/nullable.
 export const comprobantesPago = pgTable(
   'comprobantes_pago',
   {
@@ -1403,9 +1490,17 @@ export const comprobantesPago = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
-    dispersionId: uuid('dispersion_id')
-      .notNull()
-      .references(() => dispersiones.id, { onDelete: 'restrict' }),
+    // Corte y beneficiario del pago (flujo Tesorería agrupado)
+    corteId: uuid('corte_id').references(() => cortesDispersion.id, { onDelete: 'restrict' }),
+    liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'set null' }),
+    asesorId: uuid('asesor_id').references(() => asesores.id, { onDelete: 'set null' }),
+    beneficiarioTipo: tipoBeneficiarioEnum('beneficiario_tipo'),
+    beneficiarioNombre: text('beneficiario_nombre'),
+    metodoPago: metodoPagoLiderEnum('metodo_pago'),
+    montoPagado: numeric('monto_pagado', { precision: 18, scale: 2 }),
+    fechaPago: date('fecha_pago'),
+    // Legacy: vínculo directo 1↔1 (marcado individual). Nullable desde flujo agrupado.
+    dispersionId: uuid('dispersion_id').references(() => dispersiones.id, { onDelete: 'restrict' }),
     nombre: text('nombre').notNull(),
     rutaArchivo: text('ruta_archivo').notNull(),
     mimeType: text('mime_type').notNull(),
@@ -1418,6 +1513,7 @@ export const comprobantesPago = pgTable(
   },
   (t) => ({
     dispersionIdx: index('comprobantes_dispersion_idx').on(t.dispersionId),
+    corteIdx: index('comprobantes_corte_idx').on(t.corteId),
     tenantIdx: index('comprobantes_tenant_idx').on(t.tenantId),
   }),
 )

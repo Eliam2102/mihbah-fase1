@@ -28,9 +28,10 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
         <div>
           <h1 className="text-foreground text-2xl font-bold">Sincronización Monday.com</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Importa ventas desde{' '}
-            <span className="text-foreground font-medium">todos los boards de Monday</span> — Ventas
-            2022, 2023, 2024, 2025, Seguimiento General y VENTAS 2026.
+            Por defecto importa solo{' '}
+            <span className="text-foreground font-medium">VENTAS 2026</span> (formato homologado).
+            Los boards históricos 2020-2025 siguen disponibles, pero no se sincronizan salvo que los
+            marques a propósito.
           </p>
         </div>
 
@@ -94,9 +95,10 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
       <div className="border-border bg-card rounded-xl border p-5">
         <p className="text-foreground mb-1 text-sm font-semibold">Ejecutar sincronización</p>
         <p className="text-muted-foreground mb-4 text-xs">
-          Selecciona uno o más boards de Monday para sincronizar. El sistema auto-detecta tus boards
-          disponibles y preselecciona los de ventas. Operación idempotente — no duplica registros.
-          Las comisiones solo se calculan para ventas <strong>Finalizadas</strong>.
+          El sistema auto-detecta tus boards y preselecciona solo <strong>VENTAS 2026</strong>.
+          Puedes agregar boards históricos manualmente (con advertencia). Operación idempotente — no
+          duplica registros. Las comisiones solo se calculan para ventas{' '}
+          <strong>Finalizadas</strong>.
         </p>
         <MondaySyncButton empresaId={empresaId} />
       </div>

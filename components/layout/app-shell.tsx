@@ -37,7 +37,7 @@ export function AppShell({
   }, [pathname])
 
   return (
-    <div className="bg-background flex h-screen overflow-hidden">
+    <div className="bg-background flex h-screen overflow-hidden" suppressHydrationWarning>
       {/* Mobile overlay */}
       <div
         className={cn(

@@ -7,7 +7,9 @@ import {
   getAniosVentasDisponibles,
   type GrupoEstado,
 } from '@/lib/services/ventas/ventas-listing.service'
+import { getAlianzasConfiguradas } from '@/lib/services/comisiones/alianzas.service'
 import { VentasListingView } from '@/components/ventas/ventas-listing-view'
+import { VentaCreateForm } from '@/components/ventas/venta-create-form'
 
 export const metadata = { title: 'Ventas BM CORP' }
 
@@ -44,7 +46,7 @@ export default async function VentasPage({
 
   const grupo: GrupoEstado = GRUPOS_VALIDOS.includes(sp.grupo as GrupoEstado)
     ? (sp.grupo as GrupoEstado)
-    : 'todas' // default: todas las ventas
+    : 'todas' // default: muestra todas las ventas por defecto
 
   const anioNum = sp.anio ? Number(sp.anio) : NaN
   const mesNum = sp.mes ? Number(sp.mes) : NaN
@@ -53,11 +55,14 @@ export default async function VentasPage({
   // Cargar años disponibles primero — usamos para validar el ?anio= recibido.
   // Si viene un año (típicamente del topbar global) que NO existe en ventas,
   // lo ignoramos para evitar resultado vacío sin razón obvia para el usuario.
-  const [alianzas, desarrollos, anios] = await Promise.all([
+  const [alianzas, desarrollos, anios, alianzasParaAlta] = await Promise.all([
     getAlianzasOptionsParaFiltro(tenantId, empresaId),
     getDesarrollosOptionsParaFiltro(tenantId, empresaId),
     getAniosVentasDisponibles(tenantId, empresaId),
+    // Solo alianzas configuradas (con matriz) — el alta liga la venta a una de ellas.
+    getAlianzasConfiguradas(tenantId),
   ])
+  const alianzasAltaOptions = alianzasParaAlta
 
   const anioValido = Number.isFinite(anioNum) && anios.includes(anioNum)
   const mesValido = Number.isFinite(mesNum) && mesNum >= 1 && mesNum <= 12
@@ -92,6 +97,14 @@ export default async function VentasPage({
 
   return (
     <section className="3xl:p-12 w-full space-y-6 p-4 sm:p-6 xl:p-10">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-foreground text-xl font-semibold">Ventas BM CORP</h1>
+      </div>
+      <VentaCreateForm
+        empresaId={empresaId}
+        alianzas={alianzasAltaOptions}
+        desarrollos={desarrollos}
+      />
       <VentasListingView
         empresaId={empresaId}
         result={result}

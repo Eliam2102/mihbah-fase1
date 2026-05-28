@@ -62,6 +62,10 @@ export async function marcarPagadoAction(
         .limit(1)
       if (!actual) throw new Error('Dispersión no encontrada')
 
+      if (actual.estado !== 'AUTORIZADA' && actual.estado !== 'PARCIAL') {
+        throw new Error('Solo se pueden pagar dispersiones en estado AUTORIZADA o PARCIAL')
+      }
+
       const total = Number(actual.montoTotal)
       const pago = montoPagado ?? total
       const yaPagado = Number(actual.montoPagado) + pago
@@ -264,11 +268,8 @@ export async function recalcularComisionAction(
 // ─── Forzar recálculo de una venta (sin cambiar enganche) ───────────────────
 // Solo permitido si la venta ya está en etapa finalizada.
 
-const ESTADOS_CON_COMISION_DISPERSIONES = [
-  'FINALIZADA',
-  'LIBERADO',
-  'FINALIZADO_Y_LIQUIDADO',
-] as const
+// LIBERADO NO: venta caída (cancelada), no genera comisión.
+const ESTADOS_CON_COMISION_DISPERSIONES = ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO'] as const
 
 export async function recalcularVentaAction(
   empresaId: string,
@@ -329,7 +330,7 @@ export async function recalcularTodasComisionesAction(
       .where(
         and(
           eq(ventasBmcorp.tenantId, tenantId),
-          inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'LIBERADO', 'FINALIZADO_Y_LIQUIDADO']),
+          inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
         ),
       )
 

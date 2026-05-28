@@ -108,8 +108,9 @@ export async function getKpisBmcorp(
       const monto = Number(r.monto)
       const count = Number(r.count)
 
-      // exclude only CANCELADA (venta caída definitiva); RECHAZADO = error admin subsanable, se incluye
-      if (r.estado !== 'CANCELADA') {
+      // Excluir ventas caídas: CANCELADA y LIBERADO (liberada = se cayó).
+      // RECHAZADO = error admin subsanable, sigue en proceso → se incluye.
+      if (r.estado !== 'CANCELADA' && r.estado !== 'LIBERADO') {
         result.totalVendido += monto
         result.totalVentas += count
       }
@@ -123,7 +124,6 @@ export async function getKpisBmcorp(
           result.enProceso.monto += monto
           break
         case 'APROBADO_JURIDICO':
-        case 'LIBERADO':
           result.aprobadoJuridico.count += count
           result.aprobadoJuridico.monto += monto
           break
@@ -133,6 +133,7 @@ export async function getKpisBmcorp(
           result.finalizada.monto += monto
           break
         case 'CANCELADA':
+        case 'LIBERADO': // venta liberada = caída, cuenta como cancelada
           result.cancelada.count += count
           result.cancelada.monto += monto
           break
@@ -937,10 +938,11 @@ export async function getSemaforoBmcorp(
     let comisionesMes = 0
 
     if (useDispersiones) {
-      // Sumamos la comisión bruta real calculada localmente
+      // Acumulado de la casa = OP BM Corp (1%) + OP Yesyucan (1%). Solo ventas
+      // que pagan comisión (FINALIZADA/FINALIZADO_Y_LIQUIDADO).
       const [row] = await tx
         .select({
-          total: sql<string>`COALESCE(SUM(${comisionesCalculadas.comisionBrutaTotal}), 0)::text`,
+          total: sql<string>`COALESCE(SUM(${comisionesCalculadas.montoOpBmcorp} + ${comisionesCalculadas.montoOpYesyucan}), 0)::text`,
         })
         .from(comisionesCalculadas)
         .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
@@ -948,6 +950,7 @@ export async function getSemaforoBmcorp(
           and(
             eq(comisionesCalculadas.tenantId, tenantId),
             eq(ventasBmcorp.empresaId, empresaId),
+            inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
             gte(ventasBmcorp.fecha, from),
             lte(ventasBmcorp.fecha, to),
           ),
@@ -976,7 +979,7 @@ export async function getSemaforoBmcorp(
         estado: 'VERDE',
         comisionesMes,
         label: 'Saludable',
-        descripcion: 'Comisión generada supera la meta mensual de $500K.',
+        descripcion: 'Comisión OP (BM Corp + Yesyucan) supera la meta mensual de $500K.',
         color: 'text-emerald-600 dark:text-emerald-400',
         bgColor: 'bg-emerald-500',
       }
@@ -986,7 +989,7 @@ export async function getSemaforoBmcorp(
         estado: 'AMARILLO',
         comisionesMes,
         label: 'Alerta',
-        descripcion: 'Comisión entre $300K y $500K. Por debajo de la meta.',
+        descripcion: 'Comisión OP (BM Corp + Yesyucan) entre $300K y $500K. Por debajo de la meta.',
         color: 'text-amber-600 dark:text-amber-400',
         bgColor: 'bg-amber-400',
       }
@@ -995,7 +998,7 @@ export async function getSemaforoBmcorp(
       estado: 'ROJO',
       comisionesMes,
       label: 'Crítico',
-      descripcion: 'Comisión por debajo de $300K. Revisar pipeline de ventas.',
+      descripcion: 'Comisión OP (BM Corp + Yesyucan) por debajo de $300K. Revisar pipeline.',
       color: 'text-red-600 dark:text-red-400',
       bgColor: 'bg-red-500',
     }

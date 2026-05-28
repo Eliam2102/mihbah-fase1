@@ -76,3 +76,15 @@ docs/screenshots/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Comprobantes de pago subidos (dev). Prod usa volumen Easypanel montado en COMPROBANTES_DIR.
+/.uploads/
+
+.uploads/
+
+# Respaldos de BD locales (no versionar — pesados, locales)
+/backups/
+
+# Documentos Word generados + locks temporales de Office
+/*.docx
+~$*
