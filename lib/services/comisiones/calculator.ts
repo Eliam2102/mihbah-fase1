@@ -115,9 +115,12 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
     ])
   }
 
-  // Descuento desarrolladora — default 5%. Aplica a TODOS los conceptos
-  // (BM Corp, YESYUCAN, Asesor, Líder, Socios) antes de cascada.
-  const descuentoPct = input.descuentoDesarrolladoraPct ?? 5
+  // Descuento desarrolladora — default 0%. Regla Joana (junta 2026-05-28):
+  // los montos por concepto son brutos (% × venta total), sin retención. El
+  // techo de cada línea es el bruto. Si en el futuro un desarrollo retiene un
+  // %, la reducción se aplica al monto DISPONIBLE para dispersar en cascada
+  // (en cortes.ts), no al techo de cada línea aquí.
+  const descuentoPct = input.descuentoDesarrolladoraPct ?? 0
   const factorDescuento = 1 - descuentoPct / 100
 
   // 1. Montos por concepto (BRUTOS, antes de descuento)

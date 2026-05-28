@@ -226,9 +226,10 @@ async function agregarVentaACorteTx(
   const cumPrevio = Number(prevAgg?.suma ?? 0)
   const cumNuevo = cumPrevio + p.montoPagadoCliente
 
-  // Las líneas padre ya tienen descuento aplicado; el pago se reduce por el mismo
-  // factor para casar montos (igual criterio que calculator.ts).
-  const descuentoPct = Number(venta.descuentoDesarrolladoraPct ?? 5)
+  // Descuento desarrolladora (default 0). Si > 0, reduce el monto DISPONIBLE para
+  // dispersar (lo que BM Corp recibe en caja del cliente), no los techos de cada
+  // línea. Regla Joana: cada línea cobra su % bruto sobre venta total.
+  const descuentoPct = Number(venta.descuentoDesarrolladoraPct ?? 0)
   const factor = 1 - descuentoPct / 100
 
   // CASCADA DE PRIORIDAD: lo que se libera con ESTE abono =

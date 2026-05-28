@@ -402,14 +402,16 @@ export const ventasBmcorp = pgTable(
     operativoApertura: text('operativo_apertura'),
     operativoCierre: text('operativo_cierre'),
     comisionBmcorp: numeric('comision_bmcorp', { precision: 18, scale: 2 }).default('0'),
-    // Descuento que aplica la desarrolladora antes de entregar a BM Corp.
-    // Por defecto 5% según práctica real validada con cliente. Editable por venta.
+    // Descuento que retiene la desarrolladora antes de entregar comisión a BM Corp.
+    // Default 0% — Joana dispersa montos brutos (1% × venta total, etc.). Si algún
+    // desarrollo en el futuro retiene un %, se configura por venta y la cascada
+    // reduce el monto disponible para dispersar (no los techos de cada línea).
     descuentoDesarrolladoraPct: numeric('descuento_desarrolladora_pct', {
       precision: 5,
       scale: 2,
     })
       .notNull()
-      .default('5'),
+      .default('0'),
     mondayBoardId: text('monday_board_id'),
 
     // Datos personales

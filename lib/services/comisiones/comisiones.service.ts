@@ -71,8 +71,9 @@ export async function calcularYPersistirComision(
   const montoVenta = Number(ventaRaw.monto ?? '0')
   const enganchePagado = Number(ventaRaw.enganche ?? '0')
   const porcentajeEnganche = montoVenta > 0 ? (enganchePagado / montoVenta) * 100 : 0
-  // Descuento desarrolladora — default 5% por venta. Joana puede ajustar.
-  const descuentoDesarrolladoraPct = Number(ventaRaw.descuentoDesarrolladoraPct ?? '5')
+  // Descuento desarrolladora — default 0% por venta (regla Joana). Configurable
+  // si algún desarrollo retiene un % específico.
+  const descuentoDesarrolladoraPct = Number(ventaRaw.descuentoDesarrolladoraPct ?? '0')
 
   const resultado = calcular({
     montoVenta,
