@@ -220,44 +220,69 @@ export default async function VentaDetalle({
           </div>
 
           <div className="bg-card overflow-hidden rounded-lg border">
-            <h2 className="border-b px-4 py-2 text-sm font-semibold">
-              Desglose por beneficiario ({lines.length} líneas)
-            </h2>
+            <div className="border-b px-4 py-3">
+              <h2 className="text-sm font-semibold">Distribución de Comisiones</h2>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                Resumen de cómo se divide la comisión de esta venta. El detalle de pagos, diferidos
+                y beneficiarios se gestiona en Tesorería.
+              </p>
+            </div>
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">Tipo</th>
-                  <th className="px-3 py-2 text-left font-medium">Beneficiario</th>
-                  <th className="px-3 py-2 text-right font-medium">Monto total</th>
-                  <th className="px-3 py-2 text-right font-medium">Pagado</th>
-                  <th className="px-3 py-2 text-right font-medium">Diferido</th>
-                  <th className="px-3 py-2 text-center font-medium">Estado</th>
-                  <th className="px-3 py-2 text-center font-medium">Acumula</th>
+                  <th className="px-4 py-2 text-left font-medium">Concepto</th>
+                  <th className="px-4 py-2 text-right font-medium">% de la Venta</th>
+                  <th className="px-4 py-2 text-right font-medium">Monto Asignado</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {lines.map((l) => (
-                  <tr key={l.id}>
-                    <td className="text-muted-foreground px-3 py-2 font-mono text-xs">
-                      {l.tipoBeneficiario}
-                    </td>
-                    <td className="px-3 py-2">{l.beneficiarioNombre}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmt(l.montoTotal)}</td>
-                    <td className="text-success px-3 py-2 text-right tabular-nums">
-                      {fmt(l.montoPagado)}
-                    </td>
-                    <td className="text-warning px-3 py-2 text-right tabular-nums">
-                      {fmt(l.montoDiferido)}
-                    </td>
-                    <td className="px-3 py-2 text-center text-xs">
-                      <EstadoBadge estado={l.estado} />
-                    </td>
-                    <td className="px-3 py-2 text-center text-xs">
-                      {l.acumulaMensual ? '✓ Mensual' : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {[
+                  { concepto: 'Operativa BM Corp', monto: Number(comision.montoOpBmcorp) },
+                  { concepto: 'Operativa YESYUCAN', monto: Number(comision.montoOpYesyucan) },
+                  { concepto: 'Afiliación / Alianza', monto: Number(comision.montoLiderSaldo) },
+                  { concepto: 'Asesor (Cobro directo)', monto: Number(comision.montoAsesor) },
+                  {
+                    concepto: 'Bolsa Comercial Socios',
+                    monto:
+                      Number(comision.montoSocioBolsaJorge) +
+                      Number(comision.montoSocioBolsaKass) +
+                      Number(comision.montoSocioBolsaDiana),
+                  },
+                  {
+                    concepto: 'Socios Fijos',
+                    monto:
+                      Number(comision.montoSocioFijoJorge) + Number(comision.montoSocioFijoKass),
+                  },
+                ]
+                  .filter((item) => item.monto > 0)
+                  .map((item, idx) => {
+                    const pct =
+                      Number(venta.monto) > 0 ? (item.monto / Number(venta.monto)) * 100 : 0
+                    return (
+                      <tr key={idx} className="hover:bg-muted/10 transition-colors">
+                        <td className="px-4 py-3 font-medium">{item.concepto}</td>
+                        <td className="text-muted-foreground px-4 py-3 text-right tabular-nums">
+                          {pct.toFixed(1).replace('.0', '')}%
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                          {fmt(item.monto)}
+                        </td>
+                      </tr>
+                    )
+                  })}
               </tbody>
+              <tfoot className="bg-muted/10 font-semibold">
+                <tr>
+                  <td className="px-4 py-3 text-left">
+                    Total de Comisiones ({((comisionBruta / Number(venta.monto)) * 100).toFixed(0)}
+                    %)
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums"></td>
+                  <td className="text-primary px-4 py-3 text-right tabular-nums">
+                    {fmt(comisionBruta)}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
 

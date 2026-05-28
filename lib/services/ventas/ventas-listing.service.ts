@@ -112,10 +112,16 @@ export async function listarVentas(
     await setTenant(tx, tenantId)
 
     // ── Construir WHERE base ────────────────────────────────────────────────
-    const conds = [eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)]
+    const conds = [
+      eq(ventasBmcorp.tenantId, tenantId),
+      eq(ventasBmcorp.empresaId, empresaId),
+      inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
+    ]
 
-    if (filter.grupo !== 'todas') {
-      conds.push(inArray(ventasBmcorp.estadoVenta, GRUPOS_ESTADOS[filter.grupo]))
+    // El filtro de grupo ya no aplica si forzamos a que solo sean FINALIZADAS,
+    // pero lo dejamos por compatibilidad de tipos (siempre serán finalizadas).
+    if (filter.grupo && filter.grupo !== 'todas' && filter.grupo === 'cerradas') {
+      conds.push(inArray(ventasBmcorp.estadoVenta, GRUPOS_ESTADOS.cerradas))
     }
 
     if (filter.anio) {
@@ -188,6 +194,7 @@ export async function listarVentas(
     const condsSinGrupo = [
       eq(ventasBmcorp.tenantId, tenantId),
       eq(ventasBmcorp.empresaId, empresaId),
+      inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
     ]
     if (filter.anio) {
       const campo =

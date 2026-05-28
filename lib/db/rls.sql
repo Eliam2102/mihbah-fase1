@@ -171,6 +171,38 @@ CREATE POLICY tenant_isolation ON nps_registros
   USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
   WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
 
+-- niveles_membresia_config
+ALTER TABLE niveles_membresia_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE niveles_membresia_config FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON niveles_membresia_config;
+CREATE POLICY tenant_isolation ON niveles_membresia_config
+  USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- matriz_nivel_override
+ALTER TABLE matriz_nivel_override ENABLE ROW LEVEL SECURITY;
+ALTER TABLE matriz_nivel_override FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON matriz_nivel_override;
+CREATE POLICY tenant_isolation ON matriz_nivel_override
+  USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- bonos_umbral_config
+ALTER TABLE bonos_umbral_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bonos_umbral_config FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON bonos_umbral_config;
+CREATE POLICY tenant_isolation ON bonos_umbral_config
+  USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
+-- bonos_umbral_calculados
+ALTER TABLE bonos_umbral_calculados ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bonos_umbral_calculados FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON bonos_umbral_calculados;
+CREATE POLICY tenant_isolation ON bonos_umbral_calculados
+  USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
 -- ─── Bypass for seeds/migrations ─────────────────────────────────────────────
 -- Run as superuser if you need to grant BYPASSRLS to the app role:
 --   ALTER ROLE mihbah BYPASSRLS;

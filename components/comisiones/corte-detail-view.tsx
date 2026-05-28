@@ -14,7 +14,6 @@ import {
   Banknote,
   User,
   Building2,
-  Percent,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -113,11 +112,44 @@ export default function CorteDetailView({
     desarrolloNombre: string | null
   } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchLote, setSearchLote] = useState('')
   const [selectedDesarrollo, setSelectedDesarrollo] = useState<string | null>(null)
+  const [porcentajeInput, setPorcentajeInput] = useState('')
   const [ajustando, setAjustando] = useState<string | null>(null)
   const [nuevoMonto, setNuevoMonto] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  const ventaTotal = selectedVentaInfo ? Number(selectedVentaInfo.monto) : 0
+
+  const handleMontoChange = (val: string) => {
+    setAddForm((f) => ({ ...f, montoPagadoCliente: val }))
+    if (val && !isNaN(Number(val)) && ventaTotal > 0) {
+      setPorcentajeInput(((Number(val) / ventaTotal) * 100).toFixed(2))
+    } else {
+      setPorcentajeInput('')
+    }
+  }
+
+  const handlePctChange = (val: string) => {
+    setPorcentajeInput(val)
+    if (val && !isNaN(Number(val)) && ventaTotal > 0) {
+      setAddForm((f) => ({
+        ...f,
+        montoPagadoCliente: ((Number(val) / 100) * ventaTotal).toFixed(2),
+      }))
+    } else {
+      setAddForm((f) => ({ ...f, montoPagadoCliente: '' }))
+    }
+  }
+
+  const resetModal = () => {
+    setShowAddVenta(false)
+    setSearchQuery('')
+    setSelectedDesarrollo(null)
+    setSelectedVentaInfo(null)
+    setPorcentajeInput('')
+    setAddForm({ ventaId: '', montoPagadoCliente: '', notasJoana: '' })
+    setAddError(null)
+  }
 
   const esBorrador = corte.estado === 'BORRADOR'
   const esEnRevision = corte.estado === 'EN_REVISION'
@@ -141,12 +173,7 @@ export default function CorteDetailView({
         setAddError(res.error)
         return
       }
-      setShowAddVenta(false)
-      setAddForm({ ventaId: '', montoPagadoCliente: '', notasJoana: '' })
-      setSelectedVentaInfo(null)
-      setSearchQuery('')
-      setSearchLote('')
-      setSelectedDesarrollo(null)
+      resetModal()
       router.refresh()
     })
   }
@@ -380,32 +407,23 @@ export default function CorteDetailView({
             ),
           ).sort()
 
-          // Filtrar ventas en tiempo real por los tres filtros independientes
           const filteredVentas = (ventasDisponibles ?? []).filter((v) => {
             if (selectedDesarrollo && v.desarrolloNombre !== selectedDesarrollo) return false
-            if (searchQuery.trim() !== '') {
+            if (searchQuery.trim()) {
               const q = searchQuery.toLowerCase().trim()
-              if (!v.cliente.toLowerCase().includes(q)) return false
-            }
-            if (searchLote.trim() !== '') {
-              const q = searchLote.toLowerCase().trim()
-              if (!v.loteAcciones?.toLowerCase().includes(q)) return false
+              const hits = [v.cliente, v.loteAcciones ?? '', v.desarrolloNombre ?? ''].some((s) =>
+                s.toLowerCase().includes(q),
+              )
+              if (!hits) return false
             }
             return true
           })
 
           return (
             <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md">
-              <div className="bg-card animate-scale-up relative flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-slate-200/80 p-6 shadow-2xl dark:border-slate-800/80">
+              <div className="bg-card animate-scale-up relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200/80 p-6 shadow-2xl dark:border-slate-800/80">
                 <button
-                  onClick={() => {
-                    setShowAddVenta(false)
-                    setSearchQuery('')
-                    setSearchLote('')
-                    setSelectedDesarrollo(null)
-                    setSelectedVentaInfo(null)
-                    setAddForm((f) => ({ ...f, ventaId: '' }))
-                  }}
+                  onClick={resetModal}
                   className="text-muted-foreground hover:text-foreground absolute top-4 right-4 rounded-lg p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <X className="h-4 w-4" />
@@ -456,62 +474,35 @@ export default function CorteDetailView({
                     </div>
                   </div>
 
-                  {/* Búsqueda por Cliente y Lote */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-muted-foreground mb-1 block text-[10px] font-bold tracking-wider uppercase">
-                        Cliente
-                      </label>
-                      <div className="relative">
-                        <User className="text-muted-foreground/60 absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => {
-                            setSearchQuery(e.target.value)
-                            // Si cambia la búsqueda, deseleccionamos la venta activa si ya no coincide
-                            if (selectedVentaInfo && !e.target.value) {
-                              setAddForm((f) => ({ ...f, ventaId: '' }))
-                              setSelectedVentaInfo(null)
-                            }
-                          }}
-                          placeholder="Nombre de cliente..."
-                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-1.5 pr-8 pl-8 text-xs transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                        />
-                        {searchQuery && (
-                          <button
-                            type="button"
-                            onClick={() => setSearchQuery('')}
-                            className="text-muted-foreground/60 hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-muted-foreground mb-1 block text-[10px] font-bold tracking-wider uppercase">
-                        Lote
-                      </label>
-                      <div className="relative">
-                        <Percent className="text-muted-foreground/60 absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          value={searchLote}
-                          onChange={(e) => setSearchLote(e.target.value)}
-                          placeholder="Ej: L-40..."
-                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-1.5 pr-8 pl-8 text-xs transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                        />
-                        {searchLote && (
-                          <button
-                            type="button"
-                            onClick={() => setSearchLote('')}
-                            className="text-muted-foreground/60 hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
+                  {/* Buscador unificado: Cliente, Lote o Desarrollo */}
+                  <div>
+                    <label className="text-muted-foreground mb-1 block text-[10px] font-bold tracking-wider uppercase">
+                      Buscar Venta
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value)
+                          if (selectedVentaInfo && !e.target.value) {
+                            setAddForm((f) => ({ ...f, ventaId: '', montoPagadoCliente: '' }))
+                            setPorcentajeInput('')
+                            setSelectedVentaInfo(null)
+                          }
+                        }}
+                        placeholder="Buscar por cliente, lote o desarrollo..."
+                        className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-4 py-2 pr-8 text-sm transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery('')}
+                          className="text-muted-foreground/60 hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -578,7 +569,8 @@ export default function CorteDetailView({
                 </div>
 
                 {/* Formulario de Pago de la Venta Seleccionada */}
-                {selectedVentaInfo && (
+                {/* Formulario de Pago de la Venta Seleccionada o Estado Vacío */}
+                {selectedVentaInfo ? (
                   <div className="animate-slide-up mt-4 shrink-0 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
                     <div className="flex items-center justify-between rounded-xl border border-emerald-500/10 bg-emerald-500/[0.03] p-3 text-xs">
                       <div>
@@ -589,7 +581,7 @@ export default function CorteDetailView({
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-muted-foreground font-semibold">Monto venta</p>
+                        <p className="text-muted-foreground font-semibold">Valor total</p>
                         <p className="font-extrabold text-emerald-600 dark:text-emerald-400">
                           {fmt(Number(selectedVentaInfo.monto))}
                         </p>
@@ -599,45 +591,94 @@ export default function CorteDetailView({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                          Monto pagado por cliente ($MXN)
+                          Monto pagado ($MXN)
                         </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={addForm.montoPagadoCliente}
-                          onChange={(e) =>
-                            setAddForm((f) => ({ ...f, montoPagadoCliente: e.target.value }))
-                          }
-                          placeholder="0.00"
-                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                        />
-                        {addForm.montoPagadoCliente && (
-                          <p className="mt-1 animate-pulse text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                            Equivale al{' '}
-                            {(
-                              (Number(addForm.montoPagadoCliente) /
-                                Number(selectedVentaInfo.monto)) *
-                              100
-                            ).toFixed(2)}
-                            % del total.
-                          </p>
-                        )}
+                        <div className="relative">
+                          <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-sm font-semibold">
+                            $
+                          </span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={addForm.montoPagadoCliente}
+                            onChange={(e) => handleMontoChange(e.target.value)}
+                            placeholder="0.00"
+                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-3 pl-7 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                          Notas (opcional)
+                          Porcentaje del total (%)
                         </label>
-                        <input
-                          type="text"
-                          value={addForm.notasJoana}
-                          onChange={(e) =>
-                            setAddForm((f) => ({ ...f, notasJoana: e.target.value }))
-                          }
-                          placeholder="Abono o enganche..."
-                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-1 focus:outline-none dark:border-slate-800"
-                        />
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={porcentajeInput}
+                            onChange={(e) => handlePctChange(e.target.value)}
+                            placeholder="0.00"
+                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-8 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                          />
+                          <span className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-sm font-semibold">
+                            %
+                          </span>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    {addForm.montoPagadoCliente && ventaTotal > 0 && (
+                      <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 dark:border-emerald-800/30 dark:bg-emerald-900/10">
+                        <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <span>Progreso del pago abonado</span>
+                          <span>
+                            {Math.min(
+                              (Number(addForm.montoPagadoCliente) / ventaTotal) * 100,
+                              100,
+                            ).toFixed(1)}
+                            %
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-emerald-200/50 dark:bg-emerald-900/50">
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                            style={{
+                              width: `${Math.min((Number(addForm.montoPagadoCliente) / ventaTotal) * 100, 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-muted-foreground mb-1 block text-xs font-semibold">
+                        Notas (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={addForm.notasJoana}
+                        onChange={(e) => setAddForm((f) => ({ ...f, notasJoana: e.target.value }))}
+                        placeholder="Ej: Abono, enganche, liquidación..."
+                        className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-1 focus:outline-none dark:border-slate-800"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-8 text-center dark:border-slate-800">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                      <Banknote className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Selecciona una venta
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Usa el buscador para filtrar y elegir la venta a abonar.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -651,14 +692,7 @@ export default function CorteDetailView({
                 <div className="mt-5 flex shrink-0 justify-end gap-3 border-t pt-3 dark:border-slate-800">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowAddVenta(false)
-                      setSearchQuery('')
-                      setSearchLote('')
-                      setSelectedDesarrollo(null)
-                      setSelectedVentaInfo(null)
-                      setAddForm((f) => ({ ...f, ventaId: '' }))
-                    }}
+                    onClick={resetModal}
                     className="text-muted-foreground rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium transition-all hover:bg-slate-200/80 active:scale-[0.98] dark:bg-slate-800 dark:hover:bg-slate-700/80"
                   >
                     Cancelar

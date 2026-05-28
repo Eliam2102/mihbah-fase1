@@ -273,6 +273,12 @@ export default async function ComisionesLanding({
           label="Niveles membresía"
           count="Jade · Turquesa · Ónix"
         />
+        <SecondaryLink
+          href={`/empresa/${empresaId}/comisiones/bonos`}
+          icon={<Calculator className="h-3.5 w-3.5" />}
+          label="Bonos por umbral"
+          count="Flamingo · Diana · custom"
+        />
 
         {/*
         <SecondaryLink

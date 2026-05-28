@@ -146,6 +146,29 @@ export const metodoPagoLiderEnum = pgEnum('metodo_pago_lider', [
   'OTRO',
 ])
 
+// Grupo al que pertenece una desarrolladora. Base de las reglas de bono umbral
+// (Flamingo, Hackers/Diana, etc.). YCD = Yucandoit acciones; ARKA + RH = grupos
+// terrenos; OTRO = cualquier otra desarrolladora externa.
+export const grupoDesarrolladoraEnum = pgEnum('grupo_desarrolladora', ['YCD', 'ARKA', 'RH', 'OTRO'])
+
+// Tipo de fuente para una regla de bono. PROPIA = sobre ventas del afiliado
+// destinatario; OVERRIDE_AFILIADO = sobre ventas de otro afiliado (Diana sobre
+// Flamingo es el caso real).
+export const tipoFuenteBonoEnum = pgEnum('tipo_fuente_bono', ['PROPIA', 'OVERRIDE_AFILIADO'])
+
+// Fórmula para calcular el bono cuando se cruza el umbral mensual. Los PDFs
+// de Flamingo y Hackers/Diana tienen ejemplos ambiguos — esta enum permite a
+// Joana/Carla escoger la fórmula correcta sin tocar código.
+//   EXCEDENTE          → bono = bonoPct × max(0, totalAcumulado − umbral)
+//   TOTAL_GRUPOS_APLICA → bono = bonoPct × suma(ventas en gruposAplicaBono)
+//                         (sólo si totalAcumulado > umbral)
+//   EXCEDENTE_CAP_GRUPOS → bono = bonoPct × min(excedente, suma(gruposAplicaBono))
+export const formulaBonoEnum = pgEnum('formula_bono_umbral', [
+  'EXCEDENTE',
+  'TOTAL_GRUPOS_APLICA',
+  'EXCEDENTE_CAP_GRUPOS',
+])
+
 // ─── Tenants ─────────────────────────────────────────────────────────────────
 
 export const tenants = pgTable('tenants', {
@@ -747,6 +770,9 @@ export const desarrollos = pgTable(
       .references(() => tenants.id, { onDelete: 'cascade' }),
     nombre: text('nombre').notNull(),
     desarrolladora: text('desarrolladora'),
+    // Grupo al que pertenece la desarrolladora — alimenta las reglas de bono
+    // umbral (Flamingo, Diana). Default OTRO; Joana clasifica desde UI.
+    grupoDesarrolladora: grupoDesarrolladoraEnum('grupo_desarrolladora').notNull().default('OTRO'),
     activo: boolean('activo').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1576,5 +1602,119 @@ export const npsRegistros = pgTable(
       t.anio,
       t.trimestre,
     ),
+  }),
+)
+
+// ─── Bonos por umbral mensual (Flamingo, Hackers/Diana) ──────────────────────
+// Reglas config-driven para que Joana/Carla añadan acuerdos especiales sin
+// tocar código. Casos reales validados con PDFs de abril 2026:
+//   • Flamingo (Alberto López): 11% base ARKA+RH + 0.5% sobre excedente al
+//     cruzar $10M acumulados (YCD+ARKA+RH del afiliado en el mes).
+//   • Hackers (Diana) F1: 12% base + 0.5% sobre excedente al cruzar $10M.
+//   • Hackers (Diana) F2: 1% override sobre TODAS las ventas de Flamingo +
+//     0.5% sobre excedente ARKA+RH al cruzar $10M de Flamingo.
+//
+// El bono umbral se paga a más tardar el día 15 del mes siguiente al cierre.
+
+export const bonosUmbralConfig = pgTable(
+  'bonos_umbral_config',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    // Etiqueta humana ("Flamingo umbral 10M", "Diana override Flamingo")
+    nombre: text('nombre').notNull(),
+    // Afiliado que RECIBE el bono / override
+    afiliadoDestinatarioId: uuid('afiliado_destinatario_id')
+      .notNull()
+      .references(() => afiliados.id, { onDelete: 'cascade' }),
+    tipoFuente: tipoFuenteBonoEnum('tipo_fuente').notNull(),
+    // Afiliado cuyas ventas alimentan el cálculo (NULL si PROPIA = mismo destinatario)
+    afiliadoOrigenId: uuid('afiliado_origen_id').references(() => afiliados.id, {
+      onDelete: 'restrict',
+    }),
+    // % override sobre TODAS las ventas del afiliadoOrigen (caso Diana 1% sobre
+    // Flamingo). NULL si PROPIA (no hay override, sólo bono al cruzar umbral).
+    overridePct: numeric('override_pct', { precision: 5, scale: 2 }),
+    // Umbral acumulado mensual (USD/MXN) que dispara el bono extra
+    umbralAcumuladoMensual: numeric('umbral_acumulado_mensual', {
+      precision: 18,
+      scale: 2,
+    }).notNull(),
+    bonoPct: numeric('bono_pct', { precision: 5, scale: 2 }).notNull(),
+    // Grupos cuyas ventas SUMAN al acumulado (ej. ['YCD','ARKA','RH'])
+    gruposAcumulan: jsonb('grupos_acumulan').notNull(),
+    // Grupos sobre los que se calcula el bono % (ej. ['ARKA','RH'] — excluye YCD)
+    gruposAplicaBono: jsonb('grupos_aplica_bono').notNull(),
+    // Fórmula a usar — default EXCEDENTE (caso Diana, más conservador). Joana
+    // la cambia desde UI por regla si necesita otra interpretación.
+    formulaCalculo: formulaBonoEnum('formula_calculo').notNull().default('EXCEDENTE'),
+    activo: boolean('activo').notNull().default(true),
+    vigenteDesde: date('vigente_desde').notNull(),
+    vigenteHasta: date('vigente_hasta'),
+    notas: text('notas'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('bonos_umbral_config_tenant_idx').on(t.tenantId),
+    destinatarioIdx: index('bonos_umbral_config_destinatario_idx').on(
+      t.tenantId,
+      t.afiliadoDestinatarioId,
+    ),
+    activoIdx: index('bonos_umbral_config_activo_idx').on(t.tenantId, t.activo),
+  }),
+)
+
+// Snapshot del cálculo mensual. Una fila por (config × año × mes). Idempotente.
+export const bonosUmbralCalculados = pgTable(
+  'bonos_umbral_calculados',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    configId: uuid('config_id')
+      .notNull()
+      .references(() => bonosUmbralConfig.id, { onDelete: 'cascade' }),
+    anio: integer('anio').notNull(),
+    mes: integer('mes').notNull(),
+    // Volumen agregado por grupo (snapshot del momento del cálculo)
+    ventasYcd: numeric('ventas_ycd', { precision: 18, scale: 2 }).notNull().default('0'),
+    ventasArka: numeric('ventas_arka', { precision: 18, scale: 2 }).notNull().default('0'),
+    ventasRh: numeric('ventas_rh', { precision: 18, scale: 2 }).notNull().default('0'),
+    ventasOtro: numeric('ventas_otro', { precision: 18, scale: 2 }).notNull().default('0'),
+    totalAcumulado: numeric('total_acumulado', { precision: 18, scale: 2 }).notNull(),
+    // Excedente sobre el umbral (max(0, totalAcumulado − umbral))
+    excedente: numeric('excedente', { precision: 18, scale: 2 }).notNull().default('0'),
+    // Componente override (1% × ventas del origen, sólo si OVERRIDE_AFILIADO)
+    montoOverride: numeric('monto_override', { precision: 18, scale: 2 }).notNull().default('0'),
+    // Componente bono umbral (bonoPct × excedente aplicable a gruposAplicaBono)
+    montoBono: numeric('monto_bono', { precision: 18, scale: 2 }).notNull().default('0'),
+    montoTotal: numeric('monto_total', { precision: 18, scale: 2 }).notNull(),
+    // Corte donde se va a pagar (NULL hasta que Joana lo agregue al corte)
+    corteId: uuid('corte_id').references(() => cortesDispersion.id, { onDelete: 'set null' }),
+    pagado: boolean('pagado').notNull().default(false),
+    fechaPago: date('fecha_pago'),
+    notas: text('notas'),
+    calculadoEn: timestamp('calculado_en', { withTimezone: true }).notNull().defaultNow(),
+    calculadoPor: text('calculado_por').references(() => users.id, { onDelete: 'set null' }),
+    // Comprobante de pago del bono (FK a comprobantesPago, nullable hasta pagar)
+    comprobanteId: uuid('comprobante_id').references(() => comprobantesPago.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('bonos_umbral_calc_tenant_idx').on(t.tenantId),
+    configPeriodoUnique: uniqueIndex('bonos_umbral_calc_config_periodo_unique').on(
+      t.tenantId,
+      t.configId,
+      t.anio,
+      t.mes,
+    ),
+    corteIdx: index('bonos_umbral_calc_corte_idx').on(t.corteId),
   }),
 )
