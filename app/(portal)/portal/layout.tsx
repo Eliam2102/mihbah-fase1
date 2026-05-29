@@ -33,7 +33,7 @@ export default async function PortalLayout({ children }: { children: React.React
     : ''
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="bg-background min-h-screen" suppressHydrationWarning>
       <header className="bg-card/80 sticky top-0 z-20 border-b backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/portal/dashboard" className="group flex items-center gap-2.5">
@@ -100,7 +100,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">{children}</main>
 
       <footer className="text-muted-foreground border-t py-6 text-center text-xs">
-        SIG Jade · Universo Jade · {new Date().getFullYear()}
+        SIG Jade · Universo Jade · 2026
       </footer>
     </div>
   )

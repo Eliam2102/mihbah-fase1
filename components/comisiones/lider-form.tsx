@@ -16,7 +16,7 @@ const NIVELES = [
 const METODOS_PAGO = [
   { value: 'EFECTIVO', label: 'Efectivo' },
   { value: 'DEPOSITO', label: 'Depósito' },
-  { value: 'TRANSFERENCIA', label: 'Transferencia' },
+  { value: 'TRANSFERENCIA', label: 'Depósito / Transferencia' },
   { value: 'OTRO', label: 'Otro' },
 ] as const
 

@@ -1,7 +1,7 @@
 import { requirePortalUser } from '@/lib/auth/portal-helpers'
 import {
   getComisionesPortalAsesor,
-  getComisionesPortalLider,
+  getVentasPortalLider,
   getAsesoresPortalLider,
 } from '@/lib/services/comisiones/portal.service'
 import { DashboardAsesor } from '@/components/portal/dashboard-asesor'
@@ -18,16 +18,9 @@ export default async function PortalDashboard() {
     return <DashboardAsesor perfil={perfil} dispersiones={dispersiones} userName={userName} />
   }
 
-  const [dispersiones, asesores] = await Promise.all([
-    getComisionesPortalLider(user.id),
+  const [ventas, asesores] = await Promise.all([
+    getVentasPortalLider(user.id),
     getAsesoresPortalLider(user.id),
   ])
-  return (
-    <DashboardLider
-      perfil={perfil}
-      dispersiones={dispersiones}
-      asesores={asesores}
-      userName={userName}
-    />
-  )
+  return <DashboardLider perfil={perfil} ventas={ventas} asesores={asesores} userName={userName} />
 }

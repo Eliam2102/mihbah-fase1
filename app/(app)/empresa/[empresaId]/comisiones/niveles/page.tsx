@@ -4,7 +4,7 @@ import { getLideres, getAfiliados } from '@/lib/services/comisiones/alianzas.ser
 import { db } from '@/lib/db'
 import { ventasBmcorp } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { ArrowLeft, Info, Award, Sparkles, ShieldCheck, Flame, Compass } from 'lucide-react'
 import { NivelesView } from '@/components/comisiones/niveles-view'
@@ -22,15 +22,18 @@ export default async function NivelesPage({ params }: { params: Promise<{ empres
     getAfiliados(tenantId, false),
   ])
 
-  // Promedio mensual de ventas últimos 3 meses por alianza
+  // Ventas del mes actual por alianza — determina si aplica bono este mes.
+  // El motor usa la fecha de cada venta; la UI muestra el mes en curso.
   const hoy = new Date()
-  const desde = new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1).toISOString().slice(0, 10)
+  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10)
+  const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().slice(0, 10)
+
   const ventasPorAfiliado = await db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
     return tx
       .select({
         afiliadoId: ventasBmcorp.afiliadoId,
-        promedioMensual: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}) / 3, 0)::text`,
+        ventasMes: sql<string>`COALESCE(SUM(${ventasBmcorp.monto}), 0)::text`,
         ventas: sql<number>`COUNT(*)::int`,
       })
       .from(ventasBmcorp)
@@ -38,23 +41,23 @@ export default async function NivelesPage({ params }: { params: Promise<{ empres
         and(
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
-          gte(ventasBmcorp.fecha, desde),
+          inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
+          gte(ventasBmcorp.fecha, inicioMes),
+          lte(ventasBmcorp.fecha, finMes),
         ),
       )
       .groupBy(ventasBmcorp.afiliadoId)
   })
 
   const afiliadoMap = new Map(afiliados.map((a) => [a.id, a.nombre]))
-  const promedioMap = new Map(
-    ventasPorAfiliado.map((v) => [v.afiliadoId, Number(v.promedioMensual)]),
-  )
+  const ventasMesMap = new Map(ventasPorAfiliado.map((v) => [v.afiliadoId, Number(v.ventasMes)]))
 
   const data = lideres.map((l) => ({
     id: l.id,
     nombre: l.nombre,
     alianzaNombre: afiliadoMap.get(l.afiliadoId) ?? 'Sin alianza',
     nivelActual: l.nivel,
-    promedioMensual: promedioMap.get(l.afiliadoId) ?? 0,
+    promedioMensual: ventasMesMap.get(l.afiliadoId) ?? 0,
   }))
 
   return (

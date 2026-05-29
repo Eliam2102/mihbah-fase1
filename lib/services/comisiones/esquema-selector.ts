@@ -130,10 +130,12 @@ export async function resolverParaVenta(
   if (!ventaConDev) return null
   const venta = ventaConDev.venta
 
-  // Tipo producto = por desarrolladora (fuente de verdad), fallback heurística vieja
-  const tipoProducto = ventaConDev.desarrolladora
-    ? detectarTipoProductoPorDesarrolladora(ventaConDev.desarrolladora)
-    : detectarTipoProducto(venta)
+  // Tipo producto: override manual > desarrolladora > heurística fallback
+  const tipoProducto: TipoProductoStr =
+    venta.tipoProductoOverride ??
+    (ventaConDev.desarrolladora
+      ? detectarTipoProductoPorDesarrolladora(ventaConDev.desarrolladora)
+      : detectarTipoProducto(venta))
   const fechaRef = venta.fechaApertura ? new Date(venta.fechaApertura) : new Date()
 
   // 2. Esquema global activo para ese tipoProducto en la fecha de la venta

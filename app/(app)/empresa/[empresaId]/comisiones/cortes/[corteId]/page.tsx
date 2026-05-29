@@ -9,7 +9,7 @@ import {
   desarrollos,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, gt, inArray } from 'drizzle-orm'
 import CorteDetailView from '@/components/comisiones/corte-detail-view'
 import { notFound } from 'next/navigation'
 
@@ -73,11 +73,18 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
         ),
       )
 
-    // Dispersiones del corte
+    // Dispersiones del corte — solo las que tienen monto > 0 (las $0 son las que
+    // la cascada no alcanzó en este abono pero se crearon como placeholder)
     const disps = await tx
       .select()
       .from(dispersiones)
-      .where(and(eq(dispersiones.tenantId, tenantId), eq(dispersiones.corteId, corteId)))
+      .where(
+        and(
+          eq(dispersiones.tenantId, tenantId),
+          eq(dispersiones.corteId, corteId),
+          gt(dispersiones.montoTotal, '0'),
+        ),
+      )
 
     return { corte, pagos, dispersiones: disps, ventasDisponibles }
   })

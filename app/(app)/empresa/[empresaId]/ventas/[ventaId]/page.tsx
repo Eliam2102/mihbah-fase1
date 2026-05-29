@@ -10,6 +10,7 @@ import {
   users,
   ventasPagoCorte,
   cortesDispersion,
+  desarrollos,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, eq, isNull, sql, not } from 'drizzle-orm'
@@ -19,6 +20,7 @@ import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react'
 import { RecalcularBoton } from '@/components/comisiones/recalcular-boton'
 import { VentaEditForm } from '@/components/ventas/venta-edit-form'
 import { RegistrarAbonoForm } from '@/components/ventas/registrar-abono-form'
+import { HistorialAbonos } from '@/components/ventas/historial-abonos'
 import { getCortesBorradorAction, getProximosDiasCorte } from '@/app/actions/cortes'
 
 export default async function VentaDetalle({
@@ -38,10 +40,12 @@ export default async function VentaDetalle({
         venta: ventasBmcorp,
         afiliado: afiliados.nombre,
         editorNombre: users.name,
+        desarrolladora: desarrollos.desarrolladora,
       })
       .from(ventasBmcorp)
       .leftJoin(afiliados, eq(ventasBmcorp.afiliadoId, afiliados.id))
       .leftJoin(users, eq(ventasBmcorp.editadoPor, users.id))
+      .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
       .where(and(eq(ventasBmcorp.tenantId, tenantId), eq(ventasBmcorp.id, ventaId)))
       .limit(1)
     if (!venta) return null
@@ -95,6 +99,7 @@ export default async function VentaDetalle({
       venta: venta.venta,
       afiliadoNombre: venta.afiliado,
       editorNombre: venta.editorNombre,
+      desarrolladora: venta.desarrolladora,
       comision,
       lines,
       pagosCorte,
@@ -103,8 +108,23 @@ export default async function VentaDetalle({
   })
 
   if (!data) notFound()
-  const { venta, afiliadoNombre, editorNombre, comision, lines, pagosCorte, childDispersiones } =
-    data
+  const {
+    venta,
+    afiliadoNombre,
+    editorNombre,
+    desarrolladora,
+    comision,
+    lines,
+    pagosCorte,
+    childDispersiones,
+  } = data
+
+  // Tipo detectado automáticamente (para mostrar en el form)
+  const { detectarTipoProductoPorDesarrolladora, detectarTipoProducto } =
+    await import('@/lib/services/comisiones/esquema-selector')
+  const tipoProductoDetectado = desarrolladora
+    ? detectarTipoProductoPorDesarrolladora(desarrolladora)
+    : detectarTipoProducto(venta)
   const fmt = (n: string | number) =>
     Number(n).toLocaleString('es-MX', {
       style: 'currency',
@@ -128,6 +148,36 @@ export default async function VentaDetalle({
     .reduce((s, d) => s + Number(d.montoTotal), 0)
   const comisionBruta = comision ? Number(comision.comisionBrutaTotal) : 0
   const pctComisionAutorizada = comisionBruta > 0 ? (comisionAutorizada / comisionBruta) * 100 : 0
+
+  // Agrega montoPagado REAL por tipo desde hija dispersiones (padre siempre tiene 0).
+  // Joana puede pagar en cualquier orden — lo que importa es la suma acumulada.
+  const pagadoPorTipo = new Map<string, number>()
+  for (const d of childDispersiones) {
+    if (Number(d.montoPagado) > 0) {
+      const prev = pagadoPorTipo.get(d.tipoBeneficiario) ?? 0
+      pagadoPorTipo.set(d.tipoBeneficiario, prev + Number(d.montoPagado))
+    }
+  }
+  // Estado derivado por tipo — 4 estados:
+  // DIFERIDO   = sin fondos del cliente asignados (esperando próximo pago)
+  // AUTORIZADA = en corte aprobado, tesorería debe marcar pagado
+  // PARCIAL    = pagado algo, falta el resto
+  // PAGADO     = completamente pagado y entregado
+  const estadoPorTipo = (tipo: string, montoTotal: number): string => {
+    const pagado = pagadoPorTipo.get(tipo) ?? 0
+    if (pagado >= montoTotal - 0.01) return 'PAGADO'
+    if (pagado > 0) return 'PARCIAL'
+    // Tiene hija con monto > 0 en corte aprobado → AUTORIZADA
+    const tieneAutorizada = childDispersiones.some(
+      (d) =>
+        d.tipoBeneficiario === tipo &&
+        Number(d.montoTotal) > 0 &&
+        ['AUTORIZADA', 'PARCIAL'].includes(d.estado),
+    )
+    if (tieneAutorizada) return 'AUTORIZADA'
+    // Todo lo demás: sin fondos asignados → DIFERIDO
+    return 'DIFERIDO'
+  }
 
   // Abono solo tiene sentido si hay comisión calculada (con config) que dispersar.
   const puedeAbonar = Boolean(comision) && !comision?.sinConfig
@@ -172,6 +222,8 @@ export default async function VentaDetalle({
           loteAcciones: venta.loteAcciones,
           asesor: venta.asesor,
           notasInternas: venta.notasInternas,
+          tipoProductoDetectado,
+          tipoProductoOverride: venta.tipoProductoOverride,
           editadoEnSistema: venta.editadoEnSistema,
           editadoPorNombre: editorNombre,
           editadoEn: venta.editadoEn ? venta.editadoEn.toISOString() : null,
@@ -268,64 +320,45 @@ export default async function VentaDetalle({
           </div>
 
           {pagosCorte.length > 0 && (
-            <div className="bg-card overflow-hidden rounded-lg border">
-              <h2 className="border-b px-4 py-2 text-sm font-semibold">
-                Historial de abonos ({pagosCorte.length})
-              </h2>
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">Corte</th>
-                    <th className="px-3 py-2 text-right font-medium">Abono cliente</th>
-                    <th className="px-3 py-2 text-right font-medium">% venta</th>
-                    <th className="px-3 py-2 text-right font-medium">Comisión dispersada</th>
-                    <th className="px-3 py-2 text-center font-medium">Estado</th>
-                    <th className="px-3 py-2 text-left font-medium">Notas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {pagosCorte.map(({ pago, corte }) => {
-                    const estadoMap: Record<string, string> = {
-                      BORRADOR: 'bg-muted text-muted-foreground',
-                      EN_REVISION: 'bg-purple-100 text-purple-800',
-                      APROBADO: 'bg-emerald-100 text-emerald-800',
-                      RECHAZADO: 'bg-rose-100 text-rose-800',
-                    }
-                    return (
-                      <tr key={pago.id} className="hover:bg-muted/10 transition-colors">
-                        <td className="px-3 py-2 font-mono text-xs">
-                          <Link
-                            href={`/empresa/${empresaId}/comisiones/cortes/${corte.id}`}
-                            className="text-primary font-semibold hover:underline"
-                          >
-                            {corte.fechaCorte} {corte.tipoDia}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-2 text-right font-medium tabular-nums">
-                          {fmt(pago.montoPagadoCliente)}
-                        </td>
-                        <td className="text-muted-foreground px-3 py-2 text-right tabular-nums">
-                          {Number(pago.porcentajePagado).toFixed(2)}%
-                        </td>
-                        <td className="text-success px-3 py-2 text-right font-semibold tabular-nums">
-                          {fmt(pago.montoADispersar)}
-                        </td>
-                        <td className="px-3 py-2 text-center text-xs">
-                          <span
-                            className={`rounded-full px-2 py-0.5 font-medium ${estadoMap[corte.estado] ?? 'bg-muted'}`}
-                          >
-                            {corte.estado}
-                          </span>
-                        </td>
-                        <td className="text-muted-foreground max-w-[200px] truncate px-3 py-2 text-xs">
-                          {pago.notasJoana ?? '—'}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <HistorialAbonos
+              empresaId={empresaId}
+              lineasPlan={lines.map((d) => {
+                const pagadoReal = pagadoPorTipo.get(d.tipoBeneficiario) ?? 0
+                return {
+                  id: d.id,
+                  tipoBeneficiario: d.tipoBeneficiario,
+                  beneficiarioNombre: d.beneficiarioNombre,
+                  montoTotal: d.montoTotal,
+                  montoPagado: String(pagadoReal),
+                  estado: estadoPorTipo(d.tipoBeneficiario, Number(d.montoTotal)),
+                }
+              })}
+              pagos={pagosCorte.map(({ pago, corte }) => ({
+                pago: {
+                  id: pago.id,
+                  montoPagadoCliente: pago.montoPagadoCliente,
+                  porcentajePagado: pago.porcentajePagado,
+                  montoADispersar: pago.montoADispersar,
+                  notasJoana: pago.notasJoana,
+                  dispersiones: childDispersiones
+                    .filter((d) => d.pagoCorteId === pago.id && Number(d.montoTotal) > 0)
+                    .map((d) => ({
+                      id: d.id,
+                      tipoBeneficiario: d.tipoBeneficiario,
+                      beneficiarioNombre: d.beneficiarioNombre,
+                      montoTotal: d.montoTotal,
+                      montoPagado: d.montoPagado,
+                      estado: d.estado,
+                    })),
+                },
+                corte: {
+                  id: corte.id,
+                  fechaCorte: corte.fechaCorte,
+                  tipoDia: corte.tipoDia,
+                  estado: corte.estado,
+                },
+              }))}
+            />
           )}
         </>
       )}

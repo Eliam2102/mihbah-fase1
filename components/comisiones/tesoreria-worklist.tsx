@@ -1,6 +1,19 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+
+const TIPO_LABELS: Record<string, string> = {
+  OP_BMCORP: 'Operativa BM Corp',
+  OP_YESYUCAN: 'Operativa YESYUCAN',
+  ASESOR: 'Asesor (comisión directa)',
+  LIDER_SALDO: 'Líder (Afiliación)',
+  SOCIO_BOLSA_JORGE: 'Socio bolsa — Jorge',
+  SOCIO_BOLSA_KASS: 'Socio bolsa — Kass',
+  SOCIO_BOLSA_DIANA: 'Socio bolsa — Diana',
+  SOCIO_FIJO_JORGE: 'Socio fijo — Jorge',
+  SOCIO_FIJO_KASS: 'Socio fijo — Kass',
+}
+
 import { FileUp, CheckCircle, Wallet, Building2, X, AlertCircle, Star } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -9,8 +22,8 @@ import { marcarPagoBonoAction } from '@/app/actions/comisiones/bonos-umbral'
 
 export interface TesoreriaCorte {
   id: string
-  identificador?: string | null
-  periodo?: string | null
+  fechaCorte: string
+  tipoDia: string
 }
 
 export interface TesoreriaGrupo {
@@ -131,10 +144,10 @@ export default function TesoreriaWorklist({
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
                 <h3 className="text-base font-semibold break-words text-slate-900">
-                  Corte {corteData.corte.identificador || 'Sin ID'}
+                  Corte {corteData.corte.tipoDia} — {corteData.corte.fechaCorte}
                 </h3>
                 <span className="inline-flex w-fit items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-500/10 ring-inset">
-                  {corteData.corte.periodo || 'N/A'}
+                  APROBADO
                 </span>
               </div>
 
@@ -150,7 +163,7 @@ export default function TesoreriaWorklist({
                 <div className="hidden h-8 w-px bg-slate-200 sm:block" />
                 <div className="flex min-w-[120px] flex-1 flex-col md:flex-none md:items-end">
                   <span className="mb-0.5 text-xs tracking-wider text-slate-500 uppercase">
-                    Total a transferir
+                    Total depósito
                   </span>
                   <span className="font-semibold text-slate-900">
                     {formatMoney(corteData.totalDeposito)}
@@ -171,7 +184,8 @@ export default function TesoreriaWorklist({
                   <div className="flex h-full flex-col">
                     <div className="mb-4">
                       <div className="mb-1.5 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                        {grupo.tipoBeneficiario.replace('_', ' ')}
+                        {TIPO_LABELS[grupo.tipoBeneficiario] ??
+                          grupo.tipoBeneficiario.replace('_', ' ')}
                       </div>
                       <div className="flex items-start justify-between gap-3">
                         <h4
@@ -199,7 +213,15 @@ export default function TesoreriaWorklist({
                         ) : (
                           <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
                         )}
-                        <span className="truncate font-medium">{grupo.metodoPago}</span>
+                        <span className="truncate font-medium">
+                          {grupo.metodoPago === 'TRANSFERENCIA'
+                            ? 'Depósito / Transferencia'
+                            : grupo.metodoPago === 'DEPOSITO'
+                              ? 'Depósito'
+                              : grupo.metodoPago === 'OTRO'
+                                ? 'Otro'
+                                : grupo.metodoPago}
+                        </span>
                       </div>
 
                       {grupo.metodoPago !== 'EFECTIVO' && (

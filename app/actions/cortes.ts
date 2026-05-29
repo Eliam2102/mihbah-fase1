@@ -934,3 +934,37 @@ export async function eliminarVentaDelCorteAction(
     return handleError(err)
   }
 }
+
+export async function eliminarCorteAction(
+  empresaId: string,
+  corteId: string,
+): Promise<ActionResult<{ eliminado: boolean }>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
+    const tenantId = user.tenantId
+
+    await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+
+      const [corte] = await tx
+        .select({ estado: cortesDispersion.estado })
+        .from(cortesDispersion)
+        .where(and(eq(cortesDispersion.tenantId, tenantId), eq(cortesDispersion.id, corteId)))
+        .limit(1)
+      if (!corte) throw new Error('Corte no encontrado')
+      if (corte.estado !== 'BORRADOR') throw new Error('Solo se pueden eliminar cortes en BORRADOR')
+
+      // Eliminar hija dispersiones → pagos del corte → corte
+      await tx.delete(dispersiones).where(eq(dispersiones.corteId, corteId))
+      await tx.delete(ventasPagoCorte).where(eq(ventasPagoCorte.corteId, corteId))
+      await tx.delete(cortesDispersion).where(eq(cortesDispersion.id, corteId))
+    })
+
+    revalidatePath(`/empresa/${empresaId}/comisiones/cortes`)
+    return { ok: true, data: { eliminado: true } }
+  } catch (err) {
+    return handleError(err)
+  }
+}

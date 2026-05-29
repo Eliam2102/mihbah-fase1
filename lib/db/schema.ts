@@ -435,6 +435,10 @@ export const ventasBmcorp = pgTable(
     })
       .notNull()
       .default('0'),
+    // Override manual del tipo de producto. NULL = auto-detect por desarrolladora.
+    // Joana usa esto cuando la venta no tiene desarrollo asignado o la desarrolladora
+    // no está clasificada correctamente y el motor detecta el tipo erróneo.
+    tipoProductoOverride: tipoProductoComisionEnum('tipo_producto_override'),
     mondayBoardId: text('monday_board_id'),
 
     // Datos personales

@@ -1,4 +1,5 @@
 'use client'
+import NumberInput from '@/components/ui/number-input'
 
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -140,18 +141,23 @@ export function DispersionRow({
 
   return (
     <>
-      <tr className="hover:bg-muted/20">
+      <tr className="hover:bg-muted/20 cursor-pointer" onClick={abrirModal}>
         <td className="px-2 py-1.5 sm:px-3">
           <div className="font-medium">{dispersion.beneficiarioNombre}</div>
           <Link
             href={`/empresa/${empresaId}/ventas/${ventaId}`}
             className="text-muted-foreground text-xs hover:underline md:hidden"
+            onClick={(e) => e.stopPropagation()}
           >
             {ventaCliente}
           </Link>
         </td>
         <td className="text-muted-foreground hidden px-3 py-1.5 text-xs md:table-cell">
-          <Link href={`/empresa/${empresaId}/ventas/${ventaId}`} className="hover:underline">
+          <Link
+            href={`/empresa/${empresaId}/ventas/${ventaId}`}
+            className="hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
             {ventaCliente}
           </Link>
           {ventaDesarrolloNombre && (
@@ -217,15 +223,27 @@ export function DispersionRow({
               )}
             </div>
           ) : (
-            tienePago && (
-              <span
-                className="text-muted-foreground inline-flex items-center gap-1 text-[10px] italic"
-                title="Solo super_admin puede modificar"
-              >
-                <RotateCcw className="h-3 w-3" />
-                bloqueado
-              </span>
-            )
+            <div className="flex items-center justify-end gap-1">
+              {tienePago && (
+                <span
+                  className="text-muted-foreground inline-flex items-center gap-1 text-[10px] italic"
+                  title="Solo super_admin puede modificar"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  bloqueado
+                </span>
+              )}
+              {dispersion.corteId && !yaPagado && (
+                <Link
+                  href={`/empresa/${empresaId}/comisiones/tesoreria`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100"
+                  title="Marcar pagado en Tesorería"
+                >
+                  Pagar en Tesorería →
+                </Link>
+              )}
+            </div>
           )}
         </td>
       </tr>

@@ -17,7 +17,11 @@ type MetodoPago = 'EFECTIVO' | 'DEPOSITO' | 'TRANSFERENCIA' | 'OTRO'
 const METODOS: { value: MetodoPago; label: string; icon: React.ReactNode }[] = [
   { value: 'EFECTIVO', label: 'Efectivo', icon: <Banknote className="h-4 w-4" /> },
   { value: 'DEPOSITO', label: 'Depósito', icon: <CreditCard className="h-4 w-4" /> },
-  { value: 'TRANSFERENCIA', label: 'Transferencia', icon: <Smartphone className="h-4 w-4" /> },
+  {
+    value: 'TRANSFERENCIA',
+    label: 'Depósito / Transferencia',
+    icon: <Smartphone className="h-4 w-4" />,
+  },
   { value: 'OTRO', label: 'Otro', icon: <HelpCircle className="h-4 w-4" /> },
 ]
 

@@ -50,6 +50,7 @@ const updateSchema = z.object({
   loteAcciones: z.string().nullable().optional(),
   asesor: z.string().nullable().optional(),
   notasInternas: z.string().nullable().optional(),
+  tipoProductoOverride: z.enum(['TERRENO', 'ACCION']).nullable().optional(),
 })
 
 export async function actualizarVentaAction(
@@ -102,6 +103,8 @@ export async function actualizarVentaAction(
       if (campos.loteAcciones !== undefined) setIfChanged('loteAcciones', campos.loteAcciones)
       if (campos.asesor !== undefined) setIfChanged('asesor', campos.asesor)
       if (campos.notasInternas !== undefined) setIfChanged('notasInternas', campos.notasInternas)
+      if (campos.tipoProductoOverride !== undefined)
+        setIfChanged('tipoProductoOverride', campos.tipoProductoOverride)
 
       if (Object.keys(cambios).length === 0) {
         return { ok: true as const, data: { ventaId, recalculada: false } }

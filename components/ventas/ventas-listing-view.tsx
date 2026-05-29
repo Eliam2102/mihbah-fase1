@@ -512,31 +512,27 @@ function FilaVenta({
   empresaId: string
   fmt: (n: number) => string
 }) {
+  const router = useRouter()
   const estado = ESTADO_LABELS[v.estadoVenta] ?? {
     label: v.estadoVenta,
     color: 'border-muted/50 bg-muted/30 text-muted-foreground',
   }
 
-  // Días desde apertura
   const diasDesdeApertura = v.diasEnPipeline
-
-  // Avance pago del cliente: enganche pagado / monto total de la venta
   const avancePagoCliente = v.porcentajeEnganchePagado
-
-  // % comisión pagada de BM CORP: montoPagado / comisionBmEsperada
   const pctComisionPagada = v.porcentajeAvancePago
 
   return (
-    <tr className="group hover:bg-muted/30 transition-colors">
+    <tr
+      className="group hover:bg-muted/30 cursor-pointer transition-colors"
+      onClick={() => router.push(`/empresa/${empresaId}/ventas/${v.ventaId}`)}
+    >
       {/* Cliente */}
       <td className="px-6 py-4">
-        <Link
-          href={`/empresa/${empresaId}/ventas/${v.ventaId}`}
-          className="group-hover:text-primary block transition-colors"
-        >
-          <p className="text-foreground font-bold">{v.cliente}</p>
-          <p className="text-muted-foreground mt-0.5 text-xs">ID: {v.ventaId.slice(0, 8)}</p>
-        </Link>
+        <p className="text-foreground group-hover:text-primary font-bold transition-colors">
+          {v.cliente}
+        </p>
+        <p className="text-muted-foreground mt-0.5 text-xs">ID: {v.ventaId.slice(0, 8)}</p>
       </td>
 
       {/* Alianza · Asesor */}
@@ -613,16 +609,6 @@ function FilaVenta({
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
-      </td>
-
-      {/* Acción */}
-      <td className="px-6 py-4 text-right">
-        <Link
-          href={`/empresa/${empresaId}/ventas/${v.ventaId}`}
-          className="bg-muted/50 text-muted-foreground hover:border-border hover:bg-background hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent transition-all hover:shadow-sm"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Link>
       </td>
     </tr>
   )

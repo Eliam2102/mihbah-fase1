@@ -68,7 +68,7 @@ const TIPO_LABELS: Record<string, string> = {
   OP_BMCORP: 'Op. BM Corp',
   OP_YESYUCAN: 'Op. Yesyucan',
   ASESOR: 'Asesor',
-  LIDER_SALDO: 'Líder',
+  LIDER_SALDO: 'Líder (Afiliación)',
   SOCIO_BOLSA_JORGE: 'Socio bolsa Jorge',
   SOCIO_BOLSA_KASS: 'Socio bolsa Kass',
   SOCIO_BOLSA_DIANA: 'Socio bolsa Diana',
@@ -185,7 +185,7 @@ export default function CorteAprobacionView({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-foreground text-xl font-bold">
-              {esAprobado ? '✅ Corte Aprobado' : 'Aprobar Corte de Dispersión'}
+              {esAprobado ? 'Corte Aprobado' : 'Aprobar Corte de Dispersión'}
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
               {corte.tipoDia === 'LUNES' ? 'Lunes' : 'Jueves'} ·{' '}

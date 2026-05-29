@@ -18,7 +18,7 @@ import {
   dispersiones,
   comisionesCalculadas,
 } from '@/lib/db/schema'
-import { and, eq, gte, lte, sql, desc, notInArray, inArray } from 'drizzle-orm'
+import { and, eq, gte, isNotNull, lte, sql, desc, notInArray, inArray } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
 
 /**
@@ -36,7 +36,13 @@ async function usarDispersionesNuevas(
     .from(dispersiones)
     .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
     .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
-    .where(and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+    .where(
+      and(
+        eq(dispersiones.tenantId, tenantId),
+        eq(ventasBmcorp.empresaId, empresaId),
+        isNotNull(dispersiones.corteId),
+      ),
+    )
   return Number(row?.n ?? 0) > 0
 }
 import type {
@@ -354,6 +360,7 @@ export async function getFlujoSemanal(
             and(
               eq(dispersiones.tenantId, tenantId),
               eq(ventasBmcorp.empresaId, empresaId),
+              isNotNull(dispersiones.corteId),
               sql`${dispersiones.fechaPago} IS NOT NULL`,
               sql`${dispersiones.fechaPago} >= CURRENT_DATE - (${weeks} * INTERVAL '1 week')`,
             ),
@@ -440,7 +447,13 @@ export async function getRepartosKpi(empresaId: string, tenantId: string): Promi
         .from(dispersiones)
         .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
         .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
-        .where(and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+        .where(
+          and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
+          ),
+        )
       return {
         totalRealizado: Number(agg?.total ?? 0),
         cantidadRealizados: Number(agg?.count ?? 0),
@@ -535,7 +548,13 @@ export async function getRemanentesPorAfiliado(
         .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
         .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
         .innerJoin(afiliados, eq(afiliados.id, ventasBmcorp.afiliadoId))
-        .where(and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+        .where(
+          and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
+          ),
+        )
         .groupBy(afiliados.id)
       for (const r of dispRows) {
         repartosMap.set(r.afiliadoId, Number(r.monto))
@@ -644,6 +663,7 @@ export async function getRepartosSplit(
           and(
             eq(dispersiones.tenantId, tenantId),
             eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
             inArray(dispersiones.tipoBeneficiario, ['LIDER_SALDO', 'ASESOR']),
             inArray(dispersiones.estado, ['PAGADO', 'PARCIAL']),
             periodoWhere,
@@ -651,7 +671,7 @@ export async function getRepartosSplit(
         )
         .groupBy(dispersiones.estado)
 
-      // Pendiente: sin filtro de período (histórico vivo).
+      // Pendiente: sin filtro de período (histórico vivo). Solo hija.
       const [pendienteRow] = await tx
         .select({
           count: sql<number>`COUNT(*)::int`,
@@ -664,6 +684,7 @@ export async function getRepartosSplit(
           and(
             eq(dispersiones.tenantId, tenantId),
             eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
             inArray(dispersiones.tipoBeneficiario, ['LIDER_SALDO', 'ASESOR']),
             notInArray(dispersiones.estado, ['PAGADO']),
           ),
@@ -678,6 +699,7 @@ export async function getRepartosSplit(
           and(
             eq(dispersiones.tenantId, tenantId),
             eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
             eq(dispersiones.estado, 'PAGADO'),
           ),
         )
@@ -802,10 +824,15 @@ export async function getComisionamientoConciliado(
         ? and(
             eq(dispersiones.tenantId, tenantId),
             eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
             gte(dispersiones.fechaPago, range.from),
             lte(dispersiones.fechaPago, range.to),
           )
-        : and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId))
+        : and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
+          )
 
       const pagoRows = await tx
         .select({
@@ -830,6 +857,7 @@ export async function getComisionamientoConciliado(
           and(
             eq(dispersiones.tenantId, tenantId),
             eq(ventasBmcorp.empresaId, empresaId),
+            isNotNull(dispersiones.corteId),
             notInArray(dispersiones.estado, ['PAGADO']),
           ),
         )

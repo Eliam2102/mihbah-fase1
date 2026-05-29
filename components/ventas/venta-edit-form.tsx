@@ -1,4 +1,5 @@
 'use client'
+import NumberInput from '@/components/ui/number-input'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -18,6 +19,8 @@ interface VentaEditable {
   loteAcciones: string | null
   asesor: string | null
   notasInternas: string | null
+  tipoProductoDetectado: string
+  tipoProductoOverride: string | null
   editadoEnSistema: boolean
   editadoPorNombre: string | null
   editadoEn: string | null
@@ -50,6 +53,7 @@ export function VentaEditForm({ empresaId, venta }: { empresaId: string; venta: 
     loteAcciones: venta.loteAcciones ?? '',
     asesor: venta.asesor ?? '',
     notasInternas: venta.notasInternas ?? '',
+    tipoProductoOverride: venta.tipoProductoOverride ?? '',
   })
 
   function handleSubmit(e: React.FormEvent) {
@@ -68,6 +72,10 @@ export function VentaEditForm({ empresaId, venta }: { empresaId: string; venta: 
         loteAcciones: form.loteAcciones || null,
         asesor: form.asesor || null,
         notasInternas: form.notasInternas || null,
+        tipoProductoOverride:
+          form.tipoProductoOverride === 'TERRENO' || form.tipoProductoOverride === 'ACCION'
+            ? form.tipoProductoOverride
+            : null,
       })
       if (!result.ok) {
         setError(result.error)
@@ -239,6 +247,26 @@ export function VentaEditForm({ empresaId, venta }: { empresaId: string; venta: 
             className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
             placeholder="Ej. Lote 14 Mz 3"
           />
+        </Field>
+
+        <Field
+          label={`Tipo de producto${venta.tipoProductoDetectado ? ` (detectado: ${venta.tipoProductoDetectado})` : ''}`}
+        >
+          <select
+            value={form.tipoProductoOverride}
+            onChange={(e) => setForm({ ...form, tipoProductoOverride: e.target.value })}
+            className="border-border bg-background w-full rounded-md border px-2.5 py-1.5 text-sm"
+          >
+            <option value="">Auto-detectar ({venta.tipoProductoDetectado})</option>
+            <option value="TERRENO">Terreno (forzar)</option>
+            <option value="ACCION">Acción / YCD (forzar)</option>
+          </select>
+          {venta.tipoProductoOverride && (
+            <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
+              <span className="font-semibold">Override activo:</span> {venta.tipoProductoOverride}.
+              Recalcula para aplicar.
+            </p>
+          )}
         </Field>
 
         <div className="sm:col-span-2">

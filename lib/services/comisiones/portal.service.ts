@@ -22,7 +22,7 @@ import {
   users,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, desc, eq, inArray, or, isNull, not } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, or, isNull, not } from 'drizzle-orm'
 
 export interface PerfilPortal {
   rolPortal: 'LIDER_ALIANZA' | 'ASESOR' | 'ADMINISTRATIVO'
@@ -34,6 +34,7 @@ export interface PerfilPortal {
   // Un líder puede tener N alianzas; ve TODAS las dispersiones de sus alianzas.
   liderIds: string[]
   asesorIds: string[]
+  alianzasIds: string[]
   liderNombre: string | null
   asesorNombre: string | null
   alianzaNombre: string | null
@@ -158,6 +159,7 @@ export async function getPerfilPortal(userId: string): Promise<PerfilPortal | nu
     asesorId: row.usuario.asesorId,
     liderIds,
     asesorIds,
+    alianzasIds,
     liderNombre: row.lider?.nombre ?? null,
     asesorNombre: row.asesor?.nombre ?? null,
     alianzaNombre: alianzasNombres[0] ?? null,
@@ -262,6 +264,110 @@ export async function getAsesoresPortalLider(userId: string) {
 }
 
 // ─── Comprobantes (con validación de pertenencia) ────────────────────────────
+
+// ─── Vista completa del líder por venta ─────────────────────────────────────
+
+export interface VentaLiderPortal {
+  ventaId: string
+  cliente: string
+  loteAcciones: string | null
+  monto: number
+  desarrolloNombre: string | null
+  alianzaNombre: string | null
+  estadoVenta: string
+  fecha: string
+  comisionTotal: number
+  dispersiones: {
+    id: string
+    tipoBeneficiario: string
+    beneficiarioNombre: string
+    montoTotal: number
+    montoPagado: number
+    estado: string
+    fechaPago: string | null
+  }[]
+}
+
+// Tipos de beneficiario que NO se muestran a líderes/asesores.
+// OP_BMCORP y OP_YESYUCAN son comisiones internas de la empresa.
+const TIPOS_INTERNOS = ['OP_BMCORP', 'OP_YESYUCAN'] as const
+
+export async function getVentasPortalLider(userId: string): Promise<VentaLiderPortal[]> {
+  const perfil = await getPerfilPortal(userId)
+  if (!perfil || perfil.rolPortal !== 'LIDER_ALIANZA') return []
+
+  // Usar alianzasIds (ventas de TODA la alianza) no solo liderIds
+  // para que el líder vea el panorama completo de su red.
+  const alianzasIds = perfil.alianzasIds ?? []
+  if (alianzasIds.length === 0 && perfil.liderIds.length === 0) return []
+
+  return db.transaction(async (tx) => {
+    await setTenant(tx, perfil.tenantId)
+
+    // Dispersiones hija de las ventas de la alianza del líder
+    // Excluye OP (internos) y $0 (no alcanzados por cascada)
+    const rows = await tx
+      .select({
+        v: ventasBmcorp,
+        c: comisionesCalculadas,
+        d: dispersiones,
+        desarrolloNombre: desarrollos.nombre,
+        alianzaNombre: afiliados.nombre,
+      })
+      .from(dispersiones)
+      .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+      .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+      .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
+      .leftJoin(afiliados, eq(ventasBmcorp.afiliadoId, afiliados.id))
+      .where(
+        and(
+          eq(dispersiones.tenantId, perfil.tenantId),
+          isNotNull(dispersiones.corteId),
+          // Por alianza (no solo por liderId — incluye socios, asesores, etc.)
+          alianzasIds.length > 0
+            ? inArray(ventasBmcorp.afiliadoId, alianzasIds)
+            : inArray(dispersiones.liderId, perfil.liderIds),
+          // Excluir comisiones internas de la empresa
+          not(inArray(dispersiones.tipoBeneficiario, [...TIPOS_INTERNOS])),
+          // Solo dispersiones con monto real
+          gt(dispersiones.montoTotal, '0'),
+        ),
+      )
+      .orderBy(desc(ventasBmcorp.fecha), desc(comisionesCalculadas.createdAt))
+
+    // Agrupar por venta
+    const ventaMap = new Map<string, VentaLiderPortal>()
+    for (const r of rows) {
+      const vid = r.v.id
+      if (!ventaMap.has(vid)) {
+        ventaMap.set(vid, {
+          ventaId: vid,
+          cliente: r.v.cliente,
+          loteAcciones: r.v.loteAcciones,
+          monto: Number(r.v.monto),
+          desarrolloNombre: r.desarrolloNombre,
+          alianzaNombre: r.alianzaNombre,
+          estadoVenta: r.v.estadoVenta,
+          fecha: r.v.fecha,
+          comisionTotal: Number(r.c.comisionBrutaTotal),
+          dispersiones: [],
+        })
+      }
+      const venta = ventaMap.get(vid)!
+      venta.dispersiones.push({
+        id: r.d.id,
+        tipoBeneficiario: r.d.tipoBeneficiario,
+        beneficiarioNombre: r.d.beneficiarioNombre,
+        montoTotal: Number(r.d.montoTotal),
+        montoPagado: Number(r.d.montoPagado),
+        estado: r.d.estado,
+        fechaPago: r.d.fechaPago,
+      })
+    }
+
+    return Array.from(ventaMap.values())
+  })
+}
 
 export async function verificarPertenenciaDispersion(
   userId: string,

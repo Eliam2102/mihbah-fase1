@@ -31,6 +31,7 @@ interface SidebarProps {
   userEmail: string
   tenantName: string
   userRole?: string | null | undefined
+  badgeCortes?: number
   onMobileClose?: () => void
 }
 
@@ -40,6 +41,7 @@ export function Sidebar({
   userEmail,
   tenantName,
   userRole,
+  badgeCortes = 0,
   onMobileClose,
 }: SidebarProps) {
   const pathname = usePathname()
@@ -170,6 +172,7 @@ export function Sidebar({
                   href={modHref}
                   title={isCollapsed ? mod.label : undefined}
                   className={cn(
+                    'relative',
                     'group flex items-center rounded-lg transition-all',
                     isCollapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2 text-sm font-medium',
                     isActive
@@ -191,7 +194,19 @@ export function Sidebar({
                         : 'text-muted-foreground group-hover:text-sidebar-accent-foreground',
                     )}
                   />
-                  {!isCollapsed && mod.label}
+                  {!isCollapsed && (
+                    <span className="flex flex-1 items-center justify-between">
+                      {mod.label}
+                      {mod.label === 'Comisiones' && badgeCortes > 0 && (
+                        <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          {badgeCortes}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {isCollapsed && mod.label === 'Comisiones' && badgeCortes > 0 && (
+                    <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-amber-500" />
+                  )}
                 </Link>
               </li>
             )

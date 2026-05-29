@@ -1,4 +1,5 @@
 'use client'
+import NumberInput from '@/components/ui/number-input'
 
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
@@ -70,7 +71,7 @@ const TIPO_LABELS: Record<string, string> = {
   OP_BMCORP: 'Op. BM Corp',
   OP_YESYUCAN: 'Op. Yesyucan',
   ASESOR: 'Asesor',
-  LIDER_SALDO: 'Líder (saldo)',
+  LIDER_SALDO: 'Líder (Afiliación)',
   SOCIO_BOLSA_JORGE: 'Socio bolsa Jorge',
   SOCIO_BOLSA_KASS: 'Socio bolsa Kass',
   SOCIO_BOLSA_DIANA: 'Socio bolsa Diana',
@@ -791,14 +792,97 @@ export default function CorteDetailView({
                   {/* Desglose de dispersiones de este pago */}
                   {dispsVenta.length > 0 && (
                     <div className="mt-5 border-t pt-4">
-                      <div className="mb-2 flex items-center justify-between">
-                        <h4 className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase">
-                          <Users className="h-3.5 w-3.5" /> Dispersión de comisiones
-                        </h4>
-                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                          Total: {fmt(dispsVenta.reduce((s, d) => s + Number(d.montoTotal), 0))}
-                        </span>
-                      </div>
+                      {(() => {
+                        const sumDisp = dispsVenta.reduce((s, d) => s + Number(d.montoTotal), 0)
+                        const aDispersar = Number(pago.montoADispersar)
+                        const diferencia = sumDisp - aDispersar
+                        const ok = Math.abs(diferencia) < 0.01
+                        // Cascada de prioridad para "distribuir restante"
+                        const CASCADA_ORDER = [
+                          'OP_BMCORP',
+                          'OP_YESYUCAN',
+                          'ASESOR',
+                          'LIDER_SALDO',
+                          'SOCIO_BOLSA_JORGE',
+                          'SOCIO_BOLSA_KASS',
+                          'SOCIO_BOLSA_DIANA',
+                          'SOCIO_FIJO_JORGE',
+                          'SOCIO_FIJO_KASS',
+                        ]
+                        const primeroConEspacio =
+                          esBorrador && !ok && diferencia < 0
+                            ? dispsVenta
+                                .slice()
+                                .sort(
+                                  (a, b) =>
+                                    CASCADA_ORDER.indexOf(a.tipoBeneficiario) -
+                                    CASCADA_ORDER.indexOf(b.tipoBeneficiario),
+                                )
+                                .find((d) => d)
+                            : null
+
+                        return (
+                          <div className="mb-3 space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <h4 className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase">
+                                <Users className="h-3.5 w-3.5" /> Dispersión de comisiones
+                              </h4>
+                              <div
+                                className={`flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-semibold ${ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'}`}
+                              >
+                                <span>Dispersado: {fmt(sumDisp)}</span>
+                                <span className="text-muted-foreground font-normal">|</span>
+                                <span>Abono: {fmt(aDispersar)}</span>
+                                {!ok && (
+                                  <>
+                                    <span className="text-muted-foreground font-normal">|</span>
+                                    <span>
+                                      {diferencia > 0 ? 'Excede' : 'Falta'}:{' '}
+                                      {fmt(Math.abs(diferencia))}
+                                    </span>
+                                  </>
+                                )}
+                                {ok && (
+                                  <span className="font-semibold text-emerald-600">Cuadra</span>
+                                )}
+                              </div>
+                            </div>
+                            {esBorrador && !ok && diferencia < 0 && (
+                              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
+                                <p className="mb-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                  Faltan {fmt(Math.abs(diferencia))} — agregar a:
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {dispsVenta.map((d) => (
+                                    <button
+                                      key={d.id}
+                                      type="button"
+                                      disabled={isPending}
+                                      onClick={() => {
+                                        const nuevo =
+                                          Math.round(
+                                            (Number(d.montoTotal) + Math.abs(diferencia)) * 100,
+                                          ) / 100
+                                        startTransition(async () => {
+                                          await ajustarDispersionEnCorteAction({
+                                            empresaId,
+                                            dispersionId: d.id,
+                                            nuevoMonto: nuevo,
+                                          })
+                                          router.refresh()
+                                        })
+                                      }}
+                                      className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-40 dark:bg-amber-950/40 dark:text-amber-300"
+                                    >
+                                      {TIPO_LABELS[d.tipoBeneficiario] ?? d.beneficiarioNombre}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                       <div className="overflow-hidden rounded-lg border border-slate-100 bg-slate-50/50 dark:border-slate-800/80 dark:bg-slate-900/30">
                         <table className="w-full text-xs">
                           <thead>

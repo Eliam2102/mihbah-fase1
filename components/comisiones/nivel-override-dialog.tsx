@@ -1,4 +1,5 @@
 'use client'
+import NumberInput from '@/components/ui/number-input'
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -225,7 +226,7 @@ export function NivelOverrideDialog({
                           ok ? 'text-emerald-600' : 'text-rose-600'
                         }`}
                       >
-                        Suma: {s.toFixed(2)}% {ok ? '✓' : '≠ 15%'}
+                        Suma: {s.toFixed(2)}% {ok ? 'OK' : '≠ 15%'}
                       </span>
                       <button
                         type="button"

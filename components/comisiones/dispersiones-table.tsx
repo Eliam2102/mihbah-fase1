@@ -18,7 +18,7 @@ const TIPO_LABELS: Record<string, string> = {
   OP_BMCORP: 'Operativa BM Corp',
   OP_YESYUCAN: 'Operativa YESYUCAN',
   ASESOR: 'Comisión Asesor',
-  LIDER_SALDO: 'Saldo Líder',
+  LIDER_SALDO: 'Líder (Afiliación)',
   SOCIO_BOLSA_JORGE: 'Socio Bolsa — Jorge',
   SOCIO_BOLSA_KASS: 'Socio Bolsa — Kass',
   SOCIO_BOLSA_DIANA: 'Socio Bolsa — Diana',

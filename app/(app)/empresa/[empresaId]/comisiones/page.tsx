@@ -9,7 +9,7 @@ import {
   usuariosPortal,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import {
   Users,
@@ -53,7 +53,13 @@ async function getEstado(tenantId: string, empresaId: string) {
         pagado: sql<string>`COALESCE(SUM(${dispersiones.montoPagado}), 0)`,
       })
       .from(dispersiones)
-      .where(eq(dispersiones.tenantId, tenantId))
+      .where(
+        and(
+          eq(dispersiones.tenantId, tenantId),
+          isNotNull(dispersiones.corteId),
+          gt(dispersiones.montoTotal, '0'),
+        ),
+      )
     const [matriz] = await tx
       .select({
         pendientes: sql<number>`COUNT(*) FILTER (WHERE ${matrizAlianzaProducto.requiereConfig} = true)::int`,
@@ -64,7 +70,40 @@ async function getEstado(tenantId: string, empresaId: string) {
       .select({ total: sql<number>`COUNT(*)::int` })
       .from(usuariosPortal)
       .where(eq(usuariosPortal.tenantId, tenantId))
-    return { comisiones, disp, matriz, portal }
+
+    // Desglose por tipo de beneficiario — de comisionesCalculadas (plan total)
+    // vs dispersiones hija autorizadas (ya en cortes). Da visibilidad de cuánto
+    // falta por llegar a cada beneficiario antes de que haya corte.
+    const desglose = await tx
+      .select({
+        opBmcorp: sql<string>`COALESCE(SUM(${comisionesCalculadas.montoOpBmcorp}), 0)`,
+        opYesyucan: sql<string>`COALESCE(SUM(${comisionesCalculadas.montoOpYesyucan}), 0)`,
+        afiliacion: sql<string>`COALESCE(SUM(${comisionesCalculadas.montoLiderSaldo} + ${comisionesCalculadas.montoAsesor}), 0)`,
+        bolsaSocios: sql<string>`COALESCE(SUM(${comisionesCalculadas.montoSocioBolsaJorge} + ${comisionesCalculadas.montoSocioBolsaKass} + ${comisionesCalculadas.montoSocioBolsaDiana}), 0)`,
+        sociosFijos: sql<string>`COALESCE(SUM(${comisionesCalculadas.montoSocioFijoJorge} + ${comisionesCalculadas.montoSocioFijoKass}), 0)`,
+      })
+      .from(comisionesCalculadas)
+      .where(
+        and(eq(comisionesCalculadas.tenantId, tenantId), eq(comisionesCalculadas.sinConfig, false)),
+      )
+
+    // Lo ya autorizado en cortes por tipo
+    const desgloseAutorizado = await tx
+      .select({
+        tipo: dispersiones.tipoBeneficiario,
+        autorizado: sql<string>`COALESCE(SUM(${dispersiones.montoTotal}), 0)`,
+      })
+      .from(dispersiones)
+      .where(
+        and(
+          eq(dispersiones.tenantId, tenantId),
+          isNotNull(dispersiones.corteId),
+          gt(dispersiones.montoTotal, '0'),
+        ),
+      )
+      .groupBy(dispersiones.tipoBeneficiario)
+
+    return { comisiones, disp, matriz, portal, desglose: desglose[0], desgloseAutorizado }
   })
 
   const alianzasSinLider = afiliados.filter(
@@ -111,6 +150,8 @@ async function getEstado(tenantId: string, empresaId: string) {
     totalAlianzas: afiliados.length,
     totalEsquemas: esquemas.length,
     totalPortal: stats.portal?.total ?? 0,
+    desglose: stats.desglose,
+    desgloseAutorizado: stats.desgloseAutorizado,
   }
 }
 
@@ -258,6 +299,82 @@ export default async function ComisionesLanding({
           />
         )}
       </div>
+
+      {/* Desglose por beneficiario — plan total vs autorizado en cortes */}
+      {data.desglose && (
+        <div className="bg-card overflow-hidden rounded-xl border">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-foreground text-sm font-semibold">
+              Visibilidad de comisiones por beneficiario
+            </h2>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              Plan calculado vs ya autorizado en cortes. La diferencia es lo pendiente de abonar.
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-muted-foreground text-xs">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium">Beneficiario</th>
+                <th className="px-4 py-2 text-right font-medium">Total calculado</th>
+                <th className="px-4 py-2 text-right font-medium">Autorizado en cortes</th>
+                <th className="px-4 py-2 text-right font-medium">Pendiente</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {[
+                {
+                  label: 'Op. BM Corp',
+                  tipo: ['OP_BMCORP'],
+                  total: Number(data.desglose.opBmcorp),
+                },
+                {
+                  label: 'Op. YESYUCAN',
+                  tipo: ['OP_YESYUCAN'],
+                  total: Number(data.desglose.opYesyucan),
+                },
+                {
+                  label: 'Líder (Afiliación)',
+                  tipo: ['LIDER_SALDO', 'ASESOR'],
+                  total: Number(data.desglose.afiliacion),
+                },
+                {
+                  label: 'Socios bolsa',
+                  tipo: ['SOCIO_BOLSA_JORGE', 'SOCIO_BOLSA_KASS', 'SOCIO_BOLSA_DIANA'],
+                  total: Number(data.desglose.bolsaSocios),
+                },
+                {
+                  label: 'Socios fijos',
+                  tipo: ['SOCIO_FIJO_JORGE', 'SOCIO_FIJO_KASS'],
+                  total: Number(data.desglose.sociosFijos),
+                },
+              ]
+                .filter((row) => row.total > 0)
+                .map((row) => {
+                  const autorizado = data.desgloseAutorizado
+                    .filter((d) => row.tipo.includes(d.tipo))
+                    .reduce((s, d) => s + Number(d.autorizado), 0)
+                  const pendiente = row.total - autorizado
+                  return (
+                    <tr key={row.label} className="hover:bg-muted/10 transition-colors">
+                      <td className="px-4 py-2.5 font-medium">{row.label}</td>
+                      <td className="text-muted-foreground px-4 py-2.5 text-right tabular-nums">
+                        {fmt(row.total)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-emerald-600 tabular-nums">
+                        {fmt(autorizado)}
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 text-right font-semibold tabular-nums ${pendiente > 0 ? 'text-amber-600' : 'text-emerald-600'}`}
+                      >
+                        {fmt(Math.max(0, pendiente))}
+                      </td>
+                    </tr>
+                  )
+                })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Cards secundarias compactas — 1 col mobile, 3 col tablet+ */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">

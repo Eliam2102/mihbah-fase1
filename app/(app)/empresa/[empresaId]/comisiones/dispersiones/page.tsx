@@ -9,7 +9,7 @@ import {
   desarrollos,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gt, isNotNull } from 'drizzle-orm'
 import {
   DispersionesTable,
   type DispersionTableRow,
@@ -42,7 +42,16 @@ export default async function DispersionesPage({
       .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
       .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
       .leftJoin(users, eq(dispersiones.aprobadoPor, users.id))
-      .where(and(eq(dispersiones.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
+      .where(
+        and(
+          eq(dispersiones.tenantId, tenantId),
+          eq(ventasBmcorp.empresaId, empresaId),
+          // Solo dispersiones hija con monto > 0. Las padre son plan teórico.
+          // Las hija con $0 son beneficiarios que la cascada aún no alcanzó.
+          isNotNull(dispersiones.corteId),
+          gt(dispersiones.montoTotal, '0'),
+        ),
+      )
       .orderBy(dispersiones.tipoBeneficiario, dispersiones.estado)
   })
 
@@ -70,7 +79,7 @@ export default async function DispersionesPage({
       <div>
         <h1 className="text-foreground text-2xl font-bold">Dispersiones</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Pagos a beneficiarios — agrupado por tipo según cascada §4 del doc.
+          Pagos generados en cortes aprobados. Sin corte aprobado no aparece nada.
         </p>
       </div>
 

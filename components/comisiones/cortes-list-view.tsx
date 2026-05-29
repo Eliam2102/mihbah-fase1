@@ -14,7 +14,8 @@ import {
   Calendar,
   Banknote,
 } from 'lucide-react'
-import { crearCorteAction } from '@/app/actions/cortes'
+import { crearCorteAction, eliminarCorteAction } from '@/app/actions/cortes'
+import { Trash2 } from 'lucide-react'
 
 type Corte = {
   id: string
@@ -294,7 +295,7 @@ export default function CortesListView({
       {/* Aprobados */}
       {aprobados.length > 0 && (
         <div>
-          <p className="text-success mb-2 text-xs font-semibold uppercase">✅ Aprobados</p>
+          <p className="text-success mb-2 text-xs font-semibold uppercase">Aprobados</p>
           <div className="space-y-2">
             {aprobados.map((corte) => (
               <CorteCard key={corte.id} corte={corte} empresaId={empresaId} />
@@ -330,11 +331,24 @@ export default function CortesListView({
 }
 
 function CorteCard({ corte, empresaId }: { corte: Corte; empresaId: string }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
   const estadoCfg =
     ESTADO_CONFIG[corte.estado as keyof typeof ESTADO_CONFIG] ?? ESTADO_CONFIG.BORRADOR
   const diaCfg = DIA_CONFIG[corte.tipoDia as keyof typeof DIA_CONFIG] ?? DIA_CONFIG.LUNES
   const fmt2 = (n: number) =>
     n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
+
+  const handleEliminar = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm('¿Eliminar este corte borrador? Se eliminarán sus ventas y dispersiones.')) return
+    startTransition(async () => {
+      const res = await eliminarCorteAction(empresaId, corte.id)
+      if (!res.ok) alert(res.error)
+      else router.refresh()
+    })
+  }
 
   return (
     <Link
@@ -381,6 +395,18 @@ function CorteCard({ corte, empresaId }: { corte: Corte; empresaId: string }) {
       </span>
 
       <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
+
+      {corte.estado === 'BORRADOR' && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={handleEliminar}
+          className="text-muted-foreground shrink-0 rounded-lg p-1.5 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+          title="Eliminar corte borrador"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
     </Link>
   )
 }

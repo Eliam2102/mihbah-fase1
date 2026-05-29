@@ -1,4 +1,5 @@
 'use client'
+import NumberInput from '@/components/ui/number-input'
 
 import { useState, useTransition } from 'react'
 import { Calculator, AlertTriangle } from 'lucide-react'

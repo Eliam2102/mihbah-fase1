@@ -7,7 +7,7 @@ import {
   dispersiones,
   lideresAlianza,
 } from '@/lib/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray } from 'drizzle-orm'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { requireTesoreriaOrAdmin } from '@/lib/auth/helpers'
@@ -55,6 +55,7 @@ export default async function TesoreriaPage({
         and(
           inArray(dispersiones.corteId, corteIds),
           inArray(dispersiones.estado, ['AUTORIZADA', 'PARCIAL']),
+          gt(dispersiones.montoTotal, '0'),
         ),
       )
 
@@ -159,6 +160,47 @@ export default async function TesoreriaPage({
     return results.filter((r) => r.grupos.length > 0 || r.bonos.length > 0)
   })
 
+  // Historial — cortes APROBADO donde todas las dispersiones están PAGADO
+  type HistorialCorte = {
+    id: string
+    fechaCorte: string
+    tipoDia: string
+    totalPagado: number
+    cantidadDispersiones: number
+  }
+
+  const historial = await db.transaction(async (tx) => {
+    await setTenant(tx, tenantId)
+    const cortesAprobados = await tx
+      .select()
+      .from(cortesDispersion)
+      .where(eq(cortesDispersion.estado, 'APROBADO'))
+      .orderBy(desc(cortesDispersion.fechaCorte))
+      .limit(20)
+
+    if (cortesAprobados.length === 0) return []
+
+    const historialRows: HistorialCorte[] = []
+    for (const corte of cortesAprobados) {
+      const disps = await tx
+        .select()
+        .from(dispersiones)
+        .where(and(eq(dispersiones.corteId, corte.id), gt(dispersiones.montoTotal, '0')))
+      if (disps.length === 0) continue
+      const todasPagadas = disps.every((d) => d.estado === 'PAGADO')
+      if (!todasPagadas) continue // solo las totalmente pagadas van al historial
+      const totalPagado = disps.reduce((s, d) => s + Number(d.montoPagado), 0)
+      historialRows.push({
+        id: corte.id,
+        fechaCorte: corte.fechaCorte,
+        tipoDia: corte.tipoDia,
+        totalPagado,
+        cantidadDispersiones: disps.length,
+      })
+    }
+    return historialRows
+  })
+
   return (
     <div className="w-full space-y-6 p-4 sm:p-6 xl:p-10">
       <div className="border-b border-slate-200 pb-5">
@@ -169,6 +211,59 @@ export default async function TesoreriaPage({
       </div>
 
       <TesoreriaWorklist data={data} empresaId={empresaId} />
+
+      {/* Historial de cortes completamente pagados */}
+      {historial.length > 0 && (
+        <div className="bg-card overflow-hidden rounded-xl border">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-foreground text-sm font-semibold">
+              Historial de pagos completados
+            </h2>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              Cortes donde todas las dispersiones fueron marcadas como pagadas.
+            </p>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-muted-foreground text-xs">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium">Corte</th>
+                <th className="px-4 py-2 text-right font-medium">Total pagado</th>
+                <th className="px-4 py-2 text-right font-medium">Dispersiones</th>
+                <th className="px-4 py-2 text-center font-medium">Estado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {historial.map((h) => (
+                <tr key={h.id} className="hover:bg-muted/10 transition-colors">
+                  <td className="px-4 py-2.5">
+                    <a
+                      href={`/empresa/${empresaId}/comisiones/cortes/${h.id}`}
+                      className="text-primary font-mono text-xs font-semibold hover:underline"
+                    >
+                      {h.tipoDia} — {h.fechaCorte}
+                    </a>
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-emerald-600 tabular-nums">
+                    {h.totalPagado.toLocaleString('es-MX', {
+                      style: 'currency',
+                      currency: 'MXN',
+                      minimumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="text-muted-foreground px-4 py-2.5 text-right tabular-nums">
+                    {h.cantidadDispersiones}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      Completado
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
