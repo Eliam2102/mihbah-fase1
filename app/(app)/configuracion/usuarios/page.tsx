@@ -7,16 +7,27 @@ import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { NuevoUsuarioForm } from './nuevo-usuario-form'
 
 const ROL_LABEL: Record<string, string> = {
-  super_admin_dev: 'Super Admin',
-  super_admin: 'Super Admin',
-  admin: 'Admin',
+  super_admin_dev: 'Super Admin Dev',
+  super_admin: 'Super Admin (Carla / Jorge)',
+  admin: 'Administración Financiera (Joana)',
+  tesoreria: 'Tesorería',
+  viewer: 'Dirección / Consulta Global',
   user: 'Viewer',
 }
 
+const ROL_DESC: Record<string, string> = {
+  super_admin: 'Control total + aprobación de pagos',
+  admin: 'Operación financiera + dispersión (no aprueba)',
+  tesoreria: 'Solo tesorería y comprobantes',
+  viewer: 'Solo lectura y reportes',
+}
+
 const ROL_BADGE: Record<string, string> = {
-  super_admin_dev: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  super_admin: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  admin: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  super_admin_dev: 'bg-purple-100 text-purple-700',
+  super_admin: 'bg-blue-100 text-blue-700',
+  admin: 'bg-emerald-100 text-emerald-700',
+  tesoreria: 'bg-amber-100 text-amber-700',
+  viewer: 'bg-muted text-muted-foreground',
   user: 'bg-muted text-muted-foreground',
 }
 
@@ -90,11 +101,16 @@ export default async function UsuariosPage() {
                     </div>
 
                     {/* Role badge */}
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${ROL_BADGE[role] ?? ROL_BADGE.user}`}
-                    >
-                      {ROL_LABEL[role] ?? role}
-                    </span>
+                    <div className="shrink-0 text-right">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${ROL_BADGE[role] ?? ROL_BADGE.user}`}
+                      >
+                        {ROL_LABEL[role] ?? role}
+                      </span>
+                      {ROL_DESC[role] && (
+                        <p className="text-muted-foreground mt-0.5 text-[10px]">{ROL_DESC[role]}</p>
+                      )}
+                    </div>
 
                     {/* Empresa count */}
                     <span className="text-muted-foreground shrink-0 text-xs">

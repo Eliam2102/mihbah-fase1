@@ -14,7 +14,7 @@ import {
   auditLogs,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { requireUser, isAdminOrAbove } from '@/lib/auth/helpers'
+import { requireUser, isAdminOrAbove, isSuperAdminOrAbove } from '@/lib/auth/helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { deltaCascadaAbono, type TipoBeneficiarioCascada } from '@/lib/services/comisiones/cascada'
 
@@ -584,9 +584,13 @@ export async function aprobarCorteAction(
   try {
     const user = await requireUser()
     if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
-    // Solo admin o superior puede aprobar cortes
-    if (!isAdminOrAbove(user.role)) {
-      return { ok: false, error: 'Solo administradores pueden aprobar cortes de dispersión' }
+    // Solo super_admin puede aprobar cortes (Carla Barrera / Jorge Juárez).
+    // admin (Joana) NO puede autoaprobar — separación de funciones financieras.
+    if (!isSuperAdminOrAbove(user.role)) {
+      return {
+        ok: false,
+        error: 'Solo super_admin puede aprobar cortes de dispersión. Joana no puede autoaprobar.',
+      }
     }
 
     const parsed = aprobarCorteSchema.safeParse(input)
@@ -608,6 +612,14 @@ export async function aprobarCorteAction(
         .limit(1)
       if (!corte) throw new Error('Corte no encontrado')
       if (corte.estado !== 'EN_REVISION') throw new Error('El corte no está en revisión')
+
+      // Validación de no-autoaprobación: quien envió el corte no puede aprobarlo.
+      // Si el corte fue creado por el mismo usuario que intenta aprobar → rechazar.
+      if (corte.creadoPor === user.id) {
+        throw new Error(
+          'El usuario que envió este corte no puede aprobarlo. Debe aprobarlo otro super_admin.',
+        )
+      }
 
       // Aprobar el corte
       await tx

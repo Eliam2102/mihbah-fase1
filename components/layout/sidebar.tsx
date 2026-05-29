@@ -214,8 +214,11 @@ export function Sidebar({
         </ul>
       </nav>
 
-      {/* Admin items — super_admin_dev, super_admin, admin (no viewer) */}
-      {(userRole === 'super_admin_dev' || userRole === 'super_admin' || userRole === 'admin') && (
+      {/* Admin items — super_admin, admin, tesoreria (no viewer) */}
+      {(userRole === 'super_admin_dev' ||
+        userRole === 'super_admin' ||
+        userRole === 'admin' ||
+        userRole === 'tesoreria') && (
         <div className="border-border border-t px-2 py-3">
           {!isCollapsed && (
             <p className="text-muted-foreground mb-2 px-2 text-[10px] font-semibold tracking-widest uppercase">

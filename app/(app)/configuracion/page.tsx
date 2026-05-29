@@ -1,9 +1,14 @@
 import { redirect } from 'next/navigation'
-import { requireUser, isAdminOrAbove, isSuperAdminDev } from '@/lib/auth/helpers'
+import {
+  requireUser,
+  isAdminOrAbove,
+  isSuperAdminDev,
+  isSuperAdminOrAbove,
+} from '@/lib/auth/helpers'
 import { listEmpresasForAdmin } from '@/lib/services/admin/empresa.service'
 import { listUsersForTenant } from '@/lib/services/admin/user.service'
 import Link from 'next/link'
-import { Building2, Users, Shield, Plus, ChevronRight } from 'lucide-react'
+import { Building2, Users, Shield, Plus, ChevronRight, AlertCircle } from 'lucide-react'
 
 const TIPO_LABEL: Record<string, string> = {
   CONSTRUCTORA: 'Constructora',
@@ -49,6 +54,26 @@ export default async function ConfiguracionPage() {
             Gestiona empresas, usuarios y accesos de tu tenant.
           </p>
         </div>
+        {isAdminOrAbove(user.role) && (
+          <Link
+            href="/configuracion/incidencias"
+            className="border-border bg-card hover:bg-muted flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+          >
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            Incidencias
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+          </Link>
+        )}
+        {isSuperAdminOrAbove(user.role) && (
+          <Link
+            href="/configuracion/auditoria"
+            className="border-border bg-card hover:bg-muted flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+          >
+            <Shield className="h-4 w-4 text-amber-600" />
+            Bitácora de auditoría
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+          </Link>
+        )}
         {isSuperAdminDev(user.role) && (
           <Link
             href="/super-admin"

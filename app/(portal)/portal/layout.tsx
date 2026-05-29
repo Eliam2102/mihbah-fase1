@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Wallet, ShieldCheck, CreditCard } from 'lucide-react'
+import { Wallet, ShieldCheck, CreditCard, Download, AlertCircle } from 'lucide-react'
 import { requireUser } from '@/lib/auth/helpers'
 import { getPerfilPortal } from '@/lib/services/comisiones/portal.service'
 import { PortalLogoutButton } from '@/components/portal/logout-button'
@@ -15,7 +15,12 @@ export default async function PortalLayout({ children }: { children: React.React
     if (perfil) {
       perfilData = {
         userName: user.name,
-        rol: perfil.rolPortal === 'LIDER_ALIANZA' ? 'Líder de alianza' : 'Asesor',
+        rol:
+          perfil.rolPortal === 'LIDER_ALIANZA'
+            ? 'Líder de alianza'
+            : perfil.rolPortal === 'ADMINISTRATIVO'
+              ? 'Administrativo'
+              : 'Asesor',
         alianza: perfil.alianzaNombre,
       }
     }
@@ -79,7 +84,7 @@ export default async function PortalLayout({ children }: { children: React.React
               <Wallet className="h-3.5 w-3.5" />
               Mi dashboard
             </Link>
-            {perfilData.rol === 'Líder de alianza' && (
+            {(perfilData.rol === 'Líder de alianza' || perfilData.rol === 'Administrativo') && (
               <Link
                 href="/portal/datos-pago"
                 className="text-foreground hover:bg-muted/60 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
@@ -88,6 +93,21 @@ export default async function PortalLayout({ children }: { children: React.React
                 Datos de pago
               </Link>
             )}
+            <a
+              href="/portal/reportes"
+              download
+              className="text-foreground hover:bg-muted/60 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Exportar CSV
+            </a>
+            <Link
+              href="/portal/incidencias"
+              className="text-foreground hover:bg-muted/60 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
+            >
+              <AlertCircle className="h-3.5 w-3.5" />
+              Incidencias
+            </Link>
             <div className="flex-1" />
             <div className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
               <ShieldCheck className="text-success h-3 w-3" />

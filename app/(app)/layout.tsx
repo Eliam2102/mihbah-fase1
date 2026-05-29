@@ -9,8 +9,8 @@ import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, eq, sql } from 'drizzle-orm'
 
 // Roles permitidos en el admin shell (NO portal users)
-const ROLES_ADMIN = ['user', 'admin', 'super_admin', 'super_admin_dev']
-const ROLES_PORTAL = ['lider_alianza', 'asesor']
+const ROLES_ADMIN = ['viewer', 'user', 'tesoreria', 'admin', 'super_admin', 'super_admin_dev']
+const ROLES_PORTAL = ['lider_alianza', 'asesor', 'administrativo']
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // ── Auth guard ─────────────────────────────────────────────────────────────

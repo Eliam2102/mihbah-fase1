@@ -1012,6 +1012,11 @@ export const esquemasComision = pgTable(
     fechaInicio: date('fecha_inicio').notNull(),
     fechaFin: date('fecha_fin'),
     observaciones: text('observaciones'),
+    // Versionado (spec §4.3): número de versión auto-incremental por tipo,
+    // quién realizó el cambio y quién lo autorizó (super_admin).
+    version: integer('version').notNull().default(1),
+    creadoPor: text('creado_por').references(() => users.id, { onDelete: 'set null' }),
+    autorizadoPor: text('autorizado_por').references(() => users.id, { onDelete: 'set null' }),
     activo: boolean('activo').notNull().default(true),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -1720,5 +1725,45 @@ export const bonosUmbralCalculados = pgTable(
       t.mes,
     ),
     corteIdx: index('bonos_umbral_calc_corte_idx').on(t.corteId),
+  }),
+)
+
+// ─── Incidencias / Aclaraciones ──────────────────────────────────────────────
+// Tickets que cualquier usuario (ERP o portal) puede abrir. Los super_admin
+// los gestionan. Spec §2.1–2.5: todos los roles pueden registrar incidencias.
+
+export const estadoIncidenciaEnum = pgEnum('estado_incidencia', [
+  'ABIERTA',
+  'EN_PROCESO',
+  'RESUELTA',
+  'CERRADA',
+])
+
+export const incidencias = pgTable(
+  'incidencias',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    // Quién la abrió (puede ser usuario ERP o userId del portal)
+    creadoPor: text('creado_por').references(() => users.id, { onDelete: 'set null' }),
+    creadoPorNombre: text('creado_por_nombre').notNull(),
+    // Asignada a un super_admin para resolver
+    asignadaA: text('asignada_a').references(() => users.id, { onDelete: 'set null' }),
+    // Contexto opcional
+    empresaId: uuid('empresa_id').references(() => empresas.id, { onDelete: 'set null' }),
+    ventaId: uuid('venta_id').references(() => ventasBmcorp.id, { onDelete: 'set null' }),
+    titulo: text('titulo').notNull(),
+    descripcion: text('descripcion').notNull(),
+    estado: estadoIncidenciaEnum('estado').notNull().default('ABIERTA'),
+    resolucion: text('resolucion'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index('incidencias_tenant_idx').on(t.tenantId),
+    estadoIdx: index('incidencias_estado_idx').on(t.tenantId, t.estado),
+    creadoPorIdx: index('incidencias_creado_por_idx').on(t.creadoPor),
   }),
 )

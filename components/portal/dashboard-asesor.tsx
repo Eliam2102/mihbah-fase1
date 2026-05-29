@@ -12,6 +12,7 @@ import {
   Building2,
   ChevronRight,
   AlertCircle,
+  Download,
 } from 'lucide-react'
 import type { DispersionPortal, PerfilPortal } from '@/lib/services/comisiones/portal.service'
 
@@ -163,6 +164,18 @@ export function DashboardAsesor({
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Descarga */}
+      <div className="flex justify-end">
+        <a
+          href="/portal/reportes"
+          download
+          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Descargar mis comisiones CSV
+        </a>
       </div>
 
       {/* KPIs */}

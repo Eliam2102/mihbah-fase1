@@ -141,7 +141,9 @@ async function mondayFetch<T>(
  * Returns the board metadata + flat array of items.
  */
 export async function getBoard(boardId: string): Promise<{ name: string; items: MondayItem[] }> {
-  const PAGE_SIZE = 200
+  // Boards históricos grandes hacen que Monday devuelva 500 con limit alto.
+  // 10 items por request es más lento pero evita timeouts internos de Monday.
+  const PAGE_SIZE = 10
   const allItems: MondayItem[] = []
   let cursor: string | null = null
   let boardName = ''

@@ -1,6 +1,6 @@
 'use server'
 
-import { requireSuperAdminDev } from '@/lib/auth/helpers'
+import { requireSuperAdminDev, requireSuperAdminOrAbove } from '@/lib/auth/helpers'
 import {
   createUser,
   updateUserRole,
@@ -9,6 +9,9 @@ import {
 } from '@/lib/services/admin/user.service'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { db } from '@/lib/db'
+import { users } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 const CreateUserSchema = z.object({
   name: z.string().min(2).max(100),
@@ -55,7 +58,7 @@ export async function actionCreateUserFromForm(
 
 export async function actionUpdateUserRole(
   userId: string,
-  role: 'super_admin' | 'admin' | 'user',
+  role: 'super_admin' | 'admin' | 'tesoreria' | 'viewer' | 'user',
 ): Promise<AdminUserResult> {
   try {
     await requireSuperAdminDev()
@@ -77,6 +80,31 @@ export async function actionGrantAccess(
     await requireSuperAdminDev()
     await grantEmpresaAccess(tenantId, userId, empresaId, rol)
     revalidatePath('/configuracion/usuarios')
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' }
+  }
+}
+
+export async function actionBanUser(
+  targetUserId: string,
+  ban: boolean,
+  razon?: string,
+): Promise<AdminUserResult> {
+  try {
+    const actor = await requireSuperAdminOrAbove()
+    if (actor.id === targetUserId) return { ok: false, error: 'No puedes bloquearte a ti mismo' }
+    await db
+      .update(users)
+      .set({
+        banned: ban,
+        banReason: ban ? (razon ?? 'Bloqueado por administrador') : null,
+        banExpires: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, targetUserId))
+    revalidatePath('/configuracion/usuarios')
+    revalidatePath(`/configuracion/usuarios/${targetUserId}`)
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' }

@@ -6,6 +6,7 @@ import {
 } from '@/lib/services/comisiones/portal.service'
 import { DashboardAsesor } from '@/components/portal/dashboard-asesor'
 import { DashboardLider } from '@/components/portal/dashboard-lider'
+import { DashboardAdministrativo } from '@/components/portal/dashboard-administrativo'
 
 export const metadata = { title: 'Mi dashboard · Portal' }
 
@@ -22,5 +23,17 @@ export default async function PortalDashboard() {
     getVentasPortalLider(user.id),
     getAsesoresPortalLider(user.id),
   ])
+
+  if (perfil.rolPortal === 'ADMINISTRATIVO') {
+    return (
+      <DashboardAdministrativo
+        perfil={perfil}
+        ventas={ventas}
+        asesores={asesores}
+        userName={userName}
+      />
+    )
+  }
+
   return <DashboardLider perfil={perfil} ventas={ventas} asesores={asesores} userName={userName} />
 }

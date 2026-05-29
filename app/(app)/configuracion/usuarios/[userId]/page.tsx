@@ -114,6 +114,7 @@ export default async function UsuarioDetailPage({ params }: PageProps) {
         tenantId={viewer.tenantId}
         isSelf={isSelf}
         isSaasDev={isSaasDev}
+        isBanned={targetUser.banned ?? false}
         accesos={targetUser.accesos}
         allEmpresas={allEmpresas}
         empresasPermisos={permisosAccesibles}

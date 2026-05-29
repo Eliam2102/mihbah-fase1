@@ -51,6 +51,15 @@ export function isAdminOrAbove(role?: string | null): boolean {
   return role === 'super_admin_dev' || role === 'super_admin' || role === 'admin'
 }
 
+export function isViewer(role?: string | null): boolean {
+  return role === 'viewer' || role === 'user'
+}
+
+// Cualquier rol ERP autenticado puede ver dashboards/reportes de solo lectura.
+export function isViewerOrAbove(role?: string | null): boolean {
+  return isViewer(role) || isAdminOrAbove(role) || role === 'tesoreria'
+}
+
 export function isTesoreria(role?: string | null): boolean {
   return role === 'tesoreria'
 }

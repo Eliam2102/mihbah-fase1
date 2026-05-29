@@ -6,27 +6,51 @@ import {
   actionUpdateUserRole,
   actionGrantAccess,
   actionRevokeAccess,
+  actionBanUser,
 } from '@/app/actions/admin-user'
 import { actionSetModuloPermiso, actionResetModulos } from '@/app/actions/admin-modulo'
 import { MODULOS_META, getModulosParaTipo } from '@/lib/modulos-config'
 import type { ModuloKey } from '@/lib/modulos-config'
-import { Eye, EyeOff, Pencil, PencilOff, RotateCcw, Loader2, Check, X } from 'lucide-react'
+import {
+  Eye,
+  EyeOff,
+  Pencil,
+  PencilOff,
+  RotateCcw,
+  Loader2,
+  Check,
+  X,
+  ShieldOff,
+  ShieldCheck,
+} from 'lucide-react'
 
-type UserRole = 'super_admin' | 'admin' | 'user'
+type UserRole = 'super_admin' | 'admin' | 'tesoreria' | 'viewer' | 'user'
 
-const ROL_OPTIONS: { value: UserRole; label: string; color: string }[] = [
+const ROL_OPTIONS: { value: UserRole; label: string; desc: string; color: string }[] = [
   {
     value: 'super_admin',
     label: 'Super Admin',
-    color: 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+    desc: 'Control total + aprobación pagos (Carla, Jorge)',
+    color: 'border-blue-500 bg-blue-50 text-blue-700',
   },
   {
     value: 'admin',
-    label: 'Admin',
-    color:
-      'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+    label: 'Administración Financiera',
+    desc: 'Dispersión y operación — no aprueba (Joana)',
+    color: 'border-emerald-500 bg-emerald-50 text-emerald-700',
   },
-  { value: 'user', label: 'Viewer', color: 'border-border bg-muted text-muted-foreground' },
+  {
+    value: 'tesoreria',
+    label: 'Tesorería',
+    desc: 'Solo pagos y comprobantes',
+    color: 'border-amber-500 bg-amber-50 text-amber-700',
+  },
+  {
+    value: 'viewer',
+    label: 'Dirección / Consulta',
+    desc: 'Solo lectura y reportes globales',
+    color: 'border-border bg-muted text-muted-foreground',
+  },
 ]
 
 interface ModuloRow {
@@ -48,6 +72,7 @@ interface Props {
   tenantId: string
   isSelf: boolean
   isSaasDev: boolean
+  isBanned: boolean
   accesos: { empresaId: string; empresaNombre: string; rol: string }[]
   allEmpresas: { id: string; name: string; tipo: string }[]
   empresasPermisos: EmpresaPermisos[]
@@ -59,6 +84,7 @@ export function UsuarioEditor({
   tenantId,
   isSelf,
   isSaasDev,
+  isBanned,
   accesos,
   allEmpresas,
   empresasPermisos,
@@ -77,6 +103,21 @@ export function UsuarioEditor({
     setError(null)
     startTransition(async () => {
       const res = await actionUpdateUserRole(userId, newRole)
+      if (!res.ok) setError(res.error ?? 'Error')
+      else router.refresh()
+    })
+  }
+
+  // ── Bloquear/desbloquear usuario ─────────────────────────────────────────────
+  function handleBan(ban: boolean) {
+    if (isSelf) return
+    const msg = ban
+      ? '¿Bloquear este usuario? No podrá iniciar sesión.'
+      : '¿Desbloquear este usuario?'
+    if (!confirm(msg)) return
+    setError(null)
+    startTransition(async () => {
+      const res = await actionBanUser(userId, ban)
       if (!res.ok) setError(res.error ?? 'Error')
       else router.refresh()
     })
@@ -161,6 +202,46 @@ export function UsuarioEditor({
         </p>
       )}
 
+      {/* ── Estado del usuario (bloquear/desbloquear) ────────────────────────── */}
+      {!isSelf && !isSaasDev && (
+        <div
+          className={`rounded-xl border p-4 ${isBanned ? 'border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/20' : 'border-border bg-card'}`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-foreground text-sm font-semibold">
+                {isBanned ? 'Usuario bloqueado' : 'Usuario activo'}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                {isBanned
+                  ? 'Este usuario no puede iniciar sesión.'
+                  : 'El usuario puede iniciar sesión normalmente.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => handleBan(!isBanned)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                isBanned
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'bg-rose-600 text-white hover:bg-rose-700'
+              }`}
+            >
+              {isBanned ? (
+                <>
+                  <ShieldCheck className="h-4 w-4" /> Desbloquear
+                </>
+              ) : (
+                <>
+                  <ShieldOff className="h-4 w-4" /> Bloquear
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Rol ──────────────────────────────────────────────────────────────── */}
       <div className="border-border bg-card rounded-xl border p-5">
         <h2 className="text-foreground mb-4 text-sm font-semibold">Rol del sistema</h2>
@@ -184,8 +265,11 @@ export function UsuarioEditor({
                     : 'border-border text-muted-foreground hover:border-slate-400'
                 }`}
               >
-                {role === opt.value && <Check className="h-3.5 w-3.5" />}
-                {opt.label}
+                {role === opt.value && <Check className="h-3.5 w-3.5 shrink-0" />}
+                <div className="text-left">
+                  <div>{opt.label}</div>
+                  <div className="text-[10px] font-normal opacity-70">{opt.desc}</div>
+                </div>
               </button>
             ))}
           </div>

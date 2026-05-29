@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   triggerSync,
   triggerSyncMultiple,
@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils'
 
 interface Props {
   empresaId: string
+  /** IDs de tableros que ya tienen al menos un sync COMPLETADO en DB */
+  syncedBoardIds?: string[]
 }
 
 interface BoardSummary {
@@ -41,10 +43,13 @@ function isVentasBoard(name: string) {
   return /^ventas?\s+(202[0-6])$/.test(normalized)
 }
 
-export function MondaySyncButton({ empresaId }: Props) {
+export function MondaySyncButton({ empresaId, syncedBoardIds = [] }: Props) {
+  // Memoizar syncedSet para no recalcular en cada render
+  const syncedSet = useMemo(() => new Set(syncedBoardIds), [syncedBoardIds])
   const [loading, setLoading] = useState(false)
   const [loadingBoards, setLoadingBoards] = useState(true)
   const [boards, setBoards] = useState<BoardSummary[]>([])
+  // Nada pre-seleccionado — usuario elige explícitamente qué sincronizar
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [singleResult, setSingleResult] = useState<TriggerSyncResult | null>(null)
   const [multiResult, setMultiResult] = useState<TriggerSyncAllResult | null>(null)
@@ -61,9 +66,12 @@ export function MondaySyncButton({ empresaId }: Props) {
       const res = await getWorkspaceBoardsAction()
       if (res.ok) {
         setBoards(res.boards)
-        // Default: SOLO board 2026 (formato homologado). Los históricos no entran
-        // por accidente — el usuario debe marcarlos explícitamente.
-        setSelectedIds(new Set(res.boards.filter((b) => is2026Board(b.name)).map((b) => b.id)))
+        // Pre-seleccionar solo el board 2026 si NO ha sido sincronizado aún
+        // (si ya está sincronizado, el usuario decide cuándo re-sincronizar)
+        const preselectIds = res.boards
+          .filter((b) => is2026Board(b.name) && !syncedSet.has(b.id))
+          .map((b) => b.id)
+        setSelectedIds(new Set(preselectIds))
       } else {
         setBoardsError(res.error ?? 'Error desconocido')
       }
@@ -184,6 +192,7 @@ export function MondaySyncButton({ empresaId }: Props) {
                       key={b.id}
                       board={b}
                       selected={selectedIds.has(b.id)}
+                      synced={syncedSet.has(b.id)}
                       onToggle={() => toggle(b.id)}
                       highlight
                     />
@@ -204,6 +213,7 @@ export function MondaySyncButton({ empresaId }: Props) {
                       key={b.id}
                       board={b}
                       selected={selectedIds.has(b.id)}
+                      synced={syncedSet.has(b.id)}
                       onToggle={() => toggle(b.id)}
                     />
                   ))}
@@ -282,27 +292,33 @@ export function MondaySyncButton({ empresaId }: Props) {
 function BoardChip({
   board,
   selected,
+  synced = false,
   onToggle,
   highlight = false,
 }: {
   board: BoardSummary
   selected: boolean
+  synced?: boolean
   onToggle: () => void
   highlight?: boolean
 }) {
   return (
     <button
       onClick={onToggle}
+      title={synced ? 'Ya sincronizado — click para re-sincronizar' : undefined}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
         selected
           ? highlight
             ? 'border-primary bg-primary text-primary-foreground shadow-sm'
             : 'border-primary/60 bg-primary/10 text-primary'
-          : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
+          : synced
+            ? 'border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400'
+            : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
       )}
     >
       {selected && <Check className="h-3 w-3 shrink-0" />}
+      {!selected && synced && <CheckCircle className="h-3 w-3 shrink-0 text-emerald-500" />}
       {board.name}
     </button>
   )

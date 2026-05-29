@@ -1,6 +1,6 @@
 'use server'
 
-import { requireUser } from '@/lib/auth/helpers'
+import { requireUser, isSuperAdminOrAbove } from '@/lib/auth/helpers'
 import * as service from '@/lib/services/comisiones/esquemas.service'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -91,7 +91,10 @@ export async function crearEsquemaAction(
         fieldErrors: parsed.error.flatten().fieldErrors,
       }
     }
-    const row = await service.crearEsquema(user.tenantId!, parsed.data)
+    const row = await service.crearEsquema(user.tenantId!, {
+      ...parsed.data,
+      creadoPor: user.id,
+    })
     revalidateComisiones(empresaId)
     return { ok: true, data: row }
   } catch (err) {
@@ -115,6 +118,23 @@ export async function actualizarEsquemaAction(
       }
     }
     await service.actualizarEsquema(user.tenantId!, id, stripUndefined(parsed.data))
+    revalidateComisiones(empresaId)
+    return { ok: true, data: { id } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+export async function autorizarEsquemaAction(
+  empresaId: string,
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireUser()
+    if (!isSuperAdminOrAbove(user.role)) {
+      return { ok: false, error: 'Solo super_admin puede autorizar esquemas' }
+    }
+    await service.actualizarEsquema(user.tenantId!, id, { autorizadoPor: user.id })
     revalidateComisiones(empresaId)
     return { ok: true, data: { id } }
   } catch (err) {

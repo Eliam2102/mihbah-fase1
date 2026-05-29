@@ -1,10 +1,35 @@
 import { db } from '@/lib/db'
-import { users, accounts, userEmpresaAccess, empresas } from '@/lib/db/schema'
+import { users, accounts, userEmpresaAccess, userModuloAccess, empresas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { hash } from '@node-rs/argon2'
+import { getModulosParaTipo } from '@/lib/modulos-config'
+import type { ModuloKey } from '@/lib/modulos-config'
 
-export type UserRolTenant = 'super_admin' | 'admin' | 'user'
+// Permisos por defecto según el rol — spec §2.
+// viewer solo puede ver (no editar). admin puede ver y editar todo.
+function defaultModuloPermisos(
+  role: string,
+  modulo: ModuloKey,
+): { puedeVer: boolean; puedeEditar: boolean } {
+  if (role === 'viewer' || role === 'user') {
+    // Dirección/Consulta Global: solo lectura, sin acceso a cargas ni monday ni comisiones
+    const soloLectura = ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes'] as ModuloKey[]
+    const bloqueado = ['cargas', 'monday', 'comisiones', 'ventas'] as ModuloKey[]
+    if (soloLectura.includes(modulo)) return { puedeVer: true, puedeEditar: false }
+    if (bloqueado.includes(modulo)) return { puedeVer: false, puedeEditar: false }
+  }
+  if (role === 'tesoreria') {
+    // Tesorería: ve comisiones/ventas pero no puede editar ni cargar
+    if (modulo === 'cargas' || modulo === 'monday') return { puedeVer: false, puedeEditar: false }
+    if (modulo === 'comisiones' || modulo === 'ventas')
+      return { puedeVer: true, puedeEditar: false }
+  }
+  // super_admin y admin: acceso total
+  return { puedeVer: true, puedeEditar: true }
+}
+
+export type UserRolTenant = 'super_admin' | 'admin' | 'tesoreria' | 'viewer' | 'user'
 
 export interface CreateUserInput {
   tenantId: string
@@ -47,8 +72,38 @@ export async function createUser(input: CreateUserInput): Promise<string> {
         tenantId: input.tenantId,
         userId,
         empresaId,
-        rol: input.role === 'user' ? 'VIEWER' : 'ADMIN',
+        rol:
+          input.role === 'user' || input.role === 'viewer' || input.role === 'tesoreria'
+            ? 'VIEWER'
+            : 'ADMIN',
       })
+
+      // Obtener tipo de empresa para saber qué módulos aplican
+      const [emp] = await trx
+        .select({ tipo: empresas.tipo })
+        .from(empresas)
+        .where(eq(empresas.id, empresaId))
+        .limit(1)
+      if (!emp) continue
+
+      const modulos = getModulosParaTipo(emp.tipo)
+      for (const modulo of modulos) {
+        const perms = defaultModuloPermisos(input.role, modulo)
+        // Solo insertar si difiere del default universal (puedeVer=true) para no saturar la tabla
+        if (!perms.puedeVer || perms.puedeEditar) {
+          await trx
+            .insert(userModuloAccess)
+            .values({
+              tenantId: input.tenantId,
+              userId,
+              empresaId,
+              modulo,
+              puedeVer: perms.puedeVer,
+              puedeEditar: perms.puedeEditar,
+            })
+            .onConflictDoNothing()
+        }
+      }
     }
 
     return userId
@@ -60,6 +115,8 @@ export interface UserAdminRow {
   name: string
   email: string
   role: string | null
+  banned: boolean | null
+  banReason: string | null
   createdAt: Date
   accesos: { empresaId: string; empresaNombre: string; rol: string }[]
 }
@@ -88,6 +145,8 @@ export async function listUsersForTenant(tenantId: string): Promise<UserAdminRow
       name: u.name,
       email: u.email,
       role: u.role,
+      banned: u.banned,
+      banReason: u.banReason,
       createdAt: u.createdAt,
       accesos: accesos.map((a) => ({
         empresaId: a.empresaId,
@@ -124,6 +183,8 @@ export async function getUserById(userId: string, tenantId: string): Promise<Use
     name: u.name,
     email: u.email,
     role: u.role,
+    banned: u.banned,
+    banReason: u.banReason,
     createdAt: u.createdAt,
     accesos: accesos.map((a) => ({
       empresaId: a.empresaId,

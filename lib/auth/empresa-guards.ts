@@ -1,6 +1,11 @@
 import { redirect } from 'next/navigation'
 import { getEmpresaById } from '@/lib/services/empresas'
-import { canAccessEmpresa, isAdminOrAbove, type AuthUser } from '@/lib/auth/helpers'
+import {
+  canAccessEmpresa,
+  isAdminOrAbove,
+  isSuperAdminOrAbove,
+  type AuthUser,
+} from '@/lib/auth/helpers'
 import { canViewModulo } from '@/lib/services/admin/modulo-access.service'
 import type { ModuloKey } from '@/lib/modulos-config'
 import type { EmpresaBasic } from '@/lib/services/empresas/empresas.types'
@@ -24,7 +29,8 @@ export async function requireEmpresaAccess(
   const empresa = await getEmpresaById(empresaId, tenantId)
   if (!empresa) redirect('/dashboard')
 
-  if (!isAdminOrAbove(user.role)) {
+  // Super/Admin bypass directo. Viewer/tesorería deben tener acceso explícito por empresa.
+  if (!isSuperAdminOrAbove(user.role)) {
     const hasAccess = await canAccessEmpresa(user.id, empresaId)
     if (!hasAccess) redirect('/dashboard')
   }

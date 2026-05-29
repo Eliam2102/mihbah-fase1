@@ -203,6 +203,14 @@ CREATE POLICY tenant_isolation ON bonos_umbral_calculados
   USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
   WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
 
+-- incidencias
+ALTER TABLE incidencias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE incidencias FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON incidencias;
+CREATE POLICY tenant_isolation ON incidencias
+  USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+
 -- ─── Bypass for seeds/migrations ─────────────────────────────────────────────
 -- Run as superuser if you need to grant BYPASSRLS to the app role:
 --   ALTER ROLE mihbah BYPASSRLS;

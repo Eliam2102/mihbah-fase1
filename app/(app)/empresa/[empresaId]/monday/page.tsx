@@ -13,9 +13,17 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
   const tenantId = user.tenantId!
 
   const [history, lastSync] = await Promise.all([
-    listSyncHistory(empresaId, tenantId),
+    listSyncHistory(empresaId, tenantId, 50),
     getLastSuccessfulSync(empresaId, tenantId),
   ])
+
+  // Tableros que ya tienen al menos un COMPLETADO → mostrar indicador verde
+  const syncedBoardIds = new Set(
+    history
+      .filter((s) => s.estado === 'COMPLETADO')
+      .map((s) => s.tablero)
+      .filter(Boolean) as string[],
+  )
 
   const hasBoardId = Boolean(process.env.MONDAY_BOARD_ID)
   const hasApiKey = Boolean(process.env.MONDAY_API_KEY)
@@ -100,7 +108,7 @@ export default async function MondayPage({ params }: { params: Promise<{ empresa
           duplica registros. Las comisiones solo se calculan para ventas{' '}
           <strong>Finalizadas</strong>.
         </p>
-        <MondaySyncButton empresaId={empresaId} />
+        <MondaySyncButton empresaId={empresaId} syncedBoardIds={[...syncedBoardIds]} />
       </div>
 
       {/* Sync history */}

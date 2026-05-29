@@ -105,9 +105,14 @@ export function NuevoUsuarioForm({ empresas }: Props) {
               defaultValue="user"
               className="border-border bg-background text-foreground w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none"
             >
-              <option value="super_admin">Super Admin</option>
-              <option value="admin">Admin</option>
-              <option value="user">Viewer</option>
+              <option value="super_admin">
+                Super Admin — Control total + aprobación de pagos (Carla, Jorge)
+              </option>
+              <option value="admin">
+                Administración Financiera — Dispersión y operación (Joana)
+              </option>
+              <option value="tesoreria">Tesorería — Solo pagos y comprobantes</option>
+              <option value="viewer">Dirección / Consulta Global — Solo lectura</option>
             </select>
           </div>
         </div>

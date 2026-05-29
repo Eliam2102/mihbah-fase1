@@ -246,7 +246,12 @@ export async function getComisionesPortalLider(userId: string): Promise<Dispersi
 
 export async function getAsesoresPortalLider(userId: string) {
   const perfil = await getPerfilPortal(userId)
-  if (!perfil || perfil.rolPortal !== 'LIDER_ALIANZA' || perfil.liderIds.length === 0) return []
+  if (
+    !perfil ||
+    !['LIDER_ALIANZA', 'ADMINISTRATIVO'].includes(perfil.rolPortal) ||
+    perfil.liderIds.length === 0
+  )
+    return []
   const liderIds = perfil.liderIds
   return db.transaction(async (tx) => {
     await setTenant(tx, perfil.tenantId)
@@ -294,7 +299,8 @@ const TIPOS_INTERNOS = ['OP_BMCORP', 'OP_YESYUCAN'] as const
 
 export async function getVentasPortalLider(userId: string): Promise<VentaLiderPortal[]> {
   const perfil = await getPerfilPortal(userId)
-  if (!perfil || perfil.rolPortal !== 'LIDER_ALIANZA') return []
+  // Accesible para LIDER_ALIANZA y ADMINISTRATIVO (ambos ven la afiliación completa)
+  if (!perfil || !['LIDER_ALIANZA', 'ADMINISTRATIVO'].includes(perfil.rolPortal)) return []
 
   // Usar alianzasIds (ventas de TODA la alianza) no solo liderIds
   // para que el líder vea el panorama completo de su red.
