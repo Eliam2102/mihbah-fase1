@@ -6,7 +6,7 @@ import { requireUser } from '@/lib/auth/helpers'
 import { leerComprobante } from '@/lib/storage/comprobantes'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { getPerfilPortal } from '@/lib/services/comisiones/portal.service'
-import { asesores } from '@/lib/db/schema'
+import { asesores, dispersiones, comisionesCalculadas, ventasBmcorp } from '@/lib/db/schema'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -57,6 +57,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               if (asesor.liderId !== null && perfil.liderIds.includes(asesor.liderId))
                 isOwner = true
               else if (asesor.afiliadoId !== null && perfil.alianzasIds.includes(asesor.afiliadoId))
+                isOwner = true
+            }
+          }
+        }
+
+        // Fallback for legacy comprobantes
+        if (!isOwner && comprobante.dispersionId) {
+          const [disp] = await tx
+            .select({
+              liderId: dispersiones.liderId,
+              asesorId: dispersiones.asesorId,
+              afiliadoId: ventasBmcorp.afiliadoId,
+            })
+            .from(dispersiones)
+            .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+            .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+            .where(eq(dispersiones.id, comprobante.dispersionId))
+            .limit(1)
+
+          if (disp) {
+            if (perfil.rolPortal === 'ASESOR' && perfil.asesorIds.length > 0) {
+              if (disp.asesorId !== null && perfil.asesorIds.includes(disp.asesorId)) isOwner = true
+            } else if (['LIDER_ALIANZA', 'ADMINISTRATIVO'].includes(perfil.rolPortal)) {
+              if (disp.liderId !== null && perfil.liderIds.includes(disp.liderId)) isOwner = true
+              else if (disp.afiliadoId !== null && perfil.alianzasIds.includes(disp.afiliadoId))
                 isOwner = true
             }
           }
