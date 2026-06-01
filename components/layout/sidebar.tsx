@@ -79,11 +79,24 @@ export function Sidebar({
   const empresaNombre = activeEmpresa?.name ?? ''
   const empresaId = activeEmpresa?.id
   const allModules = getModulesForEmpresa(empresaActiva, empresaNombre, empresaId)
-  // null = admin/super_admin, sin restricción. Record presente = filtrar por puedeVer.
-  const empresaPermisos = empresaId && permisosVisibles ? permisosVisibles[empresaId] : null
-  const modules = empresaPermisos
-    ? allModules.filter((m) => empresaPermisos.includes(m.moduloKey))
-    : allModules
+
+  // Módulos máximos permitidos por rol (techo). Admin/super_admin = null (sin techo).
+  const MODULOS_POR_ROL: Partial<Record<string, string[]>> = {
+    viewer: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes'],
+    user: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes'],
+    tesoreria: ['dashboard', 'flujo', 'proyectos', 'cuentas', 'reportes', 'comisiones', 'ventas'],
+  }
+  const rolBaseline = userRole ? (MODULOS_POR_ROL[userRole] ?? null) : null
+
+  // Permisos explícitos por empresa (null = sin restricción explícita)
+  const empresaPermisos =
+    empresaId && permisosVisibles ? (permisosVisibles[empresaId] ?? null) : null
+
+  const modules = allModules.filter((m) => {
+    if (rolBaseline && !rolBaseline.includes(m.moduloKey)) return false
+    if (empresaPermisos && !empresaPermisos.includes(m.moduloKey)) return false
+    return true
+  })
 
   async function handleLogout() {
     await signOut()
