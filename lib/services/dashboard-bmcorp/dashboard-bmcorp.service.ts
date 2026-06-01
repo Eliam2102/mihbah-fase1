@@ -982,6 +982,7 @@ export type SemaforoBmcorpEstado = 'VERDE' | 'AMARILLO' | 'ROJO'
 export interface SemaforoBmcorpResult {
   estado: SemaforoBmcorpEstado
   comisionesMes: number
+  periodoLabel: string
   label: string
   descripcion: string
   color: string
@@ -991,14 +992,31 @@ export interface SemaforoBmcorpResult {
 export async function getSemaforoBmcorp(
   empresaId: string,
   tenantId: string,
+  period?: PeriodFilter,
 ): Promise<SemaforoBmcorpResult> {
   const hoy = new Date()
-  const anio = hoy.getFullYear()
-  const mes = hoy.getMonth() + 1
-  const mesStr = String(mes).padStart(2, '0')
-  const lastDay = new Date(anio, mes, 0).getDate()
-  const from = `${anio}-${mesStr}-01`
-  const to = `${anio}-${mesStr}-${String(lastDay).padStart(2, '0')}`
+  const anioFallback = hoy.getFullYear()
+  const p = period?.anio ? period : { anio: anioFallback }
+  const range = periodRange(p) ?? { from: `${anioFallback}-01-01`, to: `${anioFallback}-12-31` }
+  const { from, to } = range
+
+  const MESES_ES_CORTO = [
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
+  ]
+  const periodoLabel = p.mes
+    ? `${MESES_ES_CORTO[(p.mes ?? 1) - 1]} ${p.anio}`
+    : `${p.anio} acumulado`
 
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
@@ -1048,8 +1066,9 @@ export async function getSemaforoBmcorp(
       return {
         estado: 'VERDE',
         comisionesMes,
+        periodoLabel,
         label: 'Saludable',
-        descripcion: 'Comisión OP (BM Corp + Yesyucan) supera la meta mensual de $500K.',
+        descripcion: `Comisión OP (BM Corp + Yesyucan) supera la meta de $500K.`,
         color: 'text-emerald-600 dark:text-emerald-400',
         bgColor: 'bg-emerald-500',
       }
@@ -1058,8 +1077,9 @@ export async function getSemaforoBmcorp(
       return {
         estado: 'AMARILLO',
         comisionesMes,
+        periodoLabel,
         label: 'Alerta',
-        descripcion: 'Comisión OP (BM Corp + Yesyucan) entre $300K y $500K. Por debajo de la meta.',
+        descripcion: `Comisión OP (BM Corp + Yesyucan) entre $300K y $500K. Por debajo de la meta.`,
         color: 'text-amber-600 dark:text-amber-400',
         bgColor: 'bg-amber-400',
       }
@@ -1067,8 +1087,9 @@ export async function getSemaforoBmcorp(
     return {
       estado: 'ROJO',
       comisionesMes,
+      periodoLabel,
       label: 'Crítico',
-      descripcion: 'Comisión OP (BM Corp + Yesyucan) por debajo de $300K. Revisar pipeline.',
+      descripcion: `Comisión OP (BM Corp + Yesyucan) por debajo de $300K. Revisar pipeline.`,
       color: 'text-red-600 dark:text-red-400',
       bgColor: 'bg-red-500',
     }

@@ -73,7 +73,7 @@ export async function DashboardBmcorp({ empresaId, tenantId, anio, mes }: Props)
     getComisionamientoConciliado(empresaId, tenantId, period),
     getUltimaSync(empresaId, tenantId),
     countVentasTotal(empresaId, tenantId),
-    getSemaforoBmcorp(empresaId, tenantId),
+    getSemaforoBmcorp(empresaId, tenantId, period),
   ])
 
   // Sin datos en DB → pedir sincronización

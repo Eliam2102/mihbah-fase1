@@ -21,6 +21,15 @@ const crearSchema = z.object({
   password: z.string().min(8),
 })
 
+const vincularSchema = z.object({
+  rolPortal: z.enum(['LIDER_ALIANZA', 'ADMINISTRATIVO', 'ASESOR']),
+  liderId: z.string().uuid().nullable().optional(),
+  asesorId: z.string().uuid().nullable().optional(),
+  email: z.string().email(),
+})
+
+const ADMIN_ROLES = ['admin', 'super_admin', 'super_admin_dev']
+
 function handleError(err: unknown): { ok: false; error: string } {
   console.error('[portal-usuarios action]', err)
   return {
@@ -112,6 +121,52 @@ export async function crearUsuarioPortalAction(
   }
 }
 
+export async function vincularUsuarioExistenteAction(
+  empresaId: string,
+  input: z.input<typeof vincularSchema>,
+): Promise<ActionResult<{ usuarioPortalId: string }>> {
+  try {
+    const admin = await requireUser()
+    if (!admin.tenantId) return { ok: false, error: 'Admin sin tenant' }
+    const parsed = vincularSchema.safeParse(input)
+    if (!parsed.success) return { ok: false, error: 'Validación falló' }
+    const { rolPortal, liderId, asesorId, email } = parsed.data
+
+    if ((rolPortal === 'LIDER_ALIANZA' || rolPortal === 'ADMINISTRATIVO') && !liderId) {
+      return { ok: false, error: `liderId requerido para rol ${rolPortal}` }
+    }
+    if (rolPortal === 'ASESOR' && !asesorId) {
+      return { ok: false, error: 'asesorId requerido para rol ASESOR' }
+    }
+
+    const [existing] = await db
+      .select({ id: users.id, tenantId: users.tenantId })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1)
+
+    if (!existing) return { ok: false, error: 'No existe usuario con ese email' }
+    if (existing.tenantId !== admin.tenantId)
+      return { ok: false, error: 'Usuario no pertenece a este tenant' }
+
+    const yaPortal = await service.getUsuarioPortalByUserId(existing.id)
+    if (yaPortal) return { ok: false, error: 'Este usuario ya tiene acceso al portal' }
+
+    const portal = await service.crearUsuarioPortal(admin.tenantId, {
+      userId: existing.id,
+      rolPortal,
+      liderId: liderId ?? null,
+      asesorId: asesorId ?? null,
+      activo: true,
+    })
+
+    revalidatePath(`/empresa/${empresaId}/comisiones/portal-usuarios`)
+    return { ok: true, data: { usuarioPortalId: portal.id } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
 export async function desactivarUsuarioPortalAction(
   empresaId: string,
   id: string,
@@ -153,16 +208,24 @@ export async function eliminarUsuarioPortalAction(
 
       const userId = up.userId
 
+      // Determinar si es usuario vinculado (tiene rol admin en el ERP)
+      const [authUser] = await tx
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+      const esVinculado = ADMIN_ROLES.includes(authUser?.role ?? '')
+
       // Borrar registro portal
       await tx
         .delete(usuariosPortal)
         .where(and(eq(usuariosPortal.tenantId, tenantId), eq(usuariosPortal.id, usuarioPortalId)))
 
-      // Borrar accounts (credenciales). CASCADE en users → sesiones se borran al borrar el user
-      await tx.delete(accounts).where(eq(accounts.userId, userId))
-
-      // Borrar el user de Better Auth
-      await tx.delete(users).where(eq(users.id, userId))
+      if (!esVinculado) {
+        // Borrar accounts + user solo para cuentas exclusivas de portal
+        await tx.delete(accounts).where(eq(accounts.userId, userId))
+        await tx.delete(users).where(eq(users.id, userId))
+      }
     })
 
     revalidatePath(`/empresa/${empresaId}/comisiones/portal-usuarios`)

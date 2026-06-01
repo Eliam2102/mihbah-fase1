@@ -35,7 +35,7 @@ export function BmcorpSemaforo({ data }: Props) {
 
       <div className="flex flex-col items-end gap-0.5">
         <p className={`text-lg font-bold tabular-nums ${data.color}`}>{fmt(data.comisionesMes)}</p>
-        <p className="text-muted-foreground text-[10px]">comisión generada este mes</p>
+        <p className="text-muted-foreground text-[10px]">comisión OP — {data.periodoLabel}</p>
         <div className="text-muted-foreground mt-1 flex items-center gap-1 text-[10px]">
           <span className="h-2 w-2 rounded-full bg-emerald-400" /> &gt;$500K
           <span className="ml-1.5 h-2 w-2 rounded-full bg-amber-400" /> $300K–$500K

@@ -15,6 +15,7 @@ export interface UsuarioPortalDetalle {
   usuario: UsuarioPortal
   userEmail: string
   userName: string
+  userRole: string | null
   liderNombre: string | null
   asesorNombre: string | null
 }
@@ -27,6 +28,7 @@ export async function getUsuariosPortal(tenantId: string): Promise<UsuarioPortal
         usuario: usuariosPortal,
         userEmail: users.email,
         userName: users.name,
+        userRole: users.role,
         liderNombre: lideresAlianza.nombre,
         asesorNombre: asesores.nombre,
       })
@@ -39,6 +41,7 @@ export async function getUsuariosPortal(tenantId: string): Promise<UsuarioPortal
       usuario: r.usuario,
       userEmail: r.userEmail,
       userName: r.userName,
+      userRole: r.userRole,
       liderNombre: r.liderNombre,
       asesorNombre: r.asesorNombre,
     }))

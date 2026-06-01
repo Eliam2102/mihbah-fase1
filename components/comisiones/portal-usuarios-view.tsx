@@ -16,9 +16,13 @@ import {
   UserCheck,
   Crown,
   UserX,
+  Link2,
 } from 'lucide-react'
+
+const ADMIN_ROLES = ['admin', 'super_admin', 'super_admin_dev']
 import {
   crearUsuarioPortalAction,
+  vincularUsuarioExistenteAction,
   toggleActivoUsuarioPortalAction,
   resetearPasswordPortalAction,
   eliminarUsuarioPortalAction,
@@ -320,6 +324,8 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
   const [pending, startTransition] = useTransition()
   const [resetOpen, setResetOpen] = useState(false)
 
+  const esVinculado = ADMIN_ROLES.includes(usuario.userRole ?? '')
+
   async function toggleActivo() {
     const next = !usuario.usuario.activo
     const verbo = next ? 'Activar' : 'Desactivar'
@@ -337,9 +343,13 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
 
   async function eliminar() {
     const ok = await confirm({
-      title: `Eliminar cuenta de ${usuario.userEmail}`,
-      description: `Esto borra el usuario y su acceso permanentemente. No se puede deshacer.\n\nSi solo quieres bloquear acceso temporal, mejor usa "Desactivar".`,
-      confirmText: 'Eliminar',
+      title: esVinculado
+        ? `Desvincular portal de ${usuario.userEmail}`
+        : `Eliminar cuenta de ${usuario.userEmail}`,
+      description: esVinculado
+        ? `Quita el acceso al portal de este usuario. Su cuenta del ERP (admin) no se toca.\n\nPuedes re-vincular después desde "Vincular cuenta existente".`
+        : `Esto borra el usuario y su acceso permanentemente. No se puede deshacer.\n\nSi solo quieres bloquear acceso temporal, mejor usa "Desactivar".`,
+      confirmText: esVinculado ? 'Desvincular' : 'Eliminar',
     })
     if (!ok) return
     startTransition(async () => {
@@ -380,7 +390,15 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
               {initials}
             </div>
             <div className="min-w-0">
-              <p className="text-foreground truncate text-sm font-medium">{usuario.userName}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-foreground truncate text-sm font-medium">{usuario.userName}</p>
+                {esVinculado && (
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-amber-200 ring-inset dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-800">
+                    <Link2 className="h-2.5 w-2.5" />
+                    vinculado
+                  </span>
+                )}
+              </div>
               <p className="text-muted-foreground truncate text-xs">{usuario.userEmail}</p>
             </div>
           </div>
@@ -423,14 +441,16 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1">
-            <button
-              onClick={() => setResetOpen(true)}
-              disabled={pending}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-60"
-              title="Resetear password"
-            >
-              <KeyRound className="h-3.5 w-3.5" />
-            </button>
+            {!esVinculado && (
+              <button
+                onClick={() => setResetOpen(true)}
+                disabled={pending}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-60"
+                title="Resetear password"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button
               onClick={toggleActivo}
               disabled={pending}
@@ -446,10 +466,10 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
             <button
               onClick={eliminar}
               disabled={pending}
-              title="Eliminar permanentemente"
+              title={esVinculado ? 'Desvincular acceso portal' : 'Eliminar permanentemente'}
               className="text-destructive hover:bg-destructive/10 inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-60"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              {esVinculado ? <Link2 className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
             </button>
           </div>
         </td>
@@ -580,6 +600,94 @@ function ResetPasswordDialog({
   )
 }
 
+function RolYEntidadFields({
+  rolPortal,
+  liderId,
+  asesorId,
+  lideres,
+  asesores,
+  onChange,
+}: {
+  rolPortal: 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR'
+  liderId: string
+  asesorId: string
+  lideres: LiderConAlianza[]
+  asesores: AsesorConAlianza[]
+  onChange: (
+    fields: Partial<{
+      rolPortal: 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR'
+      liderId: string
+      asesorId: string
+    }>,
+  ) => void
+}) {
+  return (
+    <>
+      <Field label="Rol">
+        <select
+          value={rolPortal}
+          onChange={(e) =>
+            onChange({ rolPortal: e.target.value as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR' })
+          }
+          className="input"
+        >
+          <option value="ASESOR">Asesor</option>
+          <option value="LIDER_ALIANZA">Líder de alianza</option>
+          <option value="ADMINISTRATIVO">Administrativo</option>
+        </select>
+      </Field>
+
+      {rolPortal === 'LIDER_ALIANZA' || rolPortal === 'ADMINISTRATIVO' ? (
+        <Field label="Líder *">
+          <select
+            required
+            value={liderId}
+            onChange={(e) => onChange({ liderId: e.target.value })}
+            className="input"
+          >
+            <option value="">— Selecciona —</option>
+            {[...lideres]
+              .sort((a, b) =>
+                `${a.alianzaNombre} ${a.nombre}`.localeCompare(`${b.alianzaNombre} ${b.nombre}`),
+              )
+              .map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.alianzaNombre} · {l.nombre}
+                </option>
+              ))}
+          </select>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Formato: <strong>Alianza · Nombre del líder</strong>
+          </p>
+        </Field>
+      ) : (
+        <Field label="Asesor *">
+          <select
+            required
+            value={asesorId}
+            onChange={(e) => onChange({ asesorId: e.target.value })}
+            className="input"
+          >
+            <option value="">— Selecciona —</option>
+            {[...asesores]
+              .sort((a, b) =>
+                `${a.alianzaNombre} ${a.nombre}`.localeCompare(`${b.alianzaNombre} ${b.nombre}`),
+              )
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.alianzaNombre} · {a.nombre}
+                </option>
+              ))}
+          </select>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Formato: <strong>Alianza · Nombre del asesor</strong>
+          </p>
+        </Field>
+      )}
+    </>
+  )
+}
+
 function NuevoUsuarioDialog({
   empresaId,
   lideres,
@@ -594,7 +702,9 @@ function NuevoUsuarioDialog({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({
+  const [modo, setModo] = useState<'nuevo' | 'vincular'>('nuevo')
+
+  const [formNuevo, setFormNuevo] = useState({
     rolPortal: 'ASESOR' as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR',
     liderId: '',
     asesorId: '',
@@ -603,20 +713,49 @@ function NuevoUsuarioDialog({
     password: '',
   })
 
-  function handleSubmit(e: React.FormEvent) {
+  const [formVincular, setFormVincular] = useState({
+    rolPortal: 'LIDER_ALIANZA' as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR',
+    liderId: '',
+    asesorId: '',
+    email: '',
+  })
+
+  function handleSubmitNuevo(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     startTransition(async () => {
       const result = await crearUsuarioPortalAction(empresaId, {
-        rolPortal: form.rolPortal,
+        rolPortal: formNuevo.rolPortal,
         liderId:
-          form.rolPortal === 'LIDER_ALIANZA' || form.rolPortal === 'ADMINISTRATIVO'
-            ? form.liderId
+          formNuevo.rolPortal === 'LIDER_ALIANZA' || formNuevo.rolPortal === 'ADMINISTRATIVO'
+            ? formNuevo.liderId
             : null,
-        asesorId: form.rolPortal === 'ASESOR' ? form.asesorId : null,
-        email: form.email,
-        nombre: form.nombre,
-        password: form.password,
+        asesorId: formNuevo.rolPortal === 'ASESOR' ? formNuevo.asesorId : null,
+        email: formNuevo.email,
+        nombre: formNuevo.nombre,
+        password: formNuevo.password,
+      })
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      router.refresh()
+      onClose()
+    })
+  }
+
+  function handleSubmitVincular(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    startTransition(async () => {
+      const result = await vincularUsuarioExistenteAction(empresaId, {
+        rolPortal: formVincular.rolPortal,
+        liderId:
+          formVincular.rolPortal === 'LIDER_ALIANZA' || formVincular.rolPortal === 'ADMINISTRATIVO'
+            ? formVincular.liderId
+            : null,
+        asesorId: formVincular.rolPortal === 'ASESOR' ? formVincular.asesorId : null,
+        email: formVincular.email,
       })
       if (!result.ok) {
         setError(result.error)
@@ -636,129 +775,155 @@ function NuevoUsuarioDialog({
         >
           <X className="h-4 w-4" />
         </button>
-        <h2 className="text-lg font-semibold">Nuevo usuario portal</h2>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          Crea cuenta + password temporal. El usuario podrá cambiarlo en su primer login.
-        </p>
+        <h2 className="text-lg font-semibold">Usuario portal</h2>
 
-        <form method="post" action="#" onSubmit={handleSubmit} className="mt-4 space-y-3">
-          <Field label="Rol">
-            <select
-              value={form.rolPortal}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  rolPortal: e.target.value as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR',
-                })
-              }
-              className="input"
+        {/* Tabs */}
+        <div className="mt-3 flex rounded-lg border p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setModo('nuevo')
+              setError(null)
+            }}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              modo === 'nuevo'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Plus className="mr-1 inline h-3 w-3" />
+            Nueva cuenta
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setModo('vincular')
+              setError(null)
+            }}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              modo === 'vincular'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Link2 className="mr-1 inline h-3 w-3" />
+            Vincular existente
+          </button>
+        </div>
+
+        {modo === 'nuevo' ? (
+          <>
+            <p className="text-muted-foreground mt-3 text-xs">
+              Crea cuenta + password temporal. El usuario podrá cambiarlo en su primer login.
+            </p>
+            <form method="post" action="#" onSubmit={handleSubmitNuevo} className="mt-4 space-y-3">
+              <RolYEntidadFields
+                rolPortal={formNuevo.rolPortal}
+                liderId={formNuevo.liderId}
+                asesorId={formNuevo.asesorId}
+                lideres={lideres}
+                asesores={asesores}
+                onChange={(f) => setFormNuevo((prev) => ({ ...prev, ...f }))}
+              />
+              <Field label="Nombre completo *">
+                <input
+                  required
+                  value={formNuevo.nombre}
+                  onChange={(e) => setFormNuevo({ ...formNuevo, nombre: e.target.value })}
+                  className="input"
+                />
+              </Field>
+              <Field label="Email *">
+                <input
+                  required
+                  type="email"
+                  value={formNuevo.email}
+                  onChange={(e) => setFormNuevo({ ...formNuevo, email: e.target.value })}
+                  className="input"
+                />
+              </Field>
+              <Field label="Password temporal * (mínimo 8 caracteres)">
+                <input
+                  required
+                  type="text"
+                  minLength={8}
+                  value={formNuevo.password}
+                  onChange={(e) => setFormNuevo({ ...formNuevo, password: e.target.value })}
+                  className="input"
+                  placeholder="Comparte por canal seguro"
+                />
+              </Field>
+              {error && <p className="text-destructive text-xs">{error}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md px-3 py-1.5 text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm disabled:opacity-60"
+                >
+                  {pending ? 'Creando...' : 'Crear cuenta'}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            <p className="text-muted-foreground mt-3 text-xs">
+              Vincula un usuario del ERP (admin) al portal. Usará su misma cuenta y password.
+            </p>
+            <form
+              method="post"
+              action="#"
+              onSubmit={handleSubmitVincular}
+              className="mt-4 space-y-3"
             >
-              <option value="ASESOR">Asesor</option>
-              <option value="LIDER_ALIANZA">Líder de alianza</option>
-              <option value="ADMINISTRATIVO">Administrativo</option>
-            </select>
-          </Field>
-
-          {form.rolPortal === 'LIDER_ALIANZA' || form.rolPortal === 'ADMINISTRATIVO' ? (
-            <Field label="Líder *">
-              <select
-                required
-                value={form.liderId}
-                onChange={(e) => setForm({ ...form, liderId: e.target.value })}
-                className="input"
-              >
-                <option value="">— Selecciona —</option>
-                {[...lideres]
-                  .sort((a, b) =>
-                    `${a.alianzaNombre} ${a.nombre}`.localeCompare(
-                      `${b.alianzaNombre} ${b.nombre}`,
-                    ),
-                  )
-                  .map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.alianzaNombre} · {l.nombre}
-                    </option>
-                  ))}
-              </select>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Formato: <strong>Alianza · Nombre del líder</strong>
-              </p>
-            </Field>
-          ) : (
-            <Field label="Asesor *">
-              <select
-                required
-                value={form.asesorId}
-                onChange={(e) => setForm({ ...form, asesorId: e.target.value })}
-                className="input"
-              >
-                <option value="">— Selecciona —</option>
-                {[...asesores]
-                  .sort((a, b) =>
-                    `${a.alianzaNombre} ${a.nombre}`.localeCompare(
-                      `${b.alianzaNombre} ${b.nombre}`,
-                    ),
-                  )
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.alianzaNombre} · {a.nombre}
-                    </option>
-                  ))}
-              </select>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Formato: <strong>Alianza · Nombre del asesor</strong>
-              </p>
-            </Field>
-          )}
-
-          <Field label="Nombre completo *">
-            <input
-              required
-              value={form.nombre}
-              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-              className="input"
-            />
-          </Field>
-          <Field label="Email *">
-            <input
-              required
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="input"
-            />
-          </Field>
-          <Field label="Password temporal * (mínimo 8 caracteres)">
-            <input
-              required
-              type="text"
-              minLength={8}
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="input"
-              placeholder="Comparte por canal seguro"
-            />
-          </Field>
-
-          {error && <p className="text-destructive text-xs">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md px-3 py-1.5 text-sm"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm disabled:opacity-60"
-            >
-              {pending ? 'Creando...' : 'Crear cuenta'}
-            </button>
-          </div>
-        </form>
+              <RolYEntidadFields
+                rolPortal={formVincular.rolPortal}
+                liderId={formVincular.liderId}
+                asesorId={formVincular.asesorId}
+                lideres={lideres}
+                asesores={asesores}
+                onChange={(f) => setFormVincular((prev) => ({ ...prev, ...f }))}
+              />
+              <Field label="Email del usuario ERP *">
+                <input
+                  required
+                  type="email"
+                  value={formVincular.email}
+                  onChange={(e) => setFormVincular({ ...formVincular, email: e.target.value })}
+                  className="input"
+                  placeholder="jorge@empresa.com"
+                />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Debe ser el email de un usuario admin ya registrado en el ERP.
+                </p>
+              </Field>
+              {error && <p className="text-destructive text-xs">{error}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md px-3 py-1.5 text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm disabled:opacity-60"
+                >
+                  {pending ? 'Vinculando...' : 'Vincular acceso'}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </div>
   )
