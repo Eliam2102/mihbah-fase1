@@ -434,15 +434,16 @@ export default function CorteDetailView({
 
           return (
             <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md">
-              <div className="bg-card animate-scale-up relative flex max-h-[90vh] w-full max-w-[90%] flex-col rounded-2xl border border-slate-200/80 p-6 shadow-2xl dark:border-slate-800/80">
-                <button
-                  onClick={resetModal}
-                  className="text-muted-foreground hover:text-foreground absolute top-4 right-4 rounded-lg p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+              <div className="bg-card animate-scale-up relative flex max-h-[90vh] w-full max-w-[90%] flex-col rounded-2xl border border-slate-200/80 shadow-2xl md:max-w-2xl dark:border-slate-800/80">
+                {/* Header Fijo */}
+                <div className="shrink-0 border-b border-slate-100 p-6 pb-4 dark:border-slate-800">
+                  <button
+                    onClick={resetModal}
+                    className="text-muted-foreground hover:text-foreground absolute top-4 right-4 rounded-lg p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
 
-                <div className="mb-4 shrink-0">
                   <h2 className="text-foreground mb-1 flex items-center gap-2 text-lg font-bold">
                     <Plus className="text-primary h-5 w-5" /> Agregar venta al corte
                   </h2>
@@ -451,273 +452,283 @@ export default function CorteDetailView({
                   </p>
                 </div>
 
-                {/* Panel de Filtros Interactivos */}
-                <div className="mb-4 shrink-0 space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3.5 dark:border-slate-800/80 dark:bg-slate-900/30">
-                  {/* Filtro por Desarrollo (Pills Horizontales) */}
-                  <div>
-                    <span className="text-muted-foreground mb-1.5 block text-[10px] font-bold tracking-wider uppercase">
-                      Filtrar por Desarrollo
-                    </span>
-                    <div className="scrollbar-none flex items-center gap-1.5 overflow-x-auto scroll-smooth pb-1">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDesarrollo(null)}
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-[0.95] ${
-                          selectedDesarrollo === null
-                            ? 'bg-primary text-primary-foreground shadow-primary/20 shadow-sm'
-                            : 'text-muted-foreground border bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        Todos
-                      </button>
-                      {desarrollos.map((d) => (
+                {/* Body con Scroll */}
+                <div className="flex-1 overflow-y-auto p-6 pt-4">
+                  {/* Panel de Filtros Interactivos */}
+                  <div className="mb-4 shrink-0 space-y-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3.5 dark:border-slate-800/80 dark:bg-slate-900/30">
+                    {/* Filtro por Desarrollo (Pills Horizontales) */}
+                    <div>
+                      <span className="text-muted-foreground mb-1.5 block text-[10px] font-bold tracking-wider uppercase">
+                        Filtrar por Desarrollo
+                      </span>
+                      <div className="scrollbar-none flex items-center gap-1.5 overflow-x-auto scroll-smooth pb-1">
                         <button
-                          key={d}
                           type="button"
-                          onClick={() => setSelectedDesarrollo(selectedDesarrollo === d ? null : d)}
+                          onClick={() => setSelectedDesarrollo(null)}
                           className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-[0.95] ${
-                            selectedDesarrollo === d
+                            selectedDesarrollo === null
                               ? 'bg-primary text-primary-foreground shadow-primary/20 shadow-sm'
                               : 'text-muted-foreground border bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700'
                           }`}
                         >
-                          {d}
+                          Todos
                         </button>
-                      ))}
+                        {desarrollos.map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() =>
+                              setSelectedDesarrollo(selectedDesarrollo === d ? null : d)
+                            }
+                            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-[0.95] ${
+                              selectedDesarrollo === d
+                                ? 'bg-primary text-primary-foreground shadow-primary/20 shadow-sm'
+                                : 'text-muted-foreground border bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Buscador unificado: Cliente, Lote o Desarrollo */}
+                    <div>
+                      <label className="text-muted-foreground mb-1 block text-[10px] font-bold tracking-wider uppercase">
+                        Buscar Venta
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value)
+                            if (selectedVentaInfo && !e.target.value) {
+                              setAddForm((f) => ({ ...f, ventaId: '', montoPagadoCliente: '' }))
+                              setPorcentajeInput('')
+                              setSelectedVentaInfo(null)
+                            }
+                          }}
+                          placeholder="Buscar por cliente, lote o desarrollo..."
+                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-4 py-2 pr-8 text-sm transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                        />
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            className="text-muted-foreground/60 hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Buscador unificado: Cliente, Lote o Desarrollo */}
-                  <div>
-                    <label className="text-muted-foreground mb-1 block text-[10px] font-bold tracking-wider uppercase">
-                      Buscar Venta
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => {
-                          setSearchQuery(e.target.value)
-                          if (selectedVentaInfo && !e.target.value) {
-                            setAddForm((f) => ({ ...f, ventaId: '', montoPagadoCliente: '' }))
-                            setPorcentajeInput('')
-                            setSelectedVentaInfo(null)
-                          }
-                        }}
-                        placeholder="Buscar por cliente, lote o desarrollo..."
-                        className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-4 py-2 pr-8 text-sm transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                      />
-                      {searchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchQuery('')}
-                          className="text-muted-foreground/60 hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                  {/* Lista de Resultados (Directamente en el Modal, NO flotante) */}
+                  <div className="scrollbar-thin max-h-[220px] min-h-[140px] flex-1 divide-y overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/20 p-2 dark:divide-slate-800 dark:border-slate-800/80 dark:bg-slate-900/10">
+                    {filteredVentas.length === 0 ? (
+                      <div className="text-muted-foreground/80 flex flex-col items-center justify-center gap-1 py-8 text-center text-xs">
+                        <Search className="text-muted-foreground/45 h-6 w-6" />
+                        <span>No se encontraron ventas finalizadas.</span>
+                        <span className="text-muted-foreground/50 text-[10px]">
+                          Intenta ajustando los filtros superiores.
+                        </span>
+                      </div>
+                    ) : (
+                      filteredVentas.map((v) => {
+                        const isSelected = addForm.ventaId === v.id
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => {
+                              setAddForm((f) => ({ ...f, ventaId: v.id }))
+                              setSelectedVentaInfo(v)
+                            }}
+                            className={`flex w-full items-center justify-between rounded-lg border-2 p-2.5 text-left transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/30 ${
+                              isSelected
+                                ? 'border-emerald-500/60 bg-emerald-500/[0.04] shadow-sm dark:border-emerald-500/40'
+                                : 'border-transparent'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-3">
+                              <span className="text-foreground block truncate text-xs font-bold">
+                                {v.cliente}
+                              </span>
+                              <span className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] font-medium">
+                                {v.desarrolloNombre && (
+                                  <span className="inline-flex items-center gap-0.5">
+                                    <Building2 className="h-2.5 w-2.5 shrink-0" />{' '}
+                                    {v.desarrolloNombre}
+                                  </span>
+                                )}
+                                {v.loteAcciones && (
+                                  <span className="text-primary bg-primary/5 shrink-0 rounded px-1 py-0.25 font-mono">
+                                    Lote: {v.loteAcciones}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2 text-right">
+                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                {fmt(Number(v.monto))}
+                              </span>
+                              {isSelected && (
+                                <span className="animate-scale-up shrink-0 rounded-full bg-emerald-500 p-0.5 text-white">
+                                  <Check className="h-3 w-3" />
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+
+                  {/* Formulario de Pago de la Venta Seleccionada */}
+                  {/* Formulario de Pago de la Venta Seleccionada o Estado Vacío */}
+                  {selectedVentaInfo ? (
+                    <div className="animate-slide-up mt-4 shrink-0 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                      <div className="flex items-center justify-between rounded-xl border border-emerald-500/10 bg-emerald-500/[0.03] p-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground font-semibold">Venta seleccionada</p>
+                          <p className="text-foreground font-bold">
+                            {selectedVentaInfo.cliente} (Lote:{' '}
+                            {selectedVentaInfo.loteAcciones ?? '—'})
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-muted-foreground font-semibold">Valor total</p>
+                          <p className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                            {fmt(Number(selectedVentaInfo.monto))}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-muted-foreground mb-1 block text-xs font-semibold">
+                            Monto pagado ($MXN)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              step="0.01"
+                              min="0"
+                              value={addForm.montoPagadoCliente}
+                              onChange={(e) =>
+                                handleMontoChange(e.target.value.replace(/[^0-9.]/g, ''))
+                              }
+                              placeholder="0.00"
+                              className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-3 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-muted-foreground mb-1 block text-xs font-semibold">
+                            Porcentaje del total (%)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={porcentajeInput}
+                              onChange={(e) =>
+                                handlePctChange(e.target.value.replace(/[^0-9.]/g, ''))
+                              }
+                              placeholder="0.00"
+                              className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-8 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Barra de progreso */}
+                      {addForm.montoPagadoCliente && ventaTotal > 0 && (
+                        <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 dark:border-emerald-800/30 dark:bg-emerald-900/10">
+                          <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            <span>Progreso del pago abonado</span>
+                            <span>
+                              {Math.min(
+                                (Number(addForm.montoPagadoCliente) / ventaTotal) * 100,
+                                100,
+                              ).toFixed(1)}
+                              %
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-emerald-200/50 dark:bg-emerald-900/50">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                              style={{
+                                width: `${Math.min((Number(addForm.montoPagadoCliente) / ventaTotal) * 100, 100)}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
-                </div>
 
-                {/* Lista de Resultados (Directamente en el Modal, NO flotante) */}
-                <div className="scrollbar-thin max-h-[220px] min-h-[140px] flex-1 divide-y overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/20 p-2 dark:divide-slate-800 dark:border-slate-800/80 dark:bg-slate-900/10">
-                  {filteredVentas.length === 0 ? (
-                    <div className="text-muted-foreground/80 flex flex-col items-center justify-center gap-1 py-8 text-center text-xs">
-                      <Search className="text-muted-foreground/45 h-6 w-6" />
-                      <span>No se encontraron ventas finalizadas.</span>
-                      <span className="text-muted-foreground/50 text-[10px]">
-                        Intenta ajustando los filtros superiores.
-                      </span>
+                      <div>
+                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
+                          Notas (opcional)
+                        </label>
+                        <input
+                          type="text"
+                          value={addForm.notasJoana}
+                          onChange={(e) =>
+                            setAddForm((f) => ({ ...f, notasJoana: e.target.value }))
+                          }
+                          placeholder="Ej: Abono, enganche, liquidación..."
+                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-1 focus:outline-none dark:border-slate-800"
+                        />
+                      </div>
                     </div>
                   ) : (
-                    filteredVentas.map((v) => {
-                      const isSelected = addForm.ventaId === v.id
-                      return (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onClick={() => {
-                            setAddForm((f) => ({ ...f, ventaId: v.id }))
-                            setSelectedVentaInfo(v)
-                          }}
-                          className={`flex w-full items-center justify-between rounded-lg border-2 p-2.5 text-left transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/30 ${
-                            isSelected
-                              ? 'border-emerald-500/60 bg-emerald-500/[0.04] shadow-sm dark:border-emerald-500/40'
-                              : 'border-transparent'
-                          }`}
-                        >
-                          <div className="min-w-0 pr-3">
-                            <span className="text-foreground block truncate text-xs font-bold">
-                              {v.cliente}
-                            </span>
-                            <span className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] font-medium">
-                              {v.desarrolloNombre && (
-                                <span className="inline-flex items-center gap-0.5">
-                                  <Building2 className="h-2.5 w-2.5 shrink-0" />{' '}
-                                  {v.desarrolloNombre}
-                                </span>
-                              )}
-                              {v.loteAcciones && (
-                                <span className="text-primary bg-primary/5 shrink-0 rounded px-1 py-0.25 font-mono">
-                                  Lote: {v.loteAcciones}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2 text-right">
-                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                              {fmt(Number(v.monto))}
-                            </span>
-                            {isSelected && (
-                              <span className="animate-scale-up shrink-0 rounded-full bg-emerald-500 p-0.5 text-white">
-                                <Check className="h-3 w-3" />
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })
+                    <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-8 text-center dark:border-slate-800">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                        <Banknote className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          Selecciona una venta
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Usa el buscador para filtrar y elegir la venta a abonar.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {addError && (
+                    <div className="bg-destructive/10 text-destructive border-destructive/20 mt-3 shrink-0 rounded-lg border p-3 text-xs">
+                      {addError}
+                    </div>
                   )}
                 </div>
 
-                {/* Formulario de Pago de la Venta Seleccionada */}
-                {/* Formulario de Pago de la Venta Seleccionada o Estado Vacío */}
-                {selectedVentaInfo ? (
-                  <div className="animate-slide-up mt-4 shrink-0 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/10 bg-emerald-500/[0.03] p-3 text-xs">
-                      <div>
-                        <p className="text-muted-foreground font-semibold">Venta seleccionada</p>
-                        <p className="text-foreground font-bold">
-                          {selectedVentaInfo.cliente} (Lote: {selectedVentaInfo.loteAcciones ?? '—'}
-                          )
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-muted-foreground font-semibold">Valor total</p>
-                        <p className="font-extrabold text-emerald-600 dark:text-emerald-400">
-                          {fmt(Number(selectedVentaInfo.monto))}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                          Monto pagado ($MXN)
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            step="0.01"
-                            min="0"
-                            value={addForm.montoPagadoCliente}
-                            onChange={(e) =>
-                              handleMontoChange(e.target.value.replace(/[^0-9.]/g, ''))
-                            }
-                            placeholder="0.00"
-                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-3 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                          Porcentaje del total (%)
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            value={porcentajeInput}
-                            onChange={(e) =>
-                              handlePctChange(e.target.value.replace(/[^0-9.]/g, ''))
-                            }
-                            placeholder="0.00"
-                            className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-8 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Barra de progreso */}
-                    {addForm.montoPagadoCliente && ventaTotal > 0 && (
-                      <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 dark:border-emerald-800/30 dark:bg-emerald-900/10">
-                        <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          <span>Progreso del pago abonado</span>
-                          <span>
-                            {Math.min(
-                              (Number(addForm.montoPagadoCliente) / ventaTotal) * 100,
-                              100,
-                            ).toFixed(1)}
-                            %
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-emerald-200/50 dark:bg-emerald-900/50">
-                          <div
-                            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                            style={{
-                              width: `${Math.min((Number(addForm.montoPagadoCliente) / ventaTotal) * 100, 100)}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                        Notas (opcional)
-                      </label>
-                      <input
-                        type="text"
-                        value={addForm.notasJoana}
-                        onChange={(e) => setAddForm((f) => ({ ...f, notasJoana: e.target.value }))}
-                        placeholder="Ej: Abono, enganche, liquidación..."
-                        className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-1 focus:outline-none dark:border-slate-800"
-                      />
-                    </div>
+                {/* Footer Fijo */}
+                <div className="shrink-0 border-t border-slate-100 p-6 pt-4 dark:border-slate-800">
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={resetModal}
+                      className="text-muted-foreground rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium transition-all hover:bg-slate-200/80 active:scale-[0.98] dark:bg-slate-800 dark:hover:bg-slate-700/80"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      id="btn-agregar-venta-submit"
+                      onClick={handleAgregarVenta}
+                      disabled={isPending || !addForm.ventaId || !addForm.montoPagadoCliente}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                    >
+                      {isPending ? 'Agregando...' : 'Agregar venta'}
+                    </button>
                   </div>
-                ) : (
-                  <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-8 text-center dark:border-slate-800">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                      <Banknote className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        Selecciona una venta
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        Usa el buscador para filtrar y elegir la venta a abonar.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {addError && (
-                  <div className="bg-destructive/10 text-destructive border-destructive/20 mt-3 shrink-0 rounded-lg border p-3 text-xs">
-                    {addError}
-                  </div>
-                )}
-
-                <div className="mt-5 flex shrink-0 justify-end gap-3 border-t pt-3 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={resetModal}
-                    className="text-muted-foreground rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium transition-all hover:bg-slate-200/80 active:scale-[0.98] dark:bg-slate-800 dark:hover:bg-slate-700/80"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    id="btn-agregar-venta-submit"
-                    onClick={handleAgregarVenta}
-                    disabled={isPending || !addForm.ventaId || !addForm.montoPagadoCliente}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                  >
-                    {isPending ? 'Agregando...' : 'Agregar venta'}
-                  </button>
                 </div>
               </div>
             </div>
