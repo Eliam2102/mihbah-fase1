@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { requireUser } from '@/lib/auth/helpers'
+import { requireUser, isAdminOrAbove } from '@/lib/auth/helpers'
 import { getEmpresasForUser } from '@/lib/services/empresas'
 import { getTenantName } from '@/lib/services/empresas'
 import { AppShell } from '@/components/layout/app-shell'
@@ -7,6 +7,8 @@ import { db } from '@/lib/db'
 import { cortesDispersion } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, eq, sql } from 'drizzle-orm'
+import { getPermisosUsuario } from '@/lib/services/admin/modulo-access.service'
+import type { ModuloKey } from '@/lib/modulos-config'
 
 // Roles permitidos en el admin shell (NO portal users)
 const ROLES_ADMIN = ['viewer', 'user', 'tesoreria', 'admin', 'super_admin', 'super_admin_dev']
@@ -31,11 +33,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect('/login')
   }
 
-  // ── Load empresas for this user ────────────────────────────────────────────
-  const [empresasData, tenantName] = await Promise.all([
+  // ── Load empresas + permisos de módulos ───────────────────────────────────
+  const [empresasData, tenantName, permisosRaw] = await Promise.all([
     user.tenantId ? getEmpresasForUser(user.id, user.tenantId) : Promise.resolve([]),
     user.tenantId ? getTenantName(user.tenantId) : Promise.resolve('SIG Jade'),
+    // Admins/super_admin bypass permisos — null = mostrar todo
+    user.tenantId && !isAdminOrAbove(user.role)
+      ? getPermisosUsuario(user.id, user.tenantId)
+      : Promise.resolve(null),
   ])
+
+  // Record<empresaId, ModuloKey[]> de módulos visibles. null = sin restricción.
+  const permisosVisibles: Record<string, ModuloKey[]> | null = permisosRaw
+    ? permisosRaw.reduce<Record<string, ModuloKey[]>>((acc, e) => {
+        acc[e.empresaId] = e.modulos.filter((m) => m.puedeVer).map((m) => m.modulo)
+        return acc
+      }, {})
+    : null
 
   // Badges sidebar — cortes pendientes de revisión/aprobación
   let badgeCortes = 0
@@ -69,6 +83,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       tenantName={tenantName}
       userRole={user.role}
       badgeCortes={badgeCortes}
+      permisosVisibles={permisosVisibles}
     >
       {children}
     </AppShell>

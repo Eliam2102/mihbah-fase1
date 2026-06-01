@@ -14,6 +14,7 @@ interface AppShellProps {
   tenantName: string
   userRole?: string | null | undefined
   badgeCortes?: number
+  permisosVisibles?: Record<string, string[]> | null
   children: React.ReactNode
 }
 
@@ -24,6 +25,7 @@ export function AppShell({
   tenantName,
   userRole,
   badgeCortes = 0,
+  permisosVisibles = null,
   children,
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -65,6 +67,7 @@ export function AppShell({
           tenantName={tenantName}
           userRole={userRole}
           badgeCortes={badgeCortes}
+          permisosVisibles={permisosVisibles}
           onMobileClose={() => setMobileOpen(false)}
         />
       </div>

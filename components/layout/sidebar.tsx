@@ -32,6 +32,7 @@ interface SidebarProps {
   tenantName: string
   userRole?: string | null | undefined
   badgeCortes?: number
+  permisosVisibles?: Record<string, string[]> | null
   onMobileClose?: () => void
 }
 
@@ -42,6 +43,7 @@ export function Sidebar({
   tenantName,
   userRole,
   badgeCortes = 0,
+  permisosVisibles = null,
   onMobileClose,
 }: SidebarProps) {
   const pathname = usePathname()
@@ -76,7 +78,12 @@ export function Sidebar({
   const activeEmpresa = empresas.find((e) => e.id === empresaActiva)
   const empresaNombre = activeEmpresa?.name ?? ''
   const empresaId = activeEmpresa?.id
-  const modules = getModulesForEmpresa(empresaActiva, empresaNombre, empresaId)
+  const allModules = getModulesForEmpresa(empresaActiva, empresaNombre, empresaId)
+  // null = admin/super_admin, sin restricción. Record presente = filtrar por puedeVer.
+  const empresaPermisos = empresaId && permisosVisibles ? permisosVisibles[empresaId] : null
+  const modules = empresaPermisos
+    ? allModules.filter((m) => empresaPermisos.includes(m.moduloKey))
+    : allModules
 
   async function handleLogout() {
     await signOut()

@@ -199,12 +199,6 @@ export function RegistrarAbonoForm({
           </Field>
         </div>
 
-        <div className="border-info/30 bg-info/10 text-info flex items-start gap-2 rounded-md border p-2.5 text-xs sm:col-span-2">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          El sistema genera las dispersiones proporcionales a este {pct.toFixed(2)}%. Podrás
-          ajustarlas o diferir beneficiarios desde el corte antes de aprobarlo.
-        </div>
-
         {error && (
           <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-md border p-2.5 text-xs sm:col-span-2">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />

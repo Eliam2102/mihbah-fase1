@@ -7,8 +7,21 @@ import {
   type AuthUser,
 } from '@/lib/auth/helpers'
 import { canViewModulo } from '@/lib/services/admin/modulo-access.service'
-import type { ModuloKey } from '@/lib/modulos-config'
+import { getModulosParaTipo, type ModuloKey } from '@/lib/modulos-config'
 import type { EmpresaBasic } from '@/lib/services/empresas/empresas.types'
+
+async function primerModuloAccesible(
+  userId: string,
+  empresaId: string,
+  tipo: string,
+): Promise<string> {
+  const modulos = getModulosParaTipo(tipo)
+  for (const m of modulos) {
+    const ok = await canViewModulo(userId, empresaId, m)
+    if (ok) return `/empresa/${empresaId}/${m}`
+  }
+  return '/dashboard'
+}
 
 /**
  * Validates:
@@ -36,7 +49,10 @@ export async function requireEmpresaAccess(
   }
 
   const canView = await canViewModulo(user.id, empresaId, modulo)
-  if (!canView) redirect(`/empresa/${empresaId}/dashboard`)
+  if (!canView) {
+    const destino = await primerModuloAccesible(user.id, empresaId, empresa.tipo)
+    redirect(destino)
+  }
 
   return empresa
 }
