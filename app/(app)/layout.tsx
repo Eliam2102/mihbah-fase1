@@ -38,10 +38,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [empresasData, tenantName, permisosRaw] = await Promise.all([
     user.tenantId ? getEmpresasForUser(user.id, user.tenantId) : Promise.resolve([]),
     user.tenantId ? getTenantName(user.tenantId) : Promise.resolve('SIG Jade'),
-    // Admins/super_admin bypass permisos — null = mostrar todo
-    user.tenantId && !isAdminOrAbove(user.role)
-      ? getPermisosUsuario(user.id, user.tenantId)
-      : Promise.resolve(null),
+    // Cargar permisos para todos — admins también respetan restricciones explícitas del panel
+    user.tenantId ? getPermisosUsuario(user.id, user.tenantId) : Promise.resolve(null),
   ])
 
   // Record<empresaId, ModuloKey[]> de módulos visibles. null = sin restricción.

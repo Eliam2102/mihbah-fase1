@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { requireUser, isAdminOrAbove } from '@/lib/auth/helpers'
+import { requireUser, isSuperAdminOrAbove } from '@/lib/auth/helpers'
 import { listUsersForTenant } from '@/lib/services/admin/user.service'
 import { listEmpresasForAdmin } from '@/lib/services/admin/empresa.service'
 import Link from 'next/link'
@@ -38,7 +38,7 @@ export default async function UsuariosPage() {
   } catch {
     redirect('/login')
   }
-  if (!isAdminOrAbove(user.role)) redirect('/dashboard')
+  if (!isSuperAdminOrAbove(user.role)) redirect('/dashboard')
   if (!user.tenantId) redirect('/dashboard')
 
   const [usuarios, empresas] = await Promise.all([

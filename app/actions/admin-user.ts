@@ -31,7 +31,7 @@ export interface AdminUserResult {
 
 export async function actionCreateUser(raw: unknown): Promise<AdminUserResult> {
   try {
-    const user = await requireAdminOrAbove()
+    const user = await requireSuperAdminOrAbove()
     if (!user.tenantId) throw new Error('Usuario sin tenant')
 
     const input = CreateUserSchema.parse(raw)
@@ -79,7 +79,7 @@ export async function actionGrantAccess(
   rol: 'ADMIN' | 'VIEWER',
 ): Promise<AdminUserResult> {
   try {
-    await requireAdminOrAbove()
+    await requireSuperAdminOrAbove()
     await grantEmpresaAccess(tenantId, userId, empresaId, rol)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }
@@ -118,7 +118,7 @@ export async function actionRevokeAccess(
   empresaId: string,
 ): Promise<AdminUserResult> {
   try {
-    await requireAdminOrAbove()
+    await requireSuperAdminOrAbove()
     await revokeEmpresaAccess(userId, empresaId)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }

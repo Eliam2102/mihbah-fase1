@@ -42,7 +42,7 @@ export default async function ConfiguracionPage() {
 
   const [empresas, usuarios] = await Promise.all([
     listEmpresasForAdmin(user.tenantId),
-    listUsersForTenant(user.tenantId),
+    isSuperAdminOrAbove(user.role) ? listUsersForTenant(user.tenantId) : Promise.resolve([]),
   ])
 
   return (
@@ -166,74 +166,76 @@ export default async function ConfiguracionPage() {
         )}
       </div>
 
-      {/* Usuarios */}
-      <div className="border-border bg-card rounded-xl border p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="text-jade-600 h-4 w-4" />
-            <h2 className="text-foreground text-sm font-semibold">Usuarios</h2>
-            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
-              {usuarios.length}
-            </span>
+      {/* Usuarios — solo super_admin */}
+      {isSuperAdminOrAbove(user.role) && (
+        <div className="border-border bg-card rounded-xl border p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="text-jade-600 h-4 w-4" />
+              <h2 className="text-foreground text-sm font-semibold">Usuarios</h2>
+              <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+                {usuarios.length}
+              </span>
+            </div>
+            <Link
+              href="/configuracion/usuarios"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Gestionar usuarios
+            </Link>
           </div>
-          <Link
-            href="/configuracion/usuarios"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Gestionar usuarios
-          </Link>
-        </div>
 
-        {usuarios.length === 0 ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">Sin usuarios.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-border border-b">
-                  {['Nombre', 'Email', 'Rol', 'Acceso a empresas'].map((h) => (
-                    <th
-                      key={h}
-                      className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {usuarios.map((u) => (
-                  <tr key={u.id} className="border-border border-b last:border-0">
-                    <td className="text-foreground px-3 py-2.5 font-medium">{u.name}</td>
-                    <td className="text-muted-foreground px-3 py-2.5">{u.email}</td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          u.role === 'super_admin_dev'
-                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                            : u.role === 'super_admin'
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                              : u.role === 'admin'
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                                : 'bg-muted text-muted-foreground'
-                        }`}
+          {usuarios.length === 0 ? (
+            <p className="text-muted-foreground py-6 text-center text-sm">Sin usuarios.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-border border-b">
+                    {['Nombre', 'Email', 'Rol', 'Acceso a empresas'].map((h) => (
+                      <th
+                        key={h}
+                        className="text-muted-foreground px-3 py-2 text-left text-xs font-semibold tracking-wide uppercase"
                       >
-                        {ROL_LABEL[u.role ?? 'user'] ?? u.role}
-                      </span>
-                    </td>
-                    <td className="text-muted-foreground px-3 py-2.5">
-                      {u.accesos.length === 0
-                        ? '—'
-                        : u.accesos.map((a) => a.empresaNombre).join(', ')}
-                    </td>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {usuarios.map((u) => (
+                    <tr key={u.id} className="border-border border-b last:border-0">
+                      <td className="text-foreground px-3 py-2.5 font-medium">{u.name}</td>
+                      <td className="text-muted-foreground px-3 py-2.5">{u.email}</td>
+                      <td className="px-3 py-2.5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            u.role === 'super_admin_dev'
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                              : u.role === 'super_admin'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                : u.role === 'admin'
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                  : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {ROL_LABEL[u.role ?? 'user'] ?? u.role}
+                        </span>
+                      </td>
+                      <td className="text-muted-foreground px-3 py-2.5">
+                        {u.accesos.length === 0
+                          ? '—'
+                          : u.accesos.map((a) => a.empresaNombre).join(', ')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
