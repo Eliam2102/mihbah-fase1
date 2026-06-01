@@ -16,7 +16,7 @@ const BASE_DELAY_MS = 1000
 
 export interface MondayColumnValue {
   id: string
-  column: { title: string }
+  column?: { title: string } // absent when using simplified query fallback
   text: string // human-readable value
   value: string | null // raw JSON value from Monday
   type: string
@@ -73,6 +73,35 @@ const BOARD_ITEMS_QUERY = `
   }
 `
 
+// Fallback: requests only the specific column IDs the mappers need.
+// Avoids mirror/subitems columns that cause Monday to return Internal Server Error
+// on boards with non-standard column types (e.g. VENTAS 2025 "Copropiedad" mirror col).
+// IDs hardcoded in query string to avoid GraphQL variable type issues with Monday's API.
+const BOARD_ITEMS_QUERY_SIMPLE = `
+  query GetBoardItemsSimple($boardId: ID!, $cursor: String, $limit: Int!) {
+    boards(ids: [$boardId]) {
+      id
+      name
+      items_page(limit: $limit, cursor: $cursor) {
+        cursor
+        items {
+          id
+          name
+          group {
+            title
+          }
+          column_values(ids: ["n_meros8","n_mero_de_lote","desarrollo","desarrolladora","texto2","n_meros","numeric_mkv1tbc3","n_meros4","f_rmula8","estado_1","estado_14","color_mkv1cg83","color","color2","date","fecha","fecha7","tel_fono","correo_electr_nico","pa_s5","pa_s0","estado10"]) {
+            id
+            text
+            value
+            type
+          }
+        }
+      }
+    }
+  }
+`
+
 const LIST_BOARDS_QUERY = `
   query ListBoards($limit: Int!, $page: Int!) {
     boards(limit: $limit, page: $page, order_by: created_at) {
@@ -100,7 +129,7 @@ async function mondayFetch<T>(
     headers: {
       'Content-Type': 'application/json',
       Authorization: apiKey,
-      'API-Version': '2024-01',
+      'API-Version': '2024-10',
     },
     body: JSON.stringify({ query, variables }),
   })
@@ -128,6 +157,15 @@ async function mondayFetch<T>(
 
   if (json.errors?.length) {
     const msg = json.errors.map((e) => e.message).join('; ')
+    // Monday returns HTTP 200 + errors[] for server-side failures (GraphQL-level 500).
+    // Retry these the same way we retry HTTP 5xx.
+    const isTransient = json.errors.some(
+      (e) => e.message.toLowerCase().includes('internal server error') || e.message.includes('500'),
+    )
+    if (isTransient && retryCount < MAX_RETRIES) {
+      await sleep(BASE_DELAY_MS * 2 ** retryCount)
+      return mondayFetch<T>(query, variables, retryCount + 1)
+    }
     throw new MondayApiError(`GraphQL error: ${msg}`, 200)
   }
 
@@ -144,29 +182,41 @@ export async function getBoard(boardId: string): Promise<{ name: string; items: 
   // Boards históricos grandes hacen que Monday devuelva 500 con limit alto.
   // 10 items por request es más lento pero evita timeouts internos de Monday.
   const PAGE_SIZE = 10
-  const allItems: MondayItem[] = []
-  let cursor: string | null = null
-  let boardName = ''
 
-  do {
-    const data: { boards: MondayBoard[] } = await mondayFetch<{ boards: MondayBoard[] }>(
-      BOARD_ITEMS_QUERY,
-      {
+  async function fetchAllPages(query: string): Promise<{ name: string; items: MondayItem[] }> {
+    const allItems: MondayItem[] = []
+    let cursor: string | null = null
+    let boardName = ''
+
+    do {
+      const data: { boards: MondayBoard[] } = await mondayFetch<{ boards: MondayBoard[] }>(query, {
         boardId,
         cursor: cursor ?? undefined,
         limit: PAGE_SIZE,
-      },
-    )
+      })
 
-    const board: MondayBoard | undefined = data.boards[0]
-    if (!board) throw new MondayApiError(`Board ${boardId} no encontrado`, 404)
+      const board: MondayBoard | undefined = data.boards[0]
+      if (!board) throw new MondayApiError(`Board ${boardId} no encontrado`, 404)
 
-    boardName = board.name
-    allItems.push(...board.items_page.items)
-    cursor = board.items_page.cursor
-  } while (cursor)
+      boardName = board.name
+      allItems.push(...board.items_page.items)
+      cursor = board.items_page.cursor
+    } while (cursor)
 
-  return { name: boardName, items: allItems }
+    return { name: boardName, items: allItems }
+  }
+
+  try {
+    return await fetchAllPages(BOARD_ITEMS_QUERY)
+  } catch (err) {
+    // Some boards (typically historical boards with deprecated column types) cause
+    // Monday to return a GraphQL Internal Server Error on the `column { title }`
+    // resolver. Fall back to the simpler query that omits that field.
+    if (err instanceof MondayApiError && err.message.includes('Internal Server Error')) {
+      return await fetchAllPages(BOARD_ITEMS_QUERY_SIMPLE)
+    }
+    throw err
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -249,7 +299,7 @@ export function getColumnByTitle(
   titleMatch: string,
 ): MondayColumnValue | undefined {
   const lower = titleMatch.toLowerCase()
-  return item.column_values.find((c) => c.column.title.toLowerCase().includes(lower))
+  return item.column_values.find((c) => c.column?.title.toLowerCase().includes(lower))
 }
 
 /**
