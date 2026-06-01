@@ -117,75 +117,105 @@ export default function CorteDetailView({
       document.body.style.overflow = ''
     }
   }, [showAddVenta])
-  const [addForm, setAddForm] = useState({ ventaId: '', montoPagadoCliente: '', notasJoana: '' })
+
+  // ── Multi-selección ──────────────────────────────────────────────────────────
+  // Map ventaId → { montoPagadoCliente, notasJoana, porcentajeInput }
+  const [selectedVentas, setSelectedVentas] = useState<
+    Map<string, { montoPagadoCliente: string; notasJoana: string; porcentajeInput: string }>
+  >(new Map())
   const [addError, setAddError] = useState<string | null>(null)
-  const [selectedVentaInfo, setSelectedVentaInfo] = useState<{
-    id: string
-    cliente: string
-    loteAcciones: string | null
-    monto: string
-    desarrolloNombre: string | null
-  } | null>(null)
+  const [addProgress, setAddProgress] = useState<{ done: number; total: number } | null>(null)
+
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedDesarrollo, setSelectedDesarrollo] = useState<string | null>(null)
-  const [porcentajeInput, setPorcentajeInput] = useState('')
   const [ajustando, setAjustando] = useState<string | null>(null)
   const [nuevoMonto, setNuevoMonto] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const ventaTotal = selectedVentaInfo ? Number(selectedVentaInfo.monto) : 0
-
-  const handleMontoChange = (val: string) => {
-    setAddForm((f) => ({ ...f, montoPagadoCliente: val }))
-    if (val && !isNaN(Number(val)) && ventaTotal > 0) {
-      setPorcentajeInput(((Number(val) / ventaTotal) * 100).toFixed(2))
-    } else {
-      setPorcentajeInput('')
-    }
+  // Helpers para manejar campos de cada venta seleccionada
+  const toggleVenta = (v: { id: string; monto: string }) => {
+    setSelectedVentas((prev) => {
+      const next = new Map(prev)
+      if (next.has(v.id)) {
+        next.delete(v.id)
+      } else {
+        next.set(v.id, { montoPagadoCliente: '', notasJoana: '', porcentajeInput: '' })
+      }
+      return next
+    })
   }
 
-  const handlePctChange = (val: string) => {
-    setPorcentajeInput(val)
-    if (val && !isNaN(Number(val)) && ventaTotal > 0) {
-      setAddForm((f) => ({
-        ...f,
-        montoPagadoCliente: ((Number(val) / 100) * ventaTotal).toFixed(2),
-      }))
-    } else {
-      setAddForm((f) => ({ ...f, montoPagadoCliente: '' }))
-    }
+  const updateVentaField = (
+    ventaId: string,
+    field: 'montoPagadoCliente' | 'notasJoana' | 'porcentajeInput',
+    value: string,
+    ventaMonto?: number,
+  ) => {
+    setSelectedVentas((prev) => {
+      const next = new Map(prev)
+      const entry = next.get(ventaId)
+      if (!entry) return prev
+      const updated = { ...entry, [field]: value }
+      // Sync monto ↔ porcentaje
+      if (field === 'montoPagadoCliente' && ventaMonto && ventaMonto > 0) {
+        updated.porcentajeInput =
+          value && !isNaN(Number(value)) ? ((Number(value) / ventaMonto) * 100).toFixed(2) : ''
+      }
+      if (field === 'porcentajeInput' && ventaMonto && ventaMonto > 0) {
+        updated.montoPagadoCliente =
+          value && !isNaN(Number(value)) ? ((Number(value) / 100) * ventaMonto).toFixed(2) : ''
+      }
+      next.set(ventaId, updated)
+      return next
+    })
   }
 
   const resetModal = () => {
     setShowAddVenta(false)
     setSearchQuery('')
     setSelectedDesarrollo(null)
-    setSelectedVentaInfo(null)
-    setPorcentajeInput('')
-    setAddForm({ ventaId: '', montoPagadoCliente: '', notasJoana: '' })
+    setSelectedVentas(new Map())
     setAddError(null)
+    setAddProgress(null)
   }
 
   const esBorrador = corte.estado === 'BORRADOR'
   const esEnRevision = corte.estado === 'EN_REVISION'
   const esAprobado = corte.estado === 'APROBADO'
 
-  const handleAgregarVenta = () => {
+  const handleAgregarVentas = () => {
     setAddError(null)
-    if (!addForm.ventaId || !addForm.montoPagadoCliente) {
-      setAddError('Completa el ID de venta y el monto pagado')
+    const entries = Array.from(selectedVentas.entries())
+    if (entries.length === 0) {
+      setAddError('Selecciona al menos una venta')
+      return
+    }
+    const invalid = entries.find(
+      ([, v]) => !v.montoPagadoCliente || isNaN(Number(v.montoPagadoCliente)),
+    )
+    if (invalid) {
+      setAddError(`Captura el monto pagado para todas las ventas seleccionadas`)
       return
     }
     startTransition(async () => {
-      const res = await agregarVentaAlCorteAction({
-        empresaId,
-        corteId: corte.id,
-        ventaId: addForm.ventaId,
-        montoPagadoCliente: Number(addForm.montoPagadoCliente),
-        notasJoana: addForm.notasJoana || null,
-      })
-      if (!res.ok) {
-        setAddError(res.error)
+      setAddProgress({ done: 0, total: entries.length })
+      const errors: string[] = []
+      for (let i = 0; i < entries.length; i++) {
+        const [ventaId, fields] = entries[i]!
+        const res = await agregarVentaAlCorteAction({
+          empresaId,
+          corteId: corte.id,
+          ventaId,
+          montoPagadoCliente: Number(fields.montoPagadoCliente),
+          notasJoana: fields.notasJoana || null,
+        })
+        setAddProgress({ done: i + 1, total: entries.length })
+        if (!res.ok) errors.push(res.error)
+      }
+      if (errors.length > 0) {
+        setAddError(errors.join(' · '))
+        setAddProgress(null)
+        router.refresh()
         return
       }
       resetModal()
@@ -419,7 +449,7 @@ export default function CorteDetailView({
         </div>
       </div>
 
-      {/* Modal agregar venta */}
+      {/* Modal agregar ventas (multi-selección) */}
       {showAddVenta &&
         esBorrador &&
         (() => {
@@ -444,6 +474,8 @@ export default function CorteDetailView({
             return true
           })
 
+          const selectedCount = selectedVentas.size
+
           return (
             <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md">
               <div className="bg-card animate-scale-up relative flex max-h-[90vh] w-full max-w-[90%] flex-col rounded-2xl border border-slate-200/80 shadow-2xl md:max-w-2xl dark:border-slate-800/80">
@@ -457,10 +489,11 @@ export default function CorteDetailView({
                   </button>
 
                   <h2 className="text-foreground mb-1 flex items-center gap-2 text-lg font-bold">
-                    <Plus className="text-primary h-5 w-5" /> Agregar venta al corte
+                    <Plus className="text-primary h-5 w-5" /> Agregar ventas al corte
                   </h2>
                   <p className="text-muted-foreground text-xs">
-                    Filtra por desarrollo, cliente o lote, selecciona la venta y captura su abono.
+                    Marca con el checkbox las ventas que quieres incluir y captura el abono de cada
+                    una.
                   </p>
                 </div>
 
@@ -513,14 +546,7 @@ export default function CorteDetailView({
                         <input
                           type="text"
                           value={searchQuery}
-                          onChange={(e) => {
-                            setSearchQuery(e.target.value)
-                            if (selectedVentaInfo && !e.target.value) {
-                              setAddForm((f) => ({ ...f, ventaId: '', montoPagadoCliente: '' }))
-                              setPorcentajeInput('')
-                              setSelectedVentaInfo(null)
-                            }
-                          }}
+                          onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Buscar por cliente, lote o desarrollo..."
                           className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-4 py-2 pr-8 text-sm transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
                         />
@@ -537,8 +563,8 @@ export default function CorteDetailView({
                     </div>
                   </div>
 
-                  {/* Lista de Resultados (Directamente en el Modal, NO flotante) */}
-                  <div className="scrollbar-thin max-h-[220px] min-h-[140px] flex-1 divide-y overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/20 p-2 dark:divide-slate-800 dark:border-slate-800/80 dark:bg-slate-900/10">
+                  {/* Lista de Resultados — checkboxes multi-selección */}
+                  <div className="scrollbar-thin max-h-[240px] min-h-[100px] flex-1 divide-y overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/20 dark:divide-slate-800 dark:border-slate-800/80 dark:bg-slate-900/10">
                     {filteredVentas.length === 0 ? (
                       <div className="text-muted-foreground/80 flex flex-col items-center justify-center gap-1 py-8 text-center text-xs">
                         <Search className="text-muted-foreground/45 h-6 w-6" />
@@ -549,22 +575,31 @@ export default function CorteDetailView({
                       </div>
                     ) : (
                       filteredVentas.map((v) => {
-                        const isSelected = addForm.ventaId === v.id
+                        const isChecked = selectedVentas.has(v.id)
                         return (
-                          <button
+                          <label
                             key={v.id}
-                            type="button"
-                            onClick={() => {
-                              setAddForm((f) => ({ ...f, ventaId: v.id }))
-                              setSelectedVentaInfo(v)
-                            }}
-                            className={`flex w-full items-center justify-between rounded-lg border-2 p-2.5 text-left transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/30 ${
-                              isSelected
-                                ? 'border-emerald-500/60 bg-emerald-500/[0.04] shadow-sm dark:border-emerald-500/40'
-                                : 'border-transparent'
+                            className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-all hover:bg-slate-100/60 dark:hover:bg-slate-800/30 ${
+                              isChecked ? 'bg-emerald-500/[0.04] dark:bg-emerald-500/[0.07]' : ''
                             }`}
                           >
-                            <div className="min-w-0 pr-3">
+                            {/* Checkbox */}
+                            <span
+                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-all ${
+                                isChecked
+                                  ? 'border-emerald-500 bg-emerald-500'
+                                  : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
+                              }`}
+                            >
+                              {isChecked && <Check className="h-3 w-3 text-white" />}
+                            </span>
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={isChecked}
+                              onChange={() => toggleVenta(v)}
+                            />
+                            <div className="min-w-0 flex-1">
                               <span className="text-foreground block truncate text-xs font-bold">
                                 {v.cliente}
                               </span>
@@ -582,135 +617,148 @@ export default function CorteDetailView({
                                 )}
                               </span>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2 text-right">
-                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                {fmt(Number(v.monto))}
-                              </span>
-                              {isSelected && (
-                                <span className="animate-scale-up shrink-0 rounded-full bg-emerald-500 p-0.5 text-white">
-                                  <Check className="h-3 w-3" />
-                                </span>
-                              )}
-                            </div>
-                          </button>
+                            <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                              {fmt(Number(v.monto))}
+                            </span>
+                          </label>
                         )
                       })
                     )}
                   </div>
 
-                  {/* Formulario de Pago de la Venta Seleccionada */}
-                  {/* Formulario de Pago de la Venta Seleccionada o Estado Vacío */}
-                  {selectedVentaInfo ? (
-                    <div className="animate-slide-up mt-4 shrink-0 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-                      <div className="flex items-center justify-between rounded-xl border border-emerald-500/10 bg-emerald-500/[0.03] p-3 text-xs">
-                        <div>
-                          <p className="text-muted-foreground font-semibold">Venta seleccionada</p>
-                          <p className="text-foreground font-bold">
-                            {selectedVentaInfo.cliente} (Lote:{' '}
-                            {selectedVentaInfo.loteAcciones ?? '—'})
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-muted-foreground font-semibold">Valor total</p>
-                          <p className="font-extrabold text-emerald-600 dark:text-emerald-400">
-                            {fmt(Number(selectedVentaInfo.monto))}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                            Monto pagado ($MXN)
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              step="0.01"
-                              min="0"
-                              value={addForm.montoPagadoCliente}
-                              onChange={(e) =>
-                                handleMontoChange(e.target.value.replace(/[^0-9.]/g, ''))
-                              }
-                              placeholder="0.00"
-                              className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-3 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                            Porcentaje del total (%)
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              value={porcentajeInput}
-                              onChange={(e) =>
-                                handlePctChange(e.target.value.replace(/[^0-9.]/g, ''))
-                              }
-                              placeholder="0.00"
-                              className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-8 pl-3 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-800"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Barra de progreso */}
-                      {addForm.montoPagadoCliente && ventaTotal > 0 && (
-                        <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 dark:border-emerald-800/30 dark:bg-emerald-900/10">
-                          <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                            <span>Progreso del pago abonado</span>
-                            <span>
-                              {Math.min(
-                                (Number(addForm.montoPagadoCliente) / ventaTotal) * 100,
-                                100,
-                              ).toFixed(1)}
-                              %
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-emerald-200/50 dark:bg-emerald-900/50">
+                  {/* Formularios de monto por cada venta seleccionada */}
+                  {selectedCount > 0 && (
+                    <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                      <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+                        Captura el abono de cada venta seleccionada ({selectedCount})
+                      </p>
+                      {(ventasDisponibles ?? [])
+                        .filter((v) => selectedVentas.has(v.id))
+                        .map((v) => {
+                          const entry = selectedVentas.get(v.id)!
+                          const ventaMonto = Number(v.monto)
+                          const pct =
+                            entry.montoPagadoCliente && ventaMonto > 0
+                              ? Math.min((Number(entry.montoPagadoCliente) / ventaMonto) * 100, 100)
+                              : 0
+                          return (
                             <div
-                              className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                              style={{
-                                width: `${Math.min((Number(addForm.montoPagadoCliente) / ventaTotal) * 100, 100)}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
+                              key={v.id}
+                              className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.025] p-3 dark:bg-emerald-500/[0.05]"
+                            >
+                              <div className="mb-2 flex items-center justify-between">
+                                <div className="min-w-0">
+                                  <p className="text-foreground truncate text-xs font-bold">
+                                    {v.cliente}
+                                  </p>
+                                  <p className="text-muted-foreground text-[10px]">
+                                    {v.desarrolloNombre ?? ''}
+                                    {v.loteAcciones ? ` · Lote ${v.loteAcciones}` : ''}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    {fmt(ventaMonto)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleVenta(v)}
+                                    className="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
 
-                      <div>
-                        <label className="text-muted-foreground mb-1 block text-xs font-semibold">
-                          Notas (opcional)
-                        </label>
-                        <input
-                          type="text"
-                          value={addForm.notasJoana}
-                          onChange={(e) =>
-                            setAddForm((f) => ({ ...f, notasJoana: e.target.value }))
-                          }
-                          placeholder="Ej: Abono, enganche, liquidación..."
-                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus:ring-1 focus:outline-none dark:border-slate-800"
-                        />
-                      </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-muted-foreground mb-1 block text-[10px] font-semibold">
+                                    Monto pagado ($)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={entry.montoPagadoCliente}
+                                    onChange={(e) =>
+                                      updateVentaField(
+                                        v.id,
+                                        'montoPagadoCliente',
+                                        e.target.value.replace(/[^0-9.]/g, ''),
+                                        ventaMonto,
+                                      )
+                                    }
+                                    placeholder="0.00"
+                                    className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-700"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-muted-foreground mb-1 block text-[10px] font-semibold">
+                                    Porcentaje (%)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={entry.porcentajeInput}
+                                    onChange={(e) =>
+                                      updateVentaField(
+                                        v.id,
+                                        'porcentajeInput',
+                                        e.target.value.replace(/[^0-9.]/g, ''),
+                                        ventaMonto,
+                                      )
+                                    }
+                                    placeholder="0.00"
+                                    className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold transition-all focus:ring-1 focus:outline-none dark:border-slate-700"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Mini barra de progreso */}
+                              {entry.montoPagadoCliente && ventaMonto > 0 && (
+                                <div className="mt-2">
+                                  <div className="h-1 w-full overflow-hidden rounded-full bg-emerald-200/60 dark:bg-emerald-900/40">
+                                    <div
+                                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-muted-foreground mt-0.5 text-right text-[9px]">
+                                    {pct.toFixed(1)}%
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="mt-2">
+                                <input
+                                  type="text"
+                                  value={entry.notasJoana}
+                                  onChange={(e) =>
+                                    updateVentaField(v.id, 'notasJoana', e.target.value)
+                                  }
+                                  placeholder="Notas (opcional)"
+                                  className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] transition-all focus:ring-1 focus:outline-none dark:border-slate-700"
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
                     </div>
-                  ) : (
-                    <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-8 text-center dark:border-slate-800">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                        <Banknote className="h-6 w-6" />
+                  )}
+
+                  {/* Barra de progreso de envío */}
+                  {addProgress && (
+                    <div className="border-primary/20 bg-primary/5 mt-3 rounded-lg border px-3 py-2">
+                      <div className="text-primary mb-1 flex justify-between text-[10px] font-semibold">
+                        <span>Agregando ventas...</span>
+                        <span>
+                          {addProgress.done} / {addProgress.total}
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          Selecciona una venta
-                        </p>
-                        <p className="text-[11px] text-slate-500">
-                          Usa el buscador para filtrar y elegir la venta a abonar.
-                        </p>
+                      <div className="bg-primary/20 h-1.5 w-full overflow-hidden rounded-full">
+                        <div
+                          className="bg-primary h-full rounded-full transition-all duration-300"
+                          style={{ width: `${(addProgress.done / addProgress.total) * 100}%` }}
+                        />
                       </div>
                     </div>
                   )}
@@ -724,22 +772,36 @@ export default function CorteDetailView({
 
                 {/* Footer Fijo */}
                 <div className="shrink-0 border-t border-slate-100 p-6 pt-4 dark:border-slate-800">
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={resetModal}
-                      className="text-muted-foreground rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium transition-all hover:bg-slate-200/80 active:scale-[0.98] dark:bg-slate-800 dark:hover:bg-slate-700/80"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      id="btn-agregar-venta-submit"
-                      onClick={handleAgregarVenta}
-                      disabled={isPending || !addForm.ventaId || !addForm.montoPagadoCliente}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                    >
-                      {isPending ? 'Agregando...' : 'Agregar venta'}
-                    </button>
+                  <div className="flex items-center justify-between gap-3">
+                    {selectedCount > 0 ? (
+                      <span className="text-muted-foreground text-xs font-medium">
+                        {selectedCount} venta{selectedCount !== 1 ? 's' : ''} seleccionada
+                        {selectedCount !== 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={resetModal}
+                        className="text-muted-foreground rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium transition-all hover:bg-slate-200/80 active:scale-[0.98] dark:bg-slate-800 dark:hover:bg-slate-700/80"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        id="btn-agregar-venta-submit"
+                        onClick={handleAgregarVentas}
+                        disabled={isPending || selectedCount === 0}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {isPending
+                          ? `Agregando${addProgress ? ` ${addProgress.done}/${addProgress.total}` : '...'}`
+                          : selectedCount > 1
+                            ? `Agregar ${selectedCount} ventas`
+                            : 'Agregar venta'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
