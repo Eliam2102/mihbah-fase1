@@ -62,7 +62,40 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           }
         }
 
-        // Fallback for legacy comprobantes
+        // Fallback: buscar via dispersiones que apunten a este comprobante
+        if (!isOwner) {
+          const disps = await tx
+            .select({
+              liderId: dispersiones.liderId,
+              asesorId: dispersiones.asesorId,
+              afiliadoId: ventasBmcorp.afiliadoId,
+            })
+            .from(dispersiones)
+            .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+            .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+            .where(eq(dispersiones.comprobanteId, comprobanteId))
+            .limit(5)
+
+          for (const disp of disps) {
+            if (perfil.rolPortal === 'ASESOR' && perfil.asesorIds.length > 0) {
+              if (disp.asesorId !== null && perfil.asesorIds.includes(disp.asesorId)) {
+                isOwner = true
+                break
+              }
+            } else if (['LIDER_ALIANZA', 'ADMINISTRATIVO'].includes(perfil.rolPortal)) {
+              if (disp.liderId !== null && perfil.liderIds.includes(disp.liderId)) {
+                isOwner = true
+                break
+              }
+              if (disp.afiliadoId !== null && perfil.alianzasIds.includes(disp.afiliadoId)) {
+                isOwner = true
+                break
+              }
+            }
+          }
+        }
+
+        // Fallback for legacy comprobantes with dispersionId field
         if (!isOwner && comprobante.dispersionId) {
           const [disp] = await tx
             .select({

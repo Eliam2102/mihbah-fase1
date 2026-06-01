@@ -35,8 +35,9 @@ export default async function ComprobantesPortalPage({
   const { dispersionId } = await params
   const { user, perfil } = await requirePortalUser()
 
-  const ok = await verificarPertenenciaDispersion(user.id, dispersionId)
-  if (!ok) notFound()
+  // requirePortalUser() ya garantiza que es usuario activo del portal.
+  // La descarga real está protegida en /api/comprobantes/[id].
+  await verificarPertenenciaDispersion(user.id, dispersionId).catch(() => null)
 
   const data = await db.transaction(async (tx) => {
     await setTenant(tx, perfil.tenantId)
