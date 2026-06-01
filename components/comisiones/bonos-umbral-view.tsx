@@ -243,71 +243,73 @@ export function BonosUmbralView({
             Sin reglas. Crea una para Flamingo, Diana o cualquier afiliado con acuerdo especial.
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground text-xs">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Nombre</th>
-                <th className="px-3 py-2 text-left font-medium">Destinatario</th>
-                <th className="px-3 py-2 text-left font-medium">Fuente</th>
-                <th className="px-3 py-2 text-right font-medium">Umbral</th>
-                <th className="px-3 py-2 text-right font-medium">Bono %</th>
-                <th className="px-3 py-2 text-right font-medium">Override %</th>
-                <th className="px-3 py-2 text-left font-medium">Fórmula</th>
-                <th className="px-3 py-2 text-center font-medium">Activa</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {configs.map((c) => (
-                <tr key={c.id}>
-                  <td className="px-3 py-2 font-medium">{c.nombre}</td>
-                  <td className="px-3 py-2">{c.afiliadoDestinatarioNombre}</td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {c.tipoFuente === 'OVERRIDE_AFILIADO'
-                      ? `OVR ← ${c.afiliadoOrigenNombre ?? '?'}`
-                      : 'PROPIA'}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {fmt(c.umbralAcumuladoMensual)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{c.bonoPct.toFixed(2)}%</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {c.overridePct != null ? `${c.overridePct.toFixed(2)}%` : '—'}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{c.formulaCalculo}</td>
-                  <td className="px-3 py-2 text-center">
-                    {c.activo ? (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
-                        Sí
-                      </span>
-                    ) : (
-                      <span className="bg-muted rounded-full px-2 py-0.5 text-xs">No</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(c)}
-                        className="text-muted-foreground hover:bg-muted hover:text-foreground rounded p-1"
-                        title="Editar"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => eliminar(c.id)}
-                        className="text-muted-foreground rounded p-1 hover:bg-rose-50 hover:text-rose-600"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead className="bg-muted/40 text-muted-foreground text-xs">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Nombre</th>
+                  <th className="px-3 py-2 text-left font-medium">Destinatario</th>
+                  <th className="px-3 py-2 text-left font-medium">Fuente</th>
+                  <th className="px-3 py-2 text-right font-medium">Umbral</th>
+                  <th className="px-3 py-2 text-right font-medium">Bono %</th>
+                  <th className="px-3 py-2 text-right font-medium">Override %</th>
+                  <th className="px-3 py-2 text-left font-medium">Fórmula</th>
+                  <th className="px-3 py-2 text-center font-medium">Activa</th>
+                  <th className="px-3 py-2"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {configs.map((c) => (
+                  <tr key={c.id}>
+                    <td className="px-3 py-2 font-medium">{c.nombre}</td>
+                    <td className="px-3 py-2">{c.afiliadoDestinatarioNombre}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {c.tipoFuente === 'OVERRIDE_AFILIADO'
+                        ? `OVR ← ${c.afiliadoOrigenNombre ?? '?'}`
+                        : 'PROPIA'}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {fmt(c.umbralAcumuladoMensual)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{c.bonoPct.toFixed(2)}%</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {c.overridePct != null ? `${c.overridePct.toFixed(2)}%` : '—'}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">{c.formulaCalculo}</td>
+                    <td className="px-3 py-2 text-center">
+                      {c.activo ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
+                          Sí
+                        </span>
+                      ) : (
+                        <span className="bg-muted rounded-full px-2 py-0.5 text-xs">No</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(c)}
+                          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded p-1"
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => eliminar(c.id)}
+                          className="text-muted-foreground rounded p-1 hover:bg-rose-50 hover:text-rose-600"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -677,86 +679,88 @@ function CalculadosSection({
           Sin bonos calculados para este período. Da click en &quot;Calcular bonos del mes&quot;.
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-muted-foreground text-xs">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Regla</th>
-              <th className="px-3 py-2 text-left font-medium">Destinatario</th>
-              <th className="px-3 py-2 text-right font-medium">Override</th>
-              <th className="px-3 py-2 text-right font-medium">Bono</th>
-              <th className="px-3 py-2 text-right font-medium">Total</th>
-              <th className="px-3 py-2 text-left font-medium">Corte</th>
-              <th className="px-3 py-2 text-center font-medium">Pago</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {calculados.map((c) => (
-              <tr key={c.id} className={c.pagado ? 'opacity-60' : ''}>
-                <td className="px-3 py-2 font-medium">{c.configNombre}</td>
-                <td className="px-3 py-2">{c.destinatarioNombre ?? '—'}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmt(c.montoOverride)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmt(c.montoBono)}</td>
-                <td className="px-3 py-2 text-right font-bold text-emerald-700 tabular-nums">
-                  {fmt(c.montoTotal)}
-                </td>
-                <td className="px-3 py-2">
-                  {c.pagado ? (
-                    <span className="bg-jade-100 text-jade-800 rounded-full px-2 py-0.5 text-xs">
-                      Pagado
-                    </span>
-                  ) : c.corteId ? (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
-                      Asignado
-                    </span>
-                  ) : cortesBorrador.length === 0 ? (
-                    <span className="text-muted-foreground text-xs">Sin cortes borrador</span>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <select
-                        className="bg-background rounded border px-1.5 py-1 text-xs"
-                        value={selectedCortes[c.id] ?? ''}
-                        onChange={(e) =>
-                          setSelectedCortes((prev) => ({ ...prev, [c.id]: e.target.value }))
-                        }
-                      >
-                        <option value="">— corte —</option>
-                        {cortesBorrador.map((ct) => (
-                          <option key={ct.id} value={ct.id}>
-                            {ct.fechaCorte} {ct.tipoDia}
-                          </option>
-                        ))}
-                      </select>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-muted/40 text-muted-foreground text-xs">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Regla</th>
+                <th className="px-3 py-2 text-left font-medium">Destinatario</th>
+                <th className="px-3 py-2 text-right font-medium">Override</th>
+                <th className="px-3 py-2 text-right font-medium">Bono</th>
+                <th className="px-3 py-2 text-right font-medium">Total</th>
+                <th className="px-3 py-2 text-left font-medium">Corte</th>
+                <th className="px-3 py-2 text-center font-medium">Pago</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {calculados.map((c) => (
+                <tr key={c.id} className={c.pagado ? 'opacity-60' : ''}>
+                  <td className="px-3 py-2 font-medium">{c.configNombre}</td>
+                  <td className="px-3 py-2">{c.destinatarioNombre ?? '—'}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(c.montoOverride)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(c.montoBono)}</td>
+                  <td className="px-3 py-2 text-right font-bold text-emerald-700 tabular-nums">
+                    {fmt(c.montoTotal)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {c.pagado ? (
+                      <span className="bg-jade-100 text-jade-800 rounded-full px-2 py-0.5 text-xs">
+                        Pagado
+                      </span>
+                    ) : c.corteId ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
+                        Asignado
+                      </span>
+                    ) : cortesBorrador.length === 0 ? (
+                      <span className="text-muted-foreground text-xs">Sin cortes borrador</span>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <select
+                          className="bg-background rounded border px-1.5 py-1 text-xs"
+                          value={selectedCortes[c.id] ?? ''}
+                          onChange={(e) =>
+                            setSelectedCortes((prev) => ({ ...prev, [c.id]: e.target.value }))
+                          }
+                        >
+                          <option value="">— corte —</option>
+                          {cortesBorrador.map((ct) => (
+                            <option key={ct.id} value={ct.id}>
+                              {ct.fechaCorte} {ct.tipoDia}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={pending || !selectedCortes[c.id]}
+                          onClick={() => vincular(c.id)}
+                          className="text-primary hover:bg-primary/10 rounded p-1 disabled:opacity-40"
+                          title="Asignar a corte"
+                        >
+                          <Link2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {c.pagado ? (
+                      '—'
+                    ) : c.corteId ? (
                       <button
                         type="button"
-                        disabled={pending || !selectedCortes[c.id]}
-                        onClick={() => vincular(c.id)}
-                        className="text-primary hover:bg-primary/10 rounded p-1 disabled:opacity-40"
-                        title="Asignar a corte"
+                        onClick={() => setModalPago(c)}
+                        className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
                       >
-                        <Link2 className="h-3.5 w-3.5" />
+                        <FileUp className="h-3 w-3" /> Pagar
                       </button>
-                    </div>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-center">
-                  {c.pagado ? (
-                    '—'
-                  ) : c.corteId ? (
-                    <button
-                      type="button"
-                      onClick={() => setModalPago(c)}
-                      className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                    >
-                      <FileUp className="h-3 w-3" /> Pagar
-                    </button>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {modalPago && (

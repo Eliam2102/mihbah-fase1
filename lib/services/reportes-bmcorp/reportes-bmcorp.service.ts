@@ -28,6 +28,23 @@ export async function getVentasReporteBmcorp(
         enganche: ventasBmcorp.enganche,
         comision: ventasBmcorp.comisionBmcorp,
         estadoVenta: ventasBmcorp.estadoVenta,
+        estadoComision: sql<string>`
+          COALESCE(
+            (
+              SELECT 
+                CASE 
+                  WHEN COUNT(d.id) = 0 THEN 'PENDIENTE'
+                  WHEN COUNT(d.id) FILTER (WHERE d.estado = 'PAGADO') = COUNT(d.id) THEN 'PAGADA'
+                  WHEN COUNT(d.id) FILTER (WHERE d.estado = 'PAGADO') > 0 THEN 'PARCIAL'
+                  ELSE 'PENDIENTE'
+                END
+              FROM dispersiones d
+              JOIN comisiones_calculadas c ON c.id = d.comision_id
+              WHERE c.venta_id = ${ventasBmcorp.id}
+            ),
+            'PENDIENTE'
+          )
+        `,
         fechaApertura: sql<string | null>`TO_CHAR(${ventasBmcorp.fechaApertura}, 'YYYY-MM-DD')`,
         fechaCierre: sql<string | null>`TO_CHAR(${ventasBmcorp.fechaCierre}, 'YYYY-MM-DD')`,
         lote: ventasBmcorp.loteAcciones,

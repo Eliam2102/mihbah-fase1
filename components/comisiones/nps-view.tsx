@@ -46,44 +46,46 @@ export function NpsView({ empresaId, registros }: { empresaId: string; registros
             Sin registros NPS. Captura el primero arriba.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Empresa</th>
-                <th className="px-3 py-2 text-left font-medium">Periodo</th>
-                <th className="px-3 py-2 text-center font-medium">Puntuación</th>
-                <th className="px-3 py-2 text-center font-medium">Respondientes</th>
-                <th className="px-3 py-2 text-center font-medium">Promotores</th>
-                <th className="px-3 py-2 text-center font-medium">Detractores</th>
-                <th className="px-3 py-2 text-left font-medium">Comentarios</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {registros.map((r) => (
-                <tr key={r.id} className="hover:bg-muted/20">
-                  <td className="px-3 py-2 font-medium">{r.empresaEncuestada}</td>
-                  <td className="text-muted-foreground px-3 py-2 text-xs">
-                    Q{r.trimestre} {r.anio}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <span className={`font-bold tabular-nums ${semaforoColor(r.puntuacion)}`}>
-                      {r.puntuacion}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-center tabular-nums">{r.respondientes}</td>
-                  <td className="text-success px-3 py-2 text-center tabular-nums">
-                    {r.promotores}
-                  </td>
-                  <td className="text-destructive px-3 py-2 text-center tabular-nums">
-                    {r.detractores}
-                  </td>
-                  <td className="text-muted-foreground px-3 py-2 text-xs">
-                    {r.comentarios ?? '—'}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Empresa</th>
+                  <th className="px-3 py-2 text-left font-medium">Periodo</th>
+                  <th className="px-3 py-2 text-center font-medium">Puntuación</th>
+                  <th className="px-3 py-2 text-center font-medium">Respondientes</th>
+                  <th className="px-3 py-2 text-center font-medium">Promotores</th>
+                  <th className="px-3 py-2 text-center font-medium">Detractores</th>
+                  <th className="px-3 py-2 text-left font-medium">Comentarios</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {registros.map((r) => (
+                  <tr key={r.id} className="hover:bg-muted/20">
+                    <td className="px-3 py-2 font-medium">{r.empresaEncuestada}</td>
+                    <td className="text-muted-foreground px-3 py-2 text-xs">
+                      Q{r.trimestre} {r.anio}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`font-bold tabular-nums ${semaforoColor(r.puntuacion)}`}>
+                        {r.puntuacion}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center tabular-nums">{r.respondientes}</td>
+                    <td className="text-success px-3 py-2 text-center tabular-nums">
+                      {r.promotores}
+                    </td>
+                    <td className="text-destructive px-3 py-2 text-center tabular-nums">
+                      {r.detractores}
+                    </td>
+                    <td className="text-muted-foreground px-3 py-2 text-xs">
+                      {r.comentarios ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

@@ -37,6 +37,7 @@ const ALIANZAS_DOC = [
   { nombre: 'Reinventemos', mondayLabel: 'REINVENTEMOS' },
   { nombre: 'Kuchmots', mondayLabel: 'KUCHMOTS' },
   { nombre: 'IXHA', mondayLabel: 'IXHA' },
+  { nombre: 'Adara Arguello', mondayLabel: 'ADARA ARGUELLO' },
 ]
 
 // Matriz TERRENOS — doc §3.1 (bolsa 15%)
@@ -75,6 +76,7 @@ const MATRIZ_TERRENOS: MatrizRow[] = [
   { nombre: 'Reinventemos', afiliacion: 12, jorge: 3, kass: 0, diana: 0 },
   { nombre: 'Kuchmots', afiliacion: 15, jorge: 0, kass: 0, diana: 0 },
   { nombre: 'IXHA', afiliacion: 15, jorge: 0, kass: 0, diana: 0 },
+  { nombre: 'Adara Arguello', afiliacion: 15, jorge: 0, kass: 0, diana: 0 },
 ]
 
 // Matriz YCD — doc §3.2 (bolsa 12%, tope líder 10%)
@@ -104,6 +106,157 @@ const MATRIZ_YCD: MatrizRow[] = [
   { nombre: 'Reinventemos', afiliacion: 10, jorge: 2, kass: 0, diana: 0 },
   { nombre: 'Kuchmots', afiliacion: 12, jorge: 0, kass: 0, diana: 0 },
   { nombre: 'IXHA', afiliacion: 12, jorge: 0, kass: 0, diana: 0 },
+  { nombre: 'Adara Arguello', afiliacion: 12, jorge: 0, kass: 0, diana: 0 },
+]
+
+// Líderes por alianza — datos de contacto y coordinación de pago
+type LiderRow = {
+  alianza: string
+  nombre: string
+  telefono: string
+  email: string
+  emailAlterno?: string
+  coordinaPago: string
+  metodoPago: 'EFECTIVO' | 'DEPOSITO' | 'TRANSFERENCIA' | 'OTRO'
+}
+
+const LIDERES: LiderRow[] = [
+  {
+    alianza: 'LGI',
+    nombre: 'Kass Brambila',
+    telefono: '+52 999 802 4257',
+    email: 'kassiebc@gmail.com',
+    emailAlterno: 'oml700910@hotmail.com',
+    coordinaPago: 'OTTY',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Flamingo',
+    nombre: 'Alberto Lopez',
+    telefono: '+1 (562) 266-7820',
+    email: 'flamingoscapital@gmail.com',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Hackers Inmobiliarios',
+    nombre: 'Diana Jimenez',
+    telefono: '+52 221 333 4933',
+    email: 'dianajimendi@gmail.com',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Yuccali',
+    nombre: 'Mayra Alvarez',
+    telefono: '+52 951 533 3802',
+    email: 'CoachMayraAlvarez@gmail.com',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Dream Big Mexico',
+    nombre: 'Ofelia Ziesse',
+    telefono: '+52 999 802 4257',
+    email: 'kassiebc@gmail.com',
+    emailAlterno: 'oml700910@hotmail.com',
+    coordinaPago: 'OTTY',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Somos la Diferencia',
+    nombre: 'Jorge Juarez',
+    telefono: '+52 449 113 9037',
+    email: 'mafferocadizg@outlook.es',
+    emailAlterno: 'Jorgejuarezgomez26@gmail.com',
+    coordinaPago: 'MAFF OCADIZ',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'IXHA',
+    nombre: 'Jorge Juarez',
+    telefono: '+52 449 113 9037',
+    email: 'mafferocadizg@outlook.es',
+    emailAlterno: 'Jorgejuarezgomez26@gmail.com',
+    coordinaPago: 'MAFF OCADIZ',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Adara Arguello',
+    nombre: 'Jorge Juarez',
+    telefono: '+52 449 113 9037',
+    email: 'mafferocadizg@outlook.es',
+    emailAlterno: 'Jorgejuarezgomez26@gmail.com',
+    coordinaPago: 'MAFF OCADIZ',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'BM CDMX',
+    nombre: 'Roberto Castro',
+    telefono: '+52 55 2271 9731',
+    email: 'robertoexitoso@gmail.com',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Centro',
+    nombre: 'Irving Gomez',
+    telefono: '+52 771 189 7501',
+    email: 'Irvinggestrada@yahoo.com.mx',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'KB Asesores',
+    nombre: 'Kass Brambila',
+    telefono: '+52 999 802 4257',
+    email: 'kassiebc@gmail.com',
+    emailAlterno: 'oml700910@hotmail.com',
+    coordinaPago: 'OTTY',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Estrellas Inmobiliarias',
+    nombre: 'Pablo Canto',
+    telefono: '+52 999 381 3480',
+    email: 'pablocantomaldonado@gmail.com',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Conexión',
+    nombre: 'Diana Jimenez',
+    telefono: '+52 221 333 4933',
+    email: 'dianajimendi@gmail.com',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'BM Virtual',
+    nombre: 'Jorge y Kass',
+    telefono: '+52 999 802 4257',
+    email: 'kassiebc@gmail.com',
+    emailAlterno: 'oml700910@hotmail.com',
+    coordinaPago: 'OTTY',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Reinventemos',
+    nombre: 'Roberto Castro',
+    telefono: '+52 55 2271 9731',
+    email: 'robertoexitoso@gmail.com',
+    coordinaPago: 'DIRECTO',
+    metodoPago: 'EFECTIVO',
+  },
+  {
+    alianza: 'Kuchmots',
+    nombre: 'Jorge Juarez',
+    telefono: '+52 449 113 9037',
+    email: 'mafferocadizg@outlook.es',
+    emailAlterno: 'Jorgejuarezgomez26@gmail.com',
+    coordinaPago: 'MAFF OCADIZ',
+    metodoPago: 'EFECTIVO',
+  },
 ]
 
 function normalize(s: string): string {
@@ -345,6 +498,38 @@ async function seed() {
       `
     }
     console.log(`  ✓ ${MATRIZ_YCD.length} filas de matriz YCD`)
+
+    // ── Líderes de alianza ───────────────────────────────────────────────────
+    let lideresUpsertados = 0
+    for (const l of LIDERES) {
+      const afiliadoId = idsAlianzas.get(l.alianza)
+      if (!afiliadoId) {
+        console.warn(`  skip líder ${l.alianza} (afiliado no encontrado)`)
+        continue
+      }
+      const existing = await trx`
+        SELECT id FROM lideres_alianza
+        WHERE tenant_id = ${tenantId} AND afiliado_id = ${afiliadoId} AND deleted_at IS NULL
+        LIMIT 1
+      `
+      if (existing.length > 0) {
+        await trx`
+          UPDATE lideres_alianza SET
+            nombre = ${l.nombre}, telefono = ${l.telefono},
+            email = ${l.email}, email_alterno = ${l.emailAlterno ?? null},
+            coordina_pago = ${l.coordinaPago}, metodo_pago = ${l.metodoPago},
+            updated_at = NOW()
+          WHERE id = ${existing[0]!.id}
+        `
+      } else {
+        await trx`
+          INSERT INTO lideres_alianza (tenant_id, afiliado_id, nombre, telefono, email, email_alterno, coordina_pago, metodo_pago)
+          VALUES (${tenantId}, ${afiliadoId}, ${l.nombre}, ${l.telefono}, ${l.email}, ${l.emailAlterno ?? null}, ${l.coordinaPago}, ${l.metodoPago})
+        `
+      }
+      lideresUpsertados++
+    }
+    console.log(`  ✓ ${lideresUpsertados} líderes upsertados`)
   })
 
   console.log('✅ Seed comisiones completo.')

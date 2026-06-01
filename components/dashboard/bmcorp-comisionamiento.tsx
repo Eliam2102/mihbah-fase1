@@ -30,10 +30,9 @@ export function BmcorpComisionamiento({ data, periodLabel }: Props) {
           <div className="border-border flex items-start gap-2 rounded-lg border border-dashed p-3">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <div className="text-xs">
-              <p className="text-foreground font-medium">Pendiente — requiere data Monday</p>
+              <p className="text-foreground font-medium">Sin comisiones calculadas</p>
               <p className="text-muted-foreground mt-0.5">
-                Cliente debe agregar columnas de comisión asesor pagada en Monday. Ver{' '}
-                <code className="bg-muted rounded px-1">docs/MONDAY_COLUMNAS_REQUERIDAS.md</code>.
+                Sincroniza Monday y ejecuta un precálculo en Comisiones → Cortes.
               </p>
             </div>
           </div>

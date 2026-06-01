@@ -69,6 +69,12 @@ export function isTesoreriaOrAdmin(role?: string | null): boolean {
   return isTesoreria(role) || isAdminOrAbove(role)
 }
 
+export async function requireAdminOrAbove(): Promise<AuthUser> {
+  const user = await requireUser()
+  if (!isAdminOrAbove(user.role)) throw new Error('Acceso denegado')
+  return user
+}
+
 export async function requireTesoreriaOrAdmin(): Promise<AuthUser> {
   const user = await requireUser()
   if (!isTesoreriaOrAdmin(user.role)) throw new Error('Acceso denegado — solo Tesorería o admin')

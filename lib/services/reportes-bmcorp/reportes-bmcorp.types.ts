@@ -8,6 +8,7 @@ export interface VentaReporteItem {
   enganche: number
   comision: number
   estadoVenta: string
+  estadoComision: string
   fechaApertura: string | null
   fechaCierre: string | null
   lote: string | null

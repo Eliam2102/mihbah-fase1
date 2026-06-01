@@ -534,7 +534,8 @@ async function ComisionesContent({ empresaId, tenantId }: { empresaId: string; t
                   'Alianza',
                   'Monto venta',
                   'Comisión (15%)',
-                  'Estado',
+                  'Estado Venta',
+                  'Estado Comisión',
                 ].map((h) => (
                   <th
                     key={h}
@@ -559,6 +560,19 @@ async function ComisionesContent({ empresaId, tenantId }: { empresaId: string; t
                   <td className="px-4 py-3">
                     <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
                       {v.estadoVenta}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                        v.estadoComision === 'PAGADA'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                          : v.estadoComision === 'PARCIAL'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                      }`}
+                    >
+                      {v.estadoComision}
                     </span>
                   </td>
                 </tr>
@@ -587,7 +601,8 @@ async function VentasContent({ empresaId, tenantId }: { empresaId: string; tenan
                 'Monto',
                 'Comisión',
                 'Apertura',
-                'Estado',
+                'Estado Venta',
+                'Estado Comisión',
               ].map((h) => (
                 <th
                   key={h}
@@ -618,6 +633,19 @@ async function VentasContent({ empresaId, tenantId }: { empresaId: string; tenan
                 <td className="px-4 py-3">
                   <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold uppercase">
                     {v.estadoVenta}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      v.estadoComision === 'PAGADA'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                        : v.estadoComision === 'PARCIAL'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                    }`}
+                  >
+                    {v.estadoComision}
                   </span>
                 </td>
               </tr>

@@ -129,7 +129,7 @@ async function mondayFetch<T>(
     headers: {
       'Content-Type': 'application/json',
       Authorization: apiKey,
-      'API-Version': '2024-10',
+      'API-Version': '2024-01',
     },
     body: JSON.stringify({ query, variables }),
   })
@@ -179,9 +179,7 @@ async function mondayFetch<T>(
  * Returns the board metadata + flat array of items.
  */
 export async function getBoard(boardId: string): Promise<{ name: string; items: MondayItem[] }> {
-  // Boards históricos grandes hacen que Monday devuelva 500 con limit alto.
-  // 10 items por request es más lento pero evita timeouts internos de Monday.
-  const PAGE_SIZE = 10
+  const PAGE_SIZE = 200
 
   async function fetchAllPages(query: string): Promise<{ name: string; items: MondayItem[] }> {
     const allItems: MondayItem[] = []

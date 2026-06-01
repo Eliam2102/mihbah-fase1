@@ -43,6 +43,10 @@ function isVentasBoard(name: string) {
   return /^ventas?\s+(202[0-6])$/.test(normalized)
 }
 
+function isSeguimientoBoard(name: string, id: string) {
+  return id === '3017199126' || name.toLowerCase().trim() === 'seguimiento general'
+}
+
 export function MondaySyncButton({ empresaId, syncedBoardIds = [] }: Props) {
   // Memoizar syncedSet para no recalcular en cada render
   const syncedSet = useMemo(() => new Set(syncedBoardIds), [syncedBoardIds])
@@ -107,7 +111,11 @@ export function MondaySyncButton({ empresaId, syncedBoardIds = [] }: Props) {
 
   const boards2026 = boards.filter((b) => is2026Board(b.name))
   const historicoBoards = boards.filter((b) => isHistoricoVentasBoard(b.name))
-  const otherBoards = boards.filter((b) => !is2026Board(b.name) && !isHistoricoVentasBoard(b.name))
+  const boardsSeguimiento = boards.filter((b) => isSeguimientoBoard(b.name, b.id))
+  const otherBoards = boards.filter(
+    (b) =>
+      !is2026Board(b.name) && !isHistoricoVentasBoard(b.name) && !isSeguimientoBoard(b.name, b.id),
+  )
   const historicoSeleccionados = historicoBoards.filter((b) => selectedIds.has(b.id)).length
 
   return (
@@ -230,7 +238,27 @@ export function MondaySyncButton({ empresaId, syncedBoardIds = [] }: Props) {
               </div>
             )}
 
-            {/* Otros boards (Seguimiento General, etc.) */}
+            {/* Seguimiento General */}
+            {boardsSeguimiento.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
+                  Seguimiento General
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {boardsSeguimiento.map((b) => (
+                    <BoardChip
+                      key={b.id}
+                      board={b}
+                      selected={selectedIds.has(b.id)}
+                      synced={syncedSet.has(b.id)}
+                      onToggle={() => toggle(b.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Otros boards */}
             {false && otherBoards.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
@@ -242,6 +270,7 @@ export function MondaySyncButton({ empresaId, syncedBoardIds = [] }: Props) {
                       key={b.id}
                       board={b}
                       selected={selectedIds.has(b.id)}
+                      synced={syncedSet.has(b.id)}
                       onToggle={() => toggle(b.id)}
                     />
                   ))}

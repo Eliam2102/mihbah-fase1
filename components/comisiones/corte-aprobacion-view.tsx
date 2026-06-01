@@ -280,39 +280,43 @@ export default function CorteAprobacionView({
       <div>
         <h2 className="text-foreground mb-3 font-semibold">Desglose por beneficiario</h2>
         <div className="bg-card overflow-hidden rounded-xl border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium">
-                  Beneficiario
-                </th>
-                <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium">
-                  Tipo
-                </th>
-                <th className="text-muted-foreground px-4 py-3 text-right text-xs font-medium">
-                  Monto
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {dispersiones.map((d) => (
-                <tr key={d.id} className="border-b last:border-0">
-                  <td className="text-foreground px-4 py-3 font-medium">{d.beneficiarioNombre}</td>
-                  <td className="text-muted-foreground px-4 py-3 text-xs">
-                    {TIPO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario}
-                    {d.acumulaMensual && (
-                      <span className="text-warning bg-warning/10 ml-1.5 rounded-full px-1.5 py-0.5 text-xs">
-                        Acumula
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-foreground px-4 py-3 text-right font-semibold tabular-nums">
-                    {fmt(Number(d.montoTotal))}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium">
+                    Beneficiario
+                  </th>
+                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium">
+                    Tipo
+                  </th>
+                  <th className="text-muted-foreground px-4 py-3 text-right text-xs font-medium">
+                    Monto
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {dispersiones.map((d) => (
+                  <tr key={d.id} className="border-b last:border-0">
+                    <td className="text-foreground px-4 py-3 font-medium">
+                      {d.beneficiarioNombre}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-3 text-xs">
+                      {TIPO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario}
+                      {d.acumulaMensual && (
+                        <span className="text-warning bg-warning/10 ml-1.5 rounded-full px-1.5 py-0.5 text-xs">
+                          Acumula
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-foreground px-4 py-3 text-right font-semibold tabular-nums">
+                      {fmt(Number(d.montoTotal))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

@@ -45,6 +45,18 @@ function StatusBadge({ status }: { status: string }) {
       label: 'Rechazado',
       className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
     },
+    PENDIENTE: {
+      label: 'Pendiente',
+      className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+    },
+    PARCIAL: {
+      label: 'Parcial',
+      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    },
+    PAGADA: {
+      label: 'Pagada',
+      className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    },
   }
   const match = map[status] ?? {
     label: status,
@@ -96,7 +108,8 @@ export async function ReportesBmcorpView({ empresaId, tenantId }: Props) {
                     { label: 'Monto Total', align: 'text-right' },
                     { label: 'Comisión (15%)', align: 'text-right' },
                     { label: 'Apertura', align: 'text-left' },
-                    { label: 'Estado', align: 'text-center' },
+                    { label: 'Estado Venta', align: 'text-center' },
+                    { label: 'Estado Comisión', align: 'text-center' },
                   ].map((h) => (
                     <th
                       key={h.label}
@@ -140,6 +153,9 @@ export async function ReportesBmcorpView({ empresaId, tenantId }: Props) {
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <StatusBadge status={v.estadoVenta} />
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <StatusBadge status={v.estadoComision} />
                     </td>
                   </tr>
                 ))}

@@ -9,7 +9,6 @@ import {
 } from '@/lib/services/ventas/ventas-listing.service'
 import { getAlianzasConfiguradas } from '@/lib/services/comisiones/alianzas.service'
 import { VentasListingView } from '@/components/ventas/ventas-listing-view'
-import { VentaCreateForm } from '@/components/ventas/venta-create-form'
 
 export const metadata = { title: 'Ventas BM CORP' }
 
@@ -97,14 +96,6 @@ export default async function VentasPage({
 
   return (
     <section className="3xl:p-12 w-full space-y-6 p-4 sm:p-6 xl:p-10">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-foreground text-xl font-semibold">Ventas BM CORP</h1>
-      </div>
-      <VentaCreateForm
-        empresaId={empresaId}
-        alianzas={alianzasAltaOptions}
-        desarrollos={desarrollos}
-      />
       <VentasListingView
         empresaId={empresaId}
         result={result}
@@ -112,6 +103,7 @@ export default async function VentasPage({
         desarrollos={desarrollos}
         anios={anios}
         currentFilter={currentFilter}
+        alianzasParaAlta={alianzasAltaOptions}
       />
     </section>
   )

@@ -22,8 +22,9 @@ import { and, eq, gte, isNotNull, lte, sql, desc, notInArray, inArray } from 'dr
 import { setTenant } from '../_shared/db.helpers'
 
 /**
- * Helper: detecta si ya hay datos en la tabla dispersiones (módulo nuevo).
- * Si hay, los dashboards usan dispersiones. Si no, fallback a repartosBmcorp viejo.
+ * Helper: detecta si ya hay datos calculados en el módulo nuevo (comisionesCalculadas).
+ * Usa el nuevo path en cuanto el sync de Monday haya calculado al menos una comisión.
+ * No requiere que haya cortes ejecutados (dispersiones.corteId IS NOT NULL).
  */
 async function usarDispersionesNuevas(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,16 +34,9 @@ async function usarDispersionesNuevas(
 ): Promise<boolean> {
   const [row] = await tx
     .select({ n: sql<number>`COUNT(*)::int` })
-    .from(dispersiones)
-    .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+    .from(comisionesCalculadas)
     .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
-    .where(
-      and(
-        eq(dispersiones.tenantId, tenantId),
-        eq(ventasBmcorp.empresaId, empresaId),
-        isNotNull(dispersiones.corteId),
-      ),
-    )
+    .where(and(eq(comisionesCalculadas.tenantId, tenantId), eq(ventasBmcorp.empresaId, empresaId)))
   return Number(row?.n ?? 0) > 0
 }
 import type {
@@ -704,16 +698,43 @@ export async function getRepartosSplit(
           ),
         )
 
+      let pendienteCount = Number(pendienteRow?.count ?? 0)
+      let pendienteMonto = Number(pendienteRow?.monto ?? 0)
+
+      // Si no hay cortes aún (pendiente=0), calcular desde dispersiones sin filtrar por corteId
+      if (pendienteMonto === 0) {
+        const [pendienteSinCorte] = await tx
+          .select({
+            count: sql<number>`COUNT(*)::int`,
+            monto: sql<string>`COALESCE(SUM(${dispersiones.montoTotal} - ${dispersiones.montoPagado}), 0)::text`,
+          })
+          .from(dispersiones)
+          .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+          .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+          .where(
+            and(
+              eq(dispersiones.tenantId, tenantId),
+              eq(ventasBmcorp.empresaId, empresaId),
+              inArray(dispersiones.tipoBeneficiario, ['LIDER_SALDO', 'ASESOR']),
+              notInArray(dispersiones.estado, ['PAGADO']),
+            ),
+          )
+        if (Number(pendienteSinCorte?.monto ?? 0) > 0) {
+          pendienteCount = Number(pendienteSinCorte?.count ?? 0)
+          pendienteMonto = Number(pendienteSinCorte?.monto ?? 0)
+        }
+      }
+
       const result: RepartosSplit = {
         realizado: { count: 0, monto: 0 },
         parcial: { count: 0, monto: 0 },
         pendiente: {
-          count: Number(pendienteRow?.count ?? 0),
-          monto: Number(pendienteRow?.monto ?? 0),
+          count: pendienteCount,
+          monto: pendienteMonto,
         },
         totalMonto: 0,
         ultimoReparto: ultimoRow?.ultimo ?? null,
-        sinDatos: pagadosRows.length === 0 && Number(pendienteRow?.count ?? 0) === 0,
+        sinDatos: pagadosRows.length === 0 && pendienteCount === 0,
       }
       for (const r of pagadosRows) {
         const monto = Number(r.monto)
@@ -870,7 +891,28 @@ export async function getComisionamientoConciliado(
         if (r.estado === 'PAGADO') pagado += monto
         else if (r.estado === 'PARCIAL') parcial += monto
       }
-      const pendiente = Number(pendienteRow?.monto ?? 0)
+      let pendiente = Number(pendienteRow?.monto ?? 0)
+
+      // Si no hay cortes aún (pendiente=0 pero hay comisiones calculadas), calcular
+      // el pendiente total desde dispersiones sin filtrar por corteId.
+      if (pendiente === 0 && totalGenerado > 0) {
+        const [pendienteSinCorte] = await tx
+          .select({
+            monto: sql<string>`COALESCE(SUM(${dispersiones.montoTotal} - ${dispersiones.montoPagado}), 0)::text`,
+          })
+          .from(dispersiones)
+          .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+          .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+          .where(
+            and(
+              eq(dispersiones.tenantId, tenantId),
+              eq(ventasBmcorp.empresaId, empresaId),
+              notInArray(dispersiones.estado, ['PAGADO']),
+            ),
+          )
+        pendiente = Number(pendienteSinCorte?.monto ?? 0)
+      }
+
       const porcentajeConciliado =
         totalGenerado > 0 ? Math.round(((pagado + parcial) / totalGenerado) * 100) : 0
       return {

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { VentaCreateForm } from '@/components/ventas/venta-create-form'
 import {
   Search,
   X,
@@ -66,6 +67,7 @@ export function VentasListingView({
   desarrollos,
   anios,
   currentFilter,
+  alianzasParaAlta,
 }: {
   empresaId: string
   result: VentasListResult
@@ -82,6 +84,7 @@ export function VentasListingView({
     query?: string
     page: number
   }
+  alianzasParaAlta?: Alianza[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -96,7 +99,7 @@ export function VentasListingView({
       else params.set(k, v)
     }
     if (!('page' in next)) params.delete('page')
-    startTransition(() => router.push(`?${params.toString()}`))
+    startTransition(() => router.push(`?${params.toString()}`, { scroll: false }))
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -177,6 +180,16 @@ export function VentasListingView({
               accent="rose"
             />
           </div>
+
+          {alianzasParaAlta && (
+            <div className="mt-6">
+              <VentaCreateForm
+                empresaId={empresaId}
+                alianzas={alianzasParaAlta}
+                desarrollos={desarrollos}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -353,7 +366,7 @@ export function VentasListingView({
                   Estado
                 </th>
                 <th className="px-6 py-4 text-center font-semibold tracking-wider uppercase">
-                  Tiempo
+                  Año
                 </th>
                 <th className="px-6 py-4 text-center font-semibold tracking-wider uppercase"></th>
               </tr>
@@ -599,16 +612,12 @@ function FilaVenta({
         </span>
       </td>
 
-      {/* Tiempo desde apertura */}
+      {/* Año de la venta */}
       <td className="px-6 py-4 text-center text-xs">
-        {diasDesdeApertura !== null ? (
-          <div className="border-border/50 bg-muted/30 text-muted-foreground inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-medium">
-            <Calendar className="h-3 w-3" />
-            {diasDesdeApertura}d
-          </div>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
+        <div className="border-border/50 bg-muted/30 text-muted-foreground inline-flex items-center gap-1.5 rounded-full border px-2 py-1 font-medium tabular-nums">
+          <Calendar className="h-3 w-3" />
+          {v.fechaApertura ? new Date(v.fechaApertura).getFullYear() : '—'}
+        </div>
       </td>
     </tr>
   )
