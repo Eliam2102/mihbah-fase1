@@ -1,6 +1,8 @@
 'use server'
 
 import { requireSuperAdminOrAbove, requireAdminOrAbove } from '@/lib/auth/helpers'
+// requireSuperAdminOrAbove: super_admin + super_admin_dev (Jorge, Carla, dev)
+// requireAdminOrAbove: lo anterior + admin (Joana)
 import {
   createUser,
   updateUserRole,
@@ -61,7 +63,7 @@ export async function actionUpdateUserRole(
   role: 'super_admin' | 'admin' | 'tesoreria' | 'viewer' | 'user',
 ): Promise<AdminUserResult> {
   try {
-    await requireAdminOrAbove()
+    await requireSuperAdminOrAbove()
     await updateUserRole(userId, role)
     revalidatePath('/configuracion/usuarios')
     return { ok: true }

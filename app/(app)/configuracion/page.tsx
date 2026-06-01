@@ -8,7 +8,7 @@ import {
 import { listEmpresasForAdmin } from '@/lib/services/admin/empresa.service'
 import { listUsersForTenant } from '@/lib/services/admin/user.service'
 import Link from 'next/link'
-import { Building2, Users, Shield, Plus, ChevronRight, AlertCircle } from 'lucide-react'
+import { Building2, Users, Shield, Plus, ChevronRight, AlertCircle, KeyRound } from 'lucide-react'
 
 const TIPO_LABEL: Record<string, string> = {
   CONSTRUCTORA: 'Constructora',
@@ -84,6 +84,26 @@ export default async function ConfiguracionPage() {
             <ChevronRight className="text-muted-foreground h-4 w-4" />
           </Link>
         )}
+      </div>
+
+      {/* Mi cuenta */}
+      <div className="border-border bg-card rounded-xl border p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <KeyRound className="text-jade-600 h-4 w-4" />
+              <h2 className="text-foreground text-sm font-semibold">Mi cuenta</h2>
+            </div>
+            <p className="text-muted-foreground mt-1 text-xs">Cambia tu contraseña de acceso.</p>
+          </div>
+          <Link
+            href="/configuracion/mi-cuenta"
+            className="border-border bg-card hover:bg-muted flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+          >
+            Cambiar contraseña
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+          </Link>
+        </div>
       </div>
 
       {/* Empresas */}
