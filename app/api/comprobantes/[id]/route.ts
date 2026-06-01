@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm'
 import { requireUser } from '@/lib/auth/helpers'
 import { leerComprobante } from '@/lib/storage/comprobantes'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
+import { getPerfilPortal } from '@/lib/services/comisiones/portal.service'
+import { asesores } from '@/lib/db/schema'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -34,20 +36,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       )
 
       if (!isAdminOrTesoreria) {
-        // Verificar que pertenezca al usuario
-        const portalUsers = await tx
-          .select()
-          .from(usuariosPortal)
-          .where(eq(usuariosPortal.userId, user.id))
-        if (portalUsers.length === 0) {
+        const perfil = await getPerfilPortal(user.id)
+        if (!perfil) {
           return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
         }
 
-        const isOwner = portalUsers.some(
-          (pu) =>
-            (pu.liderId && pu.liderId === comprobante.liderId) ||
-            (pu.asesorId && pu.asesorId === comprobante.asesorId),
-        )
+        let isOwner = false
+        if (perfil.rolPortal === 'ASESOR' && perfil.asesorIds.length > 0) {
+          isOwner = comprobante.asesorId !== null && perfil.asesorIds.includes(comprobante.asesorId)
+        } else if (['LIDER_ALIANZA', 'ADMINISTRATIVO'].includes(perfil.rolPortal)) {
+          if (comprobante.liderId !== null && perfil.liderIds.includes(comprobante.liderId)) {
+            isOwner = true
+          }
+          if (!isOwner && comprobante.asesorId !== null) {
+            const [asesor] = await tx
+              .select({ liderId: asesores.liderId, afiliadoId: asesores.afiliadoId })
+              .from(asesores)
+              .where(eq(asesores.id, comprobante.asesorId))
+            if (asesor) {
+              if (asesor.liderId !== null && perfil.liderIds.includes(asesor.liderId))
+                isOwner = true
+              else if (asesor.afiliadoId !== null && perfil.alianzasIds.includes(asesor.afiliadoId))
+                isOwner = true
+            }
+          }
+        }
 
         if (!isOwner) {
           return NextResponse.json(

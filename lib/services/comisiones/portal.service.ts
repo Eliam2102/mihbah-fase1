@@ -389,8 +389,11 @@ export async function verificarPertenenciaDispersion(
         asesorId: dispersiones.asesorId,
         tipoBeneficiario: dispersiones.tipoBeneficiario,
         estado: dispersiones.estado,
+        afiliadoId: ventasBmcorp.afiliadoId,
       })
       .from(dispersiones)
+      .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+      .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
       .where(and(eq(dispersiones.tenantId, perfil.tenantId), eq(dispersiones.id, dispersionId)))
       .limit(1)
     if (!row || row.estado === 'PENDIENTE') return false
@@ -401,8 +404,13 @@ export async function verificarPertenenciaDispersion(
         perfil.asesorIds.includes(row.asesorId)
       )
     }
-    if (perfil.rolPortal === 'LIDER_ALIANZA' && perfil.liderIds.length > 0) {
-      return row.liderId !== null && perfil.liderIds.includes(row.liderId)
+    if (['LIDER_ALIANZA', 'ADMINISTRATIVO'].includes(perfil.rolPortal)) {
+      if (perfil.alianzasIds && perfil.alianzasIds.length > 0 && row.afiliadoId) {
+        if (perfil.alianzasIds.includes(row.afiliadoId)) return true
+      }
+      if (perfil.liderIds.length > 0 && row.liderId !== null) {
+        if (perfil.liderIds.includes(row.liderId)) return true
+      }
     }
     return false
   })
