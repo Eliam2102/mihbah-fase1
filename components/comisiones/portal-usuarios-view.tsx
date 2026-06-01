@@ -23,6 +23,7 @@ import {
   resetearPasswordPortalAction,
   eliminarUsuarioPortalAction,
 } from '@/app/actions/comisiones/portal-usuarios'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import type { Lider, Asesor } from '@/lib/services/comisiones/alianzas.service'
 import type { UsuarioPortalDetalle } from '@/lib/services/comisiones/usuarios-portal.service'
 
@@ -315,26 +316,31 @@ function Badge({ children }: { children: React.ReactNode }) {
 
 function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: UsuarioPortalDetalle }) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [pending, startTransition] = useTransition()
   const [resetOpen, setResetOpen] = useState(false)
 
-  function toggleActivo() {
+  async function toggleActivo() {
     const next = !usuario.usuario.activo
     const verbo = next ? 'Activar' : 'Desactivar'
-    if (!confirm(`${verbo} el acceso de ${usuario.userEmail}?`)) return
+    const ok = await confirm({
+      title: `${verbo} acceso`,
+      description: `¿${verbo} el acceso de ${usuario.userEmail}?`,
+      confirmText: verbo,
+    })
+    if (!ok) return
     startTransition(async () => {
       await toggleActivoUsuarioPortalAction(empresaId, usuario.usuario.id, next)
       router.refresh()
     })
   }
 
-  function eliminar() {
-    const ok = confirm(
-      `⚠ ELIMINAR cuenta de ${usuario.userEmail}?\n\n` +
-        `Esto borra el usuario y su acceso permanentemente. No se puede deshacer.\n\n` +
-        `Si solo quieres bloquear acceso temporal, mejor usa "Desactivar".\n\n` +
-        `¿Continuar con eliminación?`,
-    )
+  async function eliminar() {
+    const ok = await confirm({
+      title: `Eliminar cuenta de ${usuario.userEmail}`,
+      description: `Esto borra el usuario y su acceso permanentemente. No se puede deshacer.\n\nSi solo quieres bloquear acceso temporal, mejor usa "Desactivar".`,
+      confirmText: 'Eliminar',
+    })
     if (!ok) return
     startTransition(async () => {
       const result = await eliminarUsuarioPortalAction(empresaId, usuario.usuario.id)

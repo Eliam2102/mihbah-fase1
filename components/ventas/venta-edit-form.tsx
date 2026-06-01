@@ -1,5 +1,6 @@
 'use client'
 import NumberInput from '@/components/ui/number-input'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -40,6 +41,7 @@ const ESTADOS = [
 
 export function VentaEditForm({ empresaId, venta }: { empresaId: string; venta: VentaEditable }) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [pending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -91,14 +93,15 @@ export function VentaEditForm({ empresaId, venta }: { empresaId: string; venta: 
     })
   }
 
-  function handleResync() {
-    if (
-      !confirm(
+  async function handleResync() {
+    const ok = await confirm({
+      title: '¿Re-sincronizar?',
+      description:
         '¿Permitir que la próxima sincronización Monday sobreescriba los campos editables de esta venta?',
-      )
-    ) {
-      return
-    }
+      confirmText: 'Permitir',
+    })
+    if (!ok) return
+
     setError(null)
     setSuccess(null)
     startTransition(async () => {

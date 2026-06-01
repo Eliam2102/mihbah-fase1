@@ -1,5 +1,6 @@
 'use client'
 import NumberInput from '@/components/ui/number-input'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
@@ -101,6 +102,7 @@ export default function CorteDetailView({
   userRole: string
 }) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [isPending, startTransition] = useTransition()
   const [showAddVenta, setShowAddVenta] = useState(false)
 
@@ -207,8 +209,13 @@ export default function CorteDetailView({
     })
   }
 
-  const handleEliminar = (pagoCorteId: string) => {
-    if (!confirm('¿Eliminar esta venta del corte? Se eliminarán sus dispersiones.')) return
+  const handleEliminar = async (pagoCorteId: string) => {
+    const ok = await confirm({
+      title: '¿Eliminar esta venta del corte?',
+      description: 'Se eliminarán sus dispersiones.',
+      confirmText: 'Eliminar',
+    })
+    if (!ok) return
     startTransition(async () => {
       const res = await eliminarVentaDelCorteAction(empresaId, pagoCorteId)
       if (!res.ok) {
@@ -219,8 +226,13 @@ export default function CorteDetailView({
     })
   }
 
-  const handleEnviarAprobacion = () => {
-    if (!confirm('¿Enviar este corte a aprobación? No podrás modificarlo después.')) return
+  const handleEnviarAprobacion = async () => {
+    const ok = await confirm({
+      title: '¿Enviar este corte a aprobación?',
+      description: 'No podrás modificarlo después.',
+      confirmText: 'Enviar',
+    })
+    if (!ok) return
     startTransition(async () => {
       const res = await enviarCorteAAprobacionAction(empresaId, corte.id)
       if (!res.ok) {

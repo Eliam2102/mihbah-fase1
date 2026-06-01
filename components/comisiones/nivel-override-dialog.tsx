@@ -1,5 +1,6 @@
 'use client'
 import NumberInput from '@/components/ui/number-input'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -44,6 +45,7 @@ export function NivelOverrideDialog({
   onClose: () => void
 }) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [rows, setRows] = useState<NivelRow[]>([])
   const [loading, setLoading] = useState(true)
   const [pending, startTransition] = useTransition()
@@ -116,9 +118,13 @@ export function NivelOverrideDialog({
     })
   }
 
-  const eliminar = (row: NivelRow) => {
+  const eliminar = async (row: NivelRow) => {
     if (!row.override) return
-    if (!confirm(`¿Eliminar bono nivel ${row.label}?`)) return
+    const ok = await confirm({
+      title: `¿Eliminar bono nivel ${row.label}?`,
+      confirmText: 'Eliminar',
+    })
+    if (!ok) return
     startTransition(async () => {
       const res = await eliminarNivelOverrideAction(empresaId, row.override!.id)
       if (!res.ok) toast.error(res.error)

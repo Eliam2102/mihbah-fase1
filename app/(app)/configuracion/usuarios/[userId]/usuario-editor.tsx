@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import {
   actionUpdateUserRole,
   actionGrantAccess,
@@ -90,6 +91,7 @@ export function UsuarioEditor({
   empresasPermisos,
 }: Props) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -109,12 +111,17 @@ export function UsuarioEditor({
   }
 
   // ── Bloquear/desbloquear usuario ─────────────────────────────────────────────
-  function handleBan(ban: boolean) {
+  async function handleBan(ban: boolean) {
     if (isSelf) return
     const msg = ban
       ? '¿Bloquear este usuario? No podrá iniciar sesión.'
       : '¿Desbloquear este usuario?'
-    if (!confirm(msg)) return
+    const ok = await confirm({
+      title: ban ? '¿Bloquear usuario?' : '¿Desbloquear usuario?',
+      description: msg,
+      confirmText: ban ? 'Bloquear' : 'Desbloquear',
+    })
+    if (!ok) return
     setError(null)
     startTransition(async () => {
       const res = await actionBanUser(userId, ban)

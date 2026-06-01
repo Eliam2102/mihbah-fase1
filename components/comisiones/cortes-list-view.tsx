@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { crearCorteAction, eliminarCorteAction } from '@/app/actions/cortes'
 import { Trash2 } from 'lucide-react'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 type Corte = {
   id: string
@@ -332,6 +333,7 @@ export default function CortesListView({
 
 function CorteCard({ corte, empresaId }: { corte: Corte; empresaId: string }) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [pending, startTransition] = useTransition()
   const estadoCfg =
     ESTADO_CONFIG[corte.estado as keyof typeof ESTADO_CONFIG] ?? ESTADO_CONFIG.BORRADOR
@@ -339,13 +341,19 @@ function CorteCard({ corte, empresaId }: { corte: Corte; empresaId: string }) {
   const fmt2 = (n: number) =>
     n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 })
 
-  const handleEliminar = (e: React.MouseEvent) => {
+  const handleEliminar = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!confirm('¿Eliminar este corte borrador? Se eliminarán sus ventas y dispersiones.')) return
+    const ok = await confirm({
+      title: '¿Eliminar este corte borrador?',
+      description: 'Se eliminarán sus ventas y dispersiones.',
+      confirmText: 'Eliminar',
+    })
+    if (!ok) return
     startTransition(async () => {
       const res = await eliminarCorteAction(empresaId, corte.id)
-      if (!res.ok) alert(res.error)
+      if (!res.ok)
+        alert(res.error) // Also change alert? We can use sonner or just leave alert for now. Let's use toast or just leave it.
       else router.refresh()
     })
   }

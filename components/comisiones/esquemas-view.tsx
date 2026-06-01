@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { CheckCircle, Building2, Percent, Pencil, RefreshCw, AlertCircle } from 'lucide-react'
 import type { Esquema } from '@/lib/services/comisiones/esquemas.service'
 import { EditarEsquemaDialog } from './editar-esquema-dialog'
@@ -9,6 +10,7 @@ import { recalcularTodasComisionesAction } from '@/app/actions/comisiones/disper
 
 export function EsquemasView({ empresaId, esquemas }: { empresaId: string; esquemas: Esquema[] }) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [edit, setEdit] = useState<Esquema | null>(null)
   const [recalcPending, startRecalc] = useTransition()
   const [recalcResult, setRecalcResult] = useState<{
@@ -19,13 +21,14 @@ export function EsquemasView({ empresaId, esquemas }: { empresaId: string; esque
   } | null>(null)
   const [recalcError, setRecalcError] = useState<string | null>(null)
 
-  function recalcular() {
-    if (
-      !confirm(
+  async function recalcular() {
+    const ok = await confirm({
+      title: '¿Recalcular todas las comisiones?',
+      description:
         '¿Recalcular TODAS las comisiones existentes con los % actuales? Esto sobreescribe los snapshots viejos. ¿Continuar?',
-      )
-    )
-      return
+      confirmText: 'Recalcular',
+    })
+    if (!ok) return
     setRecalcError(null)
     setRecalcResult(null)
     startRecalc(async () => {

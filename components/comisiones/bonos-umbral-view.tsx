@@ -1,5 +1,6 @@
 'use client'
 import NumberInput from '@/components/ui/number-input'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
@@ -118,6 +119,7 @@ export function BonosUmbralView({
   mes,
 }: Props) {
   const router = useRouter()
+  const { confirm } = useConfirm()
   const [editing, setEditing] = useState<BonoConfigRow | null>(null)
   const [creating, setCreating] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -142,8 +144,12 @@ export function BonosUmbralView({
     })
   }
 
-  const eliminar = (id: string) => {
-    if (!confirm('¿Eliminar esta regla de bono?')) return
+  const eliminar = async (id: string) => {
+    const ok = await confirm({
+      title: '¿Eliminar esta regla de bono?',
+      confirmText: 'Eliminar',
+    })
+    if (!ok) return
     startTransition(async () => {
       const res = await eliminarBonoConfigAction(empresaId, id)
       if (!res.ok) toast.error(res.error)
