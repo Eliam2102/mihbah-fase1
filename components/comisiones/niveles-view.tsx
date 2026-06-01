@@ -263,7 +263,7 @@ export function NivelesView({
               <tr>
                 <th className="px-4 py-3 text-left">Líder</th>
                 <th className="px-4 py-3 text-left">Alianza</th>
-                <th className="px-4 py-3 text-right">Promedio mes (Últ. 3)</th>
+                <th className="px-4 py-3 text-right">Ventas del mes actual</th>
                 <th className="px-4 py-3 text-center">Recomendación</th>
                 <th className="px-4 py-3 text-center">Nivel Asignado</th>
                 <th className="px-4 py-3" />

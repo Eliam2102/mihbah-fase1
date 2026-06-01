@@ -85,8 +85,8 @@ export default async function NivelesPage({ params }: { params: Promise<{ empres
           <p className="text-muted-foreground max-w-3xl text-sm leading-relaxed md:text-base">
             Administración del nivel de incentivos para los líderes de alianza. El nivel define el{' '}
             <span className="text-foreground font-semibold">bono de comisión adicional</span> al
-            alcanzar las metas comerciales. El sistema evalúa el promedio de ventas de los últimos 3
-            meses para recomendar un nivel; usted puede verificar y autorizar el cambio manualmente.
+            alcanzar las metas comerciales. El sistema evalúa las ventas del mes en curso para
+            recomendar un nivel; usted puede verificar y autorizar el cambio manualmente.
           </p>
         </div>
       </div>
