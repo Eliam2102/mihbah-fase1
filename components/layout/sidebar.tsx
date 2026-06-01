@@ -22,7 +22,6 @@ import {
   Moon,
   Monitor,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 
 interface SidebarProps {
@@ -33,6 +32,7 @@ interface SidebarProps {
   userRole?: string | null | undefined
   badgeCortes?: number
   permisosVisibles?: Record<string, string[]> | null
+  initialEmpresaId?: string
   onMobileClose?: () => void
 }
 
@@ -44,20 +44,25 @@ export function Sidebar({
   userRole,
   badgeCortes = 0,
   permisosVisibles = null,
+  initialEmpresaId = 'TODAS',
   onMobileClose,
 }: SidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
-  const { empresaActiva } = useEmpresaStore()
+  const { empresaActiva: empresaActivaStore } = useEmpresaStore()
   const { anio } = usePeriodStore()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { theme, setTheme } = useTheme()
 
+  // mounted = false en servidor, true en cliente. Mismo patrón que el theme icon.
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
     () => false,
   )
+
+  // Usar initialEmpresaId (cookie, leída server-side) hasta que el cliente hidrate.
+  // Evita flash: servidor='TODAS' → cliente=UUID guardado en localStorage.
+  const empresaActiva = mounted ? empresaActivaStore : initialEmpresaId
 
   const nextTheme = mounted
     ? theme === 'dark'

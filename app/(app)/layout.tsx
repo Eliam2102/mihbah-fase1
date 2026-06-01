@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { requireUser, isAdminOrAbove } from '@/lib/auth/helpers'
 import { getEmpresasForUser } from '@/lib/services/empresas'
 import { getTenantName } from '@/lib/services/empresas'
@@ -75,9 +76,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const empresaOptions = empresasData.map((e) => ({ id: e.id, name: e.name }))
 
+  // Leer la cookie que escribe el store para que el server render coincida con el cliente.
+  // Evita el flash (servidor renderiza 'TODAS', cliente hidrata al UUID guardado).
+  const cookieStore = await cookies()
+  const initialEmpresaId = cookieStore.get('mihbah-empresa-activa')?.value ?? 'TODAS'
+
   return (
     <AppShell
       empresas={empresaOptions}
+      initialEmpresaId={initialEmpresaId}
       userName={user.name}
       userEmail={user.email}
       tenantName={tenantName}
