@@ -29,6 +29,26 @@ function StatusBadge({ status }: { status: string }) {
       label: 'Liberado',
       className: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
     },
+    PENDIENTE: {
+      label: 'Pendiente',
+      className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    },
+    EN_REVISION: {
+      label: 'En revisión',
+      className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    },
+    AUTORIZADA: {
+      label: 'Autorizada',
+      className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    },
+    PARCIAL: {
+      label: 'Parcial',
+      className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+    },
+    DIFERIDO: {
+      label: 'Diferido',
+      className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    },
   }
   const match = map[status] ?? {
     label: status,
@@ -125,7 +145,7 @@ export async function CuentasBmcorpView({ empresaId, tenantId }: Props) {
           <div className="flex items-center gap-2">
             <WalletCards className="h-5 w-5 text-red-500" />
             <h3 className="text-foreground font-semibold">
-              Cuentas por Pagar (Comisiones a Asesores)
+              Cuentas por Pagar (Comisiones calculadas no pagadas)
             </h3>
           </div>
           <div className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700 tabular-nums dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -143,11 +163,12 @@ export async function CuentasBmcorpView({ empresaId, tenantId }: Props) {
               <thead>
                 <tr className="border-border bg-muted/50 border-b">
                   {[
-                    { label: 'Asesor', align: 'text-left' },
-                    { label: 'Venta Asociada', align: 'text-left' },
-                    { label: 'Comisión Total (2%)', align: 'text-right' },
-                    { label: 'Saldo Pendiente', align: 'text-right' },
-                    { label: 'Estado Pipeline', align: 'text-center' },
+                    { label: 'Beneficiario', align: 'text-left' },
+                    { label: 'Venta', align: 'text-left' },
+                    { label: 'Comisión calculada', align: 'text-right' },
+                    { label: 'Pagado', align: 'text-right' },
+                    { label: 'Saldo', align: 'text-right' },
+                    { label: 'Estado', align: 'text-center' },
                   ].map((h) => (
                     <th
                       key={h.label}
@@ -159,29 +180,45 @@ export async function CuentasBmcorpView({ empresaId, tenantId }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {cuentas.cxpAsesores.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
-                  >
-                    <td className="px-6 py-4">
-                      <p className="text-foreground font-medium">{c.asesor || 'Sin asignar'}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-foreground font-medium">{c.cliente}</p>
-                      <p className="text-muted-foreground text-xs">{c.desarrollo || '—'}</p>
-                    </td>
-                    <td className="text-foreground px-6 py-4 text-right tabular-nums">
-                      {formatMXN(c.comisionTotal)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-red-600 tabular-nums dark:text-red-400">
-                      {formatMXN(c.saldoPendiente)}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <StatusBadge status={c.estadoVenta} />
-                    </td>
-                  </tr>
-                ))}
+                {cuentas.cxpAsesores.map((c) => {
+                  const TIPO_LABEL: Record<string, string> = {
+                    LIDER_SALDO: 'Líder',
+                    ASESOR_COMISION: 'Asesor',
+                    ASESOR_FLAMINGO: 'Asesor directo',
+                    KASS: 'Kass',
+                    JORGE: 'Jorge',
+                    BOLSA_COMERCIAL: 'Bolsa',
+                    SOCIO_FIJO: 'Socio',
+                  }
+                  return (
+                    <tr
+                      key={c.id}
+                      className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
+                    >
+                      <td className="px-6 py-4">
+                        <p className="text-foreground font-medium">{c.beneficiarioNombre}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {TIPO_LABEL[c.tipoBeneficiario] ?? c.tipoBeneficiario}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-foreground">{c.cliente}</p>
+                      </td>
+                      <td className="text-foreground px-6 py-4 text-right tabular-nums">
+                        {formatMXN(c.montoTotal)}
+                      </td>
+                      <td className="text-muted-foreground px-6 py-4 text-right tabular-nums">
+                        {formatMXN(c.montoPagado)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-red-600 tabular-nums dark:text-red-400">
+                        {formatMXN(c.saldoPendiente)}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <StatusBadge status={c.estado} />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

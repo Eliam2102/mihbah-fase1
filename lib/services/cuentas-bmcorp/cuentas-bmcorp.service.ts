@@ -2,15 +2,17 @@
  * lib/services/cuentas-bmcorp/cuentas-bmcorp.service.ts
  *
  * Cuentas por cobrar y pagar para BM CORP.
+ * CXC: ventas abiertas (saldo cliente → BM CORP).
+ * CXP: dispersiones calculadas no pagadas (comisiones que BM CORP debe a líderes/asesores).
  */
 
 import { db } from '@/lib/db'
-import { ventasBmcorp, desarrollos } from '@/lib/db/schema'
-import { eq, sql, desc, and, notInArray } from 'drizzle-orm'
+import { ventasBmcorp, desarrollos, dispersiones, comisionesCalculadas } from '@/lib/db/schema'
+import { eq, sql, desc, and, notInArray, isNull, not, inArray } from 'drizzle-orm'
 import { setTenant } from '../_shared/db.helpers'
 import type {
   CuentaPorCobrar,
-  CuentaPorPagarAsesor,
+  DispersionPendiente,
   CuentasBmcorpData,
 } from './cuentas-bmcorp.types'
 
@@ -21,6 +23,7 @@ export async function getCuentasBmcorp(
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
 
+    // ── CXC: ventas abiertas — lo que los clientes deben a BM CORP ─────────
     const cxcRows = await tx
       .select({
         id: ventasBmcorp.id,
@@ -61,48 +64,44 @@ export async function getCuentasBmcorp(
       }
     })
 
+    // ── CXP: dispersiones calculadas no pagadas — lo que BM CORP debe ──────
+    // Fuente: módulo de comisiones (dispersiones) no en estado PAGADO.
+    // Incluye PENDIENTE, EN_REVISION, AUTORIZADA, PARCIAL, DIFERIDO.
     const cxpRows = await tx
       .select({
-        id: ventasBmcorp.id,
-        asesor: ventasBmcorp.asesor,
+        id: dispersiones.id,
+        beneficiarioNombre: dispersiones.beneficiarioNombre,
+        tipoBeneficiario: dispersiones.tipoBeneficiario,
         cliente: ventasBmcorp.cliente,
-        desarrollo: desarrollos.nombre,
-        comisionBmcorp: ventasBmcorp.comisionBmcorp,
-        estadoVenta: ventasBmcorp.estadoVenta,
-        // Suma de pagos COMISION_ASESOR ya realizados (PAGADO + PARCIAL)
-        comisionPagada: sql<string>`COALESCE((
-          SELECT SUM(r.monto) FROM repartos_bmcorp r
-          WHERE r.venta_id = ${ventasBmcorp.id}
-            AND r.tipo = 'COMISION_ASESOR'
-            AND r.estado IN ('PAGADO','PARCIAL')
-        ), 0)::text`,
+        montoTotal: dispersiones.montoTotal,
+        montoPagado: dispersiones.montoPagado,
+        estado: dispersiones.estado,
       })
-      .from(ventasBmcorp)
-      .leftJoin(desarrollos, eq(desarrollos.id, ventasBmcorp.desarrolloId))
+      .from(dispersiones)
+      .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+      .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
       .where(
         and(
-          eq(ventasBmcorp.tenantId, tenantId),
+          eq(dispersiones.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
-          notInArray(ventasBmcorp.estadoVenta, [
-            'FINALIZADA',
-            'FINALIZADO_Y_LIQUIDADO',
-            'CANCELADA',
-          ]),
+          not(eq(dispersiones.estado, 'PAGADO')),
+          isNull(dispersiones.deletedAt),
         ),
       )
-      .orderBy(desc(ventasBmcorp.fechaApertura))
+      .orderBy(desc(comisionesCalculadas.createdAt))
 
-    const cxpAsesores: CuentaPorPagarAsesor[] = cxpRows.map((r) => {
-      const comisionTotal = Number(r.comisionBmcorp ?? 0)
-      const comisionPagada = Number(r.comisionPagada ?? 0)
+    const cxpAsesores: DispersionPendiente[] = cxpRows.map((r) => {
+      const montoTotal = Number(r.montoTotal ?? 0)
+      const montoPagado = Number(r.montoPagado ?? 0)
       return {
         id: r.id,
-        asesor: r.asesor,
+        beneficiarioNombre: r.beneficiarioNombre,
+        tipoBeneficiario: r.tipoBeneficiario,
         cliente: r.cliente,
-        desarrollo: r.desarrollo,
-        comisionTotal,
-        saldoPendiente: Math.max(0, comisionTotal - comisionPagada),
-        estadoVenta: r.estadoVenta,
+        montoTotal,
+        montoPagado,
+        saldoPendiente: Math.max(0, montoTotal - montoPagado),
+        estado: r.estado,
       }
     })
 

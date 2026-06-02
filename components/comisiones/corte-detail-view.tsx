@@ -105,6 +105,7 @@ export default function CorteDetailView({
   const { confirm } = useConfirm()
   const [isPending, startTransition] = useTransition()
   const [showAddVenta, setShowAddVenta] = useState(false)
+  const [activeTab, setActiveTab] = useState<'catalog' | 'selected'>('catalog')
 
   // Bloquear el scroll del fondo cuando el modal está abierto
   useEffect(() => {
@@ -177,6 +178,7 @@ export default function CorteDetailView({
     setSelectedVentas(new Map())
     setAddError(null)
     setAddProgress(null)
+    setActiveTab('catalog')
   }
 
   const esBorrador = corte.estado === 'BORRADOR'
@@ -403,8 +405,8 @@ export default function CorteDetailView({
       )}
 
       {/* Compact Stats Bar */}
-      <div className="flex flex-wrap items-center gap-6 rounded-xl border border-slate-200/60 bg-slate-50/50 px-5 py-3 text-sm shadow-sm backdrop-blur-md dark:border-slate-800/60 dark:bg-slate-900/30">
-        <div className="flex items-center gap-2">
+      <div className="grid grid-cols-2 gap-4 rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 text-sm shadow-sm backdrop-blur-md sm:flex sm:flex-wrap sm:items-center sm:gap-6 sm:px-5 sm:py-3 dark:border-slate-800/60 dark:bg-slate-900/30">
+        <div className="col-span-2 flex items-center gap-2 sm:col-span-1">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <Banknote className="h-4 w-4" />
           </span>
@@ -502,10 +504,35 @@ export default function CorteDetailView({
                   </button>
                 </div>
 
+                {/* Mobile Tab Bar */}
+                <div className="flex shrink-0 border-b border-slate-100 bg-slate-50/50 md:hidden dark:border-slate-800 dark:bg-slate-900/30">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('catalog')}
+                    className={`flex-1 border-b-2 py-3 text-xs font-semibold transition-all ${activeTab === 'catalog' ? 'border-primary text-primary bg-background' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
+                  >
+                    Ventas ({filteredVentas.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('selected')}
+                    className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 py-3 text-xs font-semibold transition-all ${activeTab === 'selected' ? 'border-primary text-primary bg-background' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
+                  >
+                    Cola ({selectedCount})
+                    {selectedCount > 0 && (
+                      <span className="bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+                        {selectedCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
                 {/* Body split */}
                 <div className="flex min-h-0 flex-1 overflow-hidden">
                   {/* Panel IZQUIERDO — catálogo */}
-                  <div className="flex w-full flex-col border-r border-slate-100 md:w-[52%] dark:border-slate-800">
+                  <div
+                    className={`w-full flex-col border-r border-slate-100 md:w-[52%] dark:border-slate-800 ${activeTab === 'catalog' ? 'flex' : 'hidden md:flex'}`}
+                  >
                     {/* Filtros */}
                     <div className="shrink-0 space-y-2 border-b border-slate-100 bg-slate-50/60 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/30">
                       <div className="relative">
@@ -626,7 +653,9 @@ export default function CorteDetailView({
                   </div>
 
                   {/* Panel DERECHO — cola con formularios */}
-                  <div className="hidden w-[48%] flex-col md:flex">
+                  <div
+                    className={`w-full flex-col md:w-[48%] ${activeTab === 'selected' ? 'flex' : 'hidden md:flex'}`}
+                  >
                     <div className="shrink-0 border-b border-slate-100 bg-slate-50/40 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/20">
                       <p className="text-foreground text-xs font-bold">
                         Cola de ventas
@@ -826,7 +855,9 @@ export default function CorteDetailView({
                               {selectedCount - listos} sin monto
                             </span>
                           ) : (
-                            <span className="font-medium text-emerald-600">✓ Todas listas</span>
+                            <span className="flex items-center gap-1 font-medium text-emerald-600">
+                              <Check className="h-3.5 w-3.5" /> Todas listas
+                            </span>
                           )
                         })()
                       )}
@@ -965,7 +996,7 @@ export default function CorteDetailView({
                                 <Users className="h-3.5 w-3.5" /> Dispersión de comisiones
                               </h4>
                               <div
-                                className={`flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-semibold ${ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'}`}
+                                className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'}`}
                               >
                                 <span>Dispersado: {fmt(sumDisp)}</span>
                                 <span className="text-muted-foreground font-normal">|</span>
@@ -1020,7 +1051,79 @@ export default function CorteDetailView({
                           </div>
                         )
                       })()}
-                      <div className="overflow-hidden rounded-lg border border-slate-100 bg-slate-50/50 dark:border-slate-800/80 dark:bg-slate-900/30">
+
+                      {/* Mobile Dispersion List */}
+                      <div className="block divide-y divide-slate-100 overflow-hidden rounded-lg border bg-slate-50/50 sm:hidden dark:divide-slate-800 dark:bg-slate-900/30">
+                        {dispsVenta.map((d) => (
+                          <div
+                            key={d.id}
+                            className="space-y-2 p-3 hover:bg-slate-100/30 dark:hover:bg-slate-950/20"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-foreground text-xs font-semibold">
+                                  {d.beneficiarioNombre}
+                                </p>
+                                <p className="text-muted-foreground mt-0.5 text-[10px]">
+                                  {TIPO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario}
+                                  {d.acumulaMensual && (
+                                    <span className="text-warning bg-warning/10 ml-1.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold">
+                                      Acumula
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                {ajustando === d.id ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={nuevoMonto}
+                                      onChange={(e) => setNuevoMonto(e.target.value)}
+                                      className="bg-background border-input w-20 rounded border px-1.5 py-0.5 text-right text-xs"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => handleAjustar(d.id)}
+                                      disabled={isPending}
+                                      className="text-success rounded p-0.5 transition-all hover:bg-emerald-500/10 active:scale-[0.9]"
+                                    >
+                                      <Check className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => setAjustando(null)}
+                                      className="text-muted-foreground rounded p-0.5 transition-all hover:bg-slate-200 active:scale-[0.9] dark:hover:bg-slate-800"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <span className="text-foreground text-xs font-bold tabular-nums">
+                                      {fmt(Number(d.montoTotal))}
+                                    </span>
+                                    {esBorrador && (
+                                      <button
+                                        onClick={() => {
+                                          setAjustando(d.id)
+                                          setNuevoMonto(d.montoTotal)
+                                        }}
+                                        className="text-muted-foreground hover:text-foreground rounded p-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop Dispersion Table */}
+                      <div className="hidden overflow-hidden rounded-lg border border-slate-100 bg-slate-50/50 sm:block dark:border-slate-800/80 dark:bg-slate-900/30">
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="text-muted-foreground border-b bg-slate-100/50 text-left text-[10px] font-semibold dark:bg-slate-900/50">

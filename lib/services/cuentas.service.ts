@@ -5,7 +5,7 @@
 export {
   getCuentasBmcorp,
   type CuentaPorCobrar,
-  type CuentaPorPagarAsesor,
+  type DispersionPendiente,
   type CuentasBmcorpData,
 } from './cuentas-bmcorp.service'
 export {

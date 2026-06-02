@@ -9,17 +9,18 @@ export interface CuentaPorCobrar {
   fechaApertura: string | null
 }
 
-export interface CuentaPorPagarAsesor {
+export interface DispersionPendiente {
   id: string
-  asesor: string | null
+  beneficiarioNombre: string
+  tipoBeneficiario: string
   cliente: string
-  desarrollo: string | null
-  comisionTotal: number
+  montoTotal: number
+  montoPagado: number
   saldoPendiente: number
-  estadoVenta: string
+  estado: string
 }
 
 export interface CuentasBmcorpData {
   cxc: CuentaPorCobrar[]
-  cxpAsesores: CuentaPorPagarAsesor[]
+  cxpAsesores: DispersionPendiente[]
 }

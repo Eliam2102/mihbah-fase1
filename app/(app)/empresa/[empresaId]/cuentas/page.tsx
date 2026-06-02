@@ -324,9 +324,10 @@ export default async function CuentasPage({
                   <tr className="border-border bg-muted/50 border-b">
                     {(esBmcorp
                       ? [
-                          { label: 'Asesor', align: 'text-left' },
-                          { label: 'Venta Asociada', align: 'text-left' },
-                          { label: 'Comisión (15%)', align: 'text-right' },
+                          { label: 'Beneficiario', align: 'text-left' },
+                          { label: 'Venta', align: 'text-left' },
+                          { label: 'Comisión calculada', align: 'text-right' },
+                          { label: 'Pagado', align: 'text-right' },
                           { label: 'Saldo', align: 'text-right' },
                           { label: 'Estado', align: 'text-center' },
                         ]
@@ -352,28 +353,40 @@ export default async function CuentasPage({
                   {cxpRows.map((row) => {
                     if (row.tipo === 'bmcorp') {
                       const c = row.data
+                      const TIPO_LABEL: Record<string, string> = {
+                        LIDER_SALDO: 'Líder',
+                        ASESOR_COMISION: 'Asesor',
+                        ASESOR_FLAMINGO: 'Asesor directo',
+                        KASS: 'Kass',
+                        JORGE: 'Jorge',
+                        BOLSA_COMERCIAL: 'Bolsa',
+                        SOCIO_FIJO: 'Socio',
+                      }
                       return (
                         <tr
                           key={c.id}
                           className="border-border hover:bg-muted/30 border-b transition-colors last:border-0"
                         >
                           <td className="px-6 py-4">
-                            <p className="text-foreground font-medium">
-                              {c.asesor || 'Sin asignar'}
+                            <p className="text-foreground font-medium">{c.beneficiarioNombre}</p>
+                            <p className="text-muted-foreground text-xs">
+                              {TIPO_LABEL[c.tipoBeneficiario] ?? c.tipoBeneficiario}
                             </p>
                           </td>
                           <td className="px-6 py-4">
                             <p className="text-foreground">{c.cliente}</p>
-                            <p className="text-muted-foreground text-xs">{c.desarrollo || '—'}</p>
                           </td>
                           <td className="text-foreground px-6 py-4 text-right tabular-nums">
-                            {formatMXN(c.comisionTotal)}
+                            {formatMXN(c.montoTotal)}
+                          </td>
+                          <td className="text-muted-foreground px-6 py-4 text-right tabular-nums">
+                            {formatMXN(c.montoPagado)}
                           </td>
                           <td className="px-6 py-4 text-right font-bold text-red-600 tabular-nums dark:text-red-400">
                             {formatMXN(c.saldoPendiente)}
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <EstadoBadge estado={c.estadoVenta} />
+                            <EstadoBadge estado={c.estado} />
                           </td>
                         </tr>
                       )

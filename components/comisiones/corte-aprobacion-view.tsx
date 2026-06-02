@@ -14,6 +14,7 @@ import {
   User,
   Building2,
   AlertCircle,
+  Users,
 } from 'lucide-react'
 import { aprobarCorteAction, rechazarCorteAction } from '@/app/actions/cortes'
 
@@ -222,23 +223,26 @@ export default function CorteAprobacionView({
       )}
 
       {/* Resumen de retiro — lo más importante */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <ResumenCard
-          label="💵 Efectivo a retirar"
+          label="Efectivo a retirar"
           value={fmt(totalEfectivo)}
           desc="Joana retira y entrega a Mihbah"
           accent="success"
+          icon={<Banknote className="text-success h-4 w-4" />}
         />
         <ResumenCard
-          label="🏦 A depositar / transferir"
+          label="A depositar / transferir"
           value={fmt(totalDeposito)}
-          desc="Depósito directo a cuenta del lider"
+          desc="Depósito directo a cuenta del líder"
           accent="primary"
+          icon={<CreditCard className="text-primary h-4 w-4" />}
         />
         <ResumenCard
           label="Total del corte"
           value={fmt(totalADispersar)}
           desc={`${dispersiones.length} dispersiones`}
+          icon={<Users className="h-4 w-4 text-slate-500" />}
         />
       </div>
 
@@ -247,7 +251,10 @@ export default function CorteAprobacionView({
         <h2 className="text-foreground mb-3 font-semibold">Ventas incluidas</h2>
         <div className="space-y-2">
           {pagos.map((pago) => (
-            <div key={pago.id} className="bg-card flex items-center gap-4 rounded-xl border p-4">
+            <div
+              key={pago.id}
+              className="bg-card flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <User className="text-muted-foreground h-4 w-4" />
@@ -262,7 +269,7 @@ export default function CorteAprobacionView({
                   </div>
                 )}
               </div>
-              <div className="shrink-0 text-right">
+              <div className="shrink-0 border-t border-slate-100 pt-3 text-left sm:border-0 sm:pt-0 sm:text-right dark:border-slate-800">
                 <p className="text-foreground text-sm font-semibold">
                   {fmt(Number(pago.montoADispersar))}
                 </p>
@@ -279,9 +286,35 @@ export default function CorteAprobacionView({
       {/* Desglose por beneficiario */}
       <div>
         <h2 className="text-foreground mb-3 font-semibold">Desglose por beneficiario</h2>
-        <div className="bg-card overflow-hidden rounded-xl border">
+
+        {/* Mobile List View */}
+        <div className="bg-card block divide-y divide-slate-100 overflow-hidden rounded-xl border sm:hidden dark:divide-slate-800">
+          {dispersiones.map((d) => (
+            <div key={d.id} className="flex items-center justify-between gap-3 p-3">
+              <div>
+                <p className="text-foreground text-xs font-semibold">{d.beneficiarioNombre}</p>
+                <p className="text-muted-foreground mt-0.5 text-[10px]">
+                  {TIPO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario}
+                  {d.acumulaMensual && (
+                    <span className="text-warning bg-warning/10 ml-1.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold">
+                      Acumula
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-foreground text-xs font-bold tabular-nums">
+                  {fmt(Number(d.montoTotal))}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="bg-card hidden overflow-hidden rounded-xl border sm:block">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
                   <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium">
@@ -452,11 +485,13 @@ function ResumenCard({
   label,
   value,
   desc,
+  icon,
   accent,
 }: {
   label: string
   value: string
   desc: string
+  icon?: React.ReactNode
   accent?: 'success' | 'primary'
 }) {
   const color =
@@ -466,10 +501,15 @@ function ResumenCard({
         ? 'text-primary'
         : 'text-foreground'
   return (
-    <div className="bg-card rounded-xl border p-5">
-      <p className="text-muted-foreground text-xs font-medium">{label}</p>
-      <p className={`mt-2 text-2xl font-bold tabular-nums ${color}`}>{value}</p>
-      <p className="text-muted-foreground mt-1 text-xs">{desc}</p>
+    <div className="bg-card flex flex-col justify-between rounded-xl border p-5">
+      <div>
+        <div className="flex items-center gap-2">
+          {icon}
+          <p className="text-muted-foreground text-xs font-medium">{label}</p>
+        </div>
+        <p className={`mt-2 text-2xl font-bold tabular-nums ${color}`}>{value}</p>
+      </div>
+      <p className="text-muted-foreground mt-2 text-xs">{desc}</p>
     </div>
   )
 }

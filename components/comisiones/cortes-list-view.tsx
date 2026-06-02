@@ -270,8 +270,8 @@ export default function CortesListView({
       {/* Cortes en revisión — prominente */}
       {enRevision.length > 0 && (
         <div>
-          <p className="text-warning mb-2 text-xs font-semibold uppercase">
-            ⏳ Pendientes de aprobación
+          <p className="text-warning mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase">
+            <Clock className="h-3.5 w-3.5" /> Pendientes de aprobación
           </p>
           <div className="space-y-2">
             {enRevision.map((corte) => (
@@ -352,8 +352,7 @@ function CorteCard({ corte, empresaId }: { corte: Corte; empresaId: string }) {
     if (!ok) return
     startTransition(async () => {
       const res = await eliminarCorteAction(empresaId, corte.id)
-      if (!res.ok)
-        alert(res.error) // Also change alert? We can use sonner or just leave alert for now. Let's use toast or just leave it.
+      if (!res.ok) alert(res.error)
       else router.refresh()
     })
   }
@@ -361,60 +360,72 @@ function CorteCard({ corte, empresaId }: { corte: Corte; empresaId: string }) {
   return (
     <Link
       href={`/empresa/${empresaId}/comisiones/cortes/${corte.id}`}
-      className={`bg-card hover:bg-muted/20 flex items-center gap-4 rounded-xl border p-4 transition-colors ${estadoCfg.ring}`}
+      className={`bg-card hover:bg-muted/20 flex flex-col gap-3 rounded-xl border p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${estadoCfg.ring}`}
     >
-      {/* Ícono día */}
-      <div className="bg-muted shrink-0 rounded-lg p-2.5">
-        <Calendar className={`h-5 w-5 ${diaCfg.color}`} />
-      </div>
-
-      {/* Info */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-semibold ${diaCfg.color}`}>{diaCfg.label}</span>
-          <span className="text-muted-foreground text-xs">·</span>
-          <span className="text-foreground text-sm font-medium">
-            {formatFecha(corte.fechaCorte)}
-          </span>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {/* Ícono día */}
+        <div className="bg-muted shrink-0 rounded-lg p-2.5">
+          <Calendar className={`h-5 w-5 ${diaCfg.color}`} />
         </div>
-        {corte.notasJoana && (
-          <p className="text-muted-foreground mt-0.5 truncate text-xs">{corte.notasJoana}</p>
-        )}
-      </div>
 
-      {/* Monto */}
-      {corte.totalADispersar && Number(corte.totalADispersar) > 0 && (
-        <div className="shrink-0 text-right">
-          <div className="flex items-center gap-1">
-            <Banknote className="text-success h-4 w-4" />
-            <span className="text-success text-sm font-semibold tabular-nums">
-              {fmt2(Number(corte.totalADispersar))}
+        {/* Info */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className={`text-xs font-semibold ${diaCfg.color}`}>{diaCfg.label}</span>
+            <span className="text-muted-foreground hidden text-xs sm:inline">·</span>
+            <span className="text-foreground text-xs font-medium sm:text-sm">
+              {formatFecha(corte.fechaCorte)}
             </span>
           </div>
+          {corte.notasJoana && (
+            <p className="text-muted-foreground mt-1 truncate text-xs">{corte.notasJoana}</p>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Estado badge */}
-      <span
-        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${estadoCfg.className}`}
-      >
-        {estadoCfg.icon}
-        {estadoCfg.label}
-      </span>
+      {/* Monto y Estado */}
+      <div className="flex items-center justify-between gap-3 border-t pt-3 sm:shrink-0 sm:justify-end sm:border-t-0 sm:pt-0">
+        {corte.totalADispersar && Number(corte.totalADispersar) > 0 ? (
+          <div className="text-left sm:text-right">
+            <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:hidden">
+              Total a dispersar
+            </p>
+            <div className="mt-0.5 flex items-center gap-1 sm:mt-0">
+              <Banknote className="text-success h-4 w-4" />
+              <span className="text-success text-sm font-semibold tabular-nums">
+                {fmt2(Number(corte.totalADispersar))}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="sm:hidden" />
+        )}
 
-      <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2">
+          {/* Estado badge */}
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${estadoCfg.className}`}
+          >
+            {estadoCfg.icon}
+            {estadoCfg.label}
+          </span>
 
-      {corte.estado === 'BORRADOR' && (
-        <button
-          type="button"
-          disabled={pending}
-          onClick={handleEliminar}
-          className="text-muted-foreground shrink-0 rounded-lg p-1.5 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
-          title="Eliminar corte borrador"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      )}
+          <div className="flex items-center gap-1">
+            {corte.estado === 'BORRADOR' && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={handleEliminar}
+                className="text-muted-foreground rounded-lg p-1.5 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+                title="Eliminar corte borrador"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+            <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
+          </div>
+        </div>
+      </div>
     </Link>
   )
 }

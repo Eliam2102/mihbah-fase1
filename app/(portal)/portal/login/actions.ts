@@ -5,6 +5,9 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth/config'
 import { checkRateLimit } from '@/lib/auth/rate-limiter'
+import { db } from '@/lib/db'
+import { usuariosPortal } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 const portalLoginSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
@@ -51,9 +54,21 @@ export async function portalLoginAction(
     return { error: `Correo o contraseña incorrectos.${hint}` }
   }
 
-  // Portal solo para roles portal — admin sigue al dashboard admin (guard rebota)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const role = (result.user as any)?.role
-  const destino = role === 'lider_alianza' || role === 'asesor' ? '/portal/dashboard' : '/dashboard'
+  const PORTAL_ROLES = ['lider_alianza', 'asesor', 'administrativo']
+
+  // Admins que también son líderes/asesores tienen registro en usuariosPortal
+  // con el mismo userId → redirigir al portal aunque su role sea super_admin/admin
+  let destino = PORTAL_ROLES.includes(role) ? '/portal/dashboard' : '/dashboard'
+  if (destino === '/dashboard') {
+    const [perfilPortal] = await db
+      .select({ id: usuariosPortal.id })
+      .from(usuariosPortal)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .where(eq(usuariosPortal.userId, (result.user as any).id))
+      .limit(1)
+    if (perfilPortal) destino = '/portal/dashboard'
+  }
   redirect(destino)
 }
