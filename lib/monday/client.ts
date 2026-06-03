@@ -74,8 +74,9 @@ const BOARD_ITEMS_QUERY = `
 `
 
 // Fallback: requests only the specific column IDs the mappers need.
-// Avoids mirror/subitems columns that cause Monday to return Internal Server Error
-// on boards with non-standard column types (e.g. VENTAS 2025 "Copropiedad" mirror col).
+// Avoids mirror/subitems/board_relation columns AND formula columns that reference mirrors
+// (e.g. f_rmula8 "Monto 15%" in VENTAS 2026 references reflejo_* mirrors → ISE).
+// Mapper has fallback for f_rmula8: comisionBmcorp = monto × 0.02 when column absent.
 // IDs hardcoded in query string to avoid GraphQL variable type issues with Monday's API.
 const BOARD_ITEMS_QUERY_SIMPLE = `
   query GetBoardItemsSimple($boardId: ID!, $cursor: String, $limit: Int!) {
@@ -90,7 +91,7 @@ const BOARD_ITEMS_QUERY_SIMPLE = `
           group {
             title
           }
-          column_values(ids: ["n_meros8","n_mero_de_lote","desarrollo","desarrolladora","texto2","n_meros","numeric_mkv1tbc3","n_meros4","f_rmula8","estado_1","estado_14","color_mkv1cg83","color","color2","date","fecha","fecha7","tel_fono","correo_electr_nico","pa_s5","pa_s0","estado10"]) {
+          column_values(ids: ["n_meros8","n_mero_de_lote","desarrollo","desarrolladora","texto2","n_meros","numeric_mkv1tbc3","n_meros4","estado_1","estado_14","color_mkv1cg83","color","color2","date","fecha","fecha7","tel_fono","correo_electr_nico","pa_s5","pa_s0","estado10"]) {
             id
             text
             value
