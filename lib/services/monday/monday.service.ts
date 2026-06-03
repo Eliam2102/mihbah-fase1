@@ -182,9 +182,10 @@ export async function syncBoard(
     stats.boardName = boardName
     stats.totalItems = items.length
 
-    // Recolectamos ventaIds (creados o actualizados) para procesar comisiones
-    // FUERA de la transacción principal del sync (cada cálculo abre su propia tx).
-    const ventaIdsProcesadas: string[] = []
+    // Solo ventas NUEVAS necesitan cálculo de comisión — las actualizadas
+    // ya tienen su comisión calculada. Calcular para 1000+ actualizaciones
+    // cada sync es prohibitivo y genera errores masivos en logs.
+    const ventasNuevas: string[] = []
 
     await db.transaction(async (tx) => {
       await setTenant(tx, tenantId)
@@ -278,9 +279,8 @@ export async function syncBoard(
               .returning({ id: ventasBmcorp.id })
             ventaId = created!.id
             stats.creados++
+            ventasNuevas.push(ventaId)
           }
-
-          ventaIdsProcesadas.push(ventaId)
 
           if (mapped.pagos.length > 0) {
             await syncPagos(tx, mapped.pagos, {
@@ -306,9 +306,9 @@ export async function syncBoard(
     const { calcularYPersistirComision } =
       await import('@/lib/services/comisiones/comisiones.service')
 
-    // Cargar solo las ventas finalizadas de las procesadas en este sync
+    // Cargar solo las ventas NUEVAS finalizadas — las actualizadas ya tienen comisión
     const ventasFinalizadas =
-      ventaIdsProcesadas.length > 0
+      ventasNuevas.length > 0
         ? await db.transaction(async (tx) => {
             await setTenant(tx, tenantId)
             const rows = await tx
@@ -318,7 +318,7 @@ export async function syncBoard(
                 and(
                   eq(ventasBmcorp.tenantId, tenantId),
                   sql`${ventasBmcorp.id} = ANY(ARRAY[${sql.join(
-                    ventaIdsProcesadas.map((id) => sql`${id}::uuid`),
+                    ventasNuevas.map((id) => sql`${id}::uuid`),
                     sql`, `,
                   )}])`,
                   sql`${ventasBmcorp.estadoVenta} = ANY(ARRAY[${sql.join(
@@ -346,7 +346,7 @@ export async function syncBoard(
     }
     if (comisionesError > 0) {
       console.warn(
-        `[monday sync] comisiones OK=${comisionesOk}, error=${comisionesError} de ${ventasFinalizadas.length} finalizadas (${ventaIdsProcesadas.length} total sync)`,
+        `[monday sync] comisiones OK=${comisionesOk}, error=${comisionesError} de ${ventasFinalizadas.length} finalizadas (${ventasNuevas.length} nuevas / ${stats.totalItems} total sync)`,
       )
     }
 

@@ -38,6 +38,19 @@ export interface MondayBoard {
   }
 }
 
+interface MondayBoardWithGroups {
+  id: string
+  name: string
+  groups: {
+    id: string
+    title: string
+    items_page: {
+      cursor: string | null
+      items: MondayItem[]
+    }
+  }[]
+}
+
 interface MondayResponse<T> {
   data: T
   errors?: { message: string; locations?: unknown[] }[]
@@ -96,6 +109,38 @@ const BOARD_ITEMS_QUERY_SIMPLE = `
             text
             value
             type
+          }
+        }
+      }
+    }
+  }
+`
+
+// Last-resort: fetch by group instead of cursor pagination.
+// Boards where cursor ISE (Monday bug) — querying per-group avoids cursor entirely.
+// Assumes each group has < 500 items (typical for monthly groups in VENTAS board).
+const BOARD_GROUPS_QUERY = `
+  query GetBoardByGroups($boardId: ID!) {
+    boards(ids: [$boardId]) {
+      id
+      name
+      groups {
+        id
+        title
+        items_page(limit: 500) {
+          cursor
+          items {
+            id
+            name
+            group {
+              title
+            }
+            column_values(ids: ["n_meros8","n_mero_de_lote","desarrollo","desarrolladora","texto2","n_meros","numeric_mkv1tbc3","n_meros4","estado_1","estado_14","color_mkv1cg83","color","color2","date","fecha","fecha7","tel_fono","correo_electr_nico","pa_s5","pa_s0","estado10"]) {
+              id
+              text
+              value
+              type
+            }
           }
         }
       }
@@ -205,16 +250,37 @@ export async function getBoard(boardId: string): Promise<{ name: string; items: 
     return { name: boardName, items: allItems }
   }
 
+  // Fetches ALL items querying group by group — avoids cursor pagination entirely.
+  // Used when Monday's cursor ISE affects the whole board (known Monday bug).
+  async function fetchByGroups(): Promise<{ name: string; items: MondayItem[] }> {
+    const data = await mondayFetch<{ boards: MondayBoardWithGroups[] }>(BOARD_GROUPS_QUERY, {
+      boardId,
+    })
+    const board = data.boards[0]
+    if (!board) throw new MondayApiError(`Board ${boardId} no encontrado`, 404)
+    const allItems: MondayItem[] = []
+    for (const group of board.groups) {
+      allItems.push(...group.items_page.items)
+    }
+    return { name: board.name, items: allItems }
+  }
+
   try {
     return await fetchAllPages(BOARD_ITEMS_QUERY)
   } catch (err) {
-    // Some boards (typically historical boards with deprecated column types) cause
-    // Monday to return a GraphQL Internal Server Error on the `column { title }`
-    // resolver. Fall back to the simpler query that omits that field.
-    if (err instanceof MondayApiError && err.message.includes('Internal Server Error')) {
-      return await fetchAllPages(BOARD_ITEMS_QUERY_SIMPLE)
+    if (!(err instanceof MondayApiError && err.message.includes('Internal Server Error'))) {
+      throw err
     }
-    throw err
+    // Fallback 1: same pagination but without column { title }
+    try {
+      return await fetchAllPages(BOARD_ITEMS_QUERY_SIMPLE)
+    } catch (err2) {
+      if (!(err2 instanceof MondayApiError && err2.message.includes('Internal Server Error'))) {
+        throw err2
+      }
+      // Fallback 2: query by groups — no cursor pagination
+      return fetchByGroups()
+    }
   }
 }
 
