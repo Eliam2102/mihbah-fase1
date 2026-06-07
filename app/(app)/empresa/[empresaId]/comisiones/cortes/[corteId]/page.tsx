@@ -7,13 +7,19 @@ import {
   dispersiones,
   ventasBmcorp,
   desarrollos,
+  afiliados,
+  matrizAlianzaProducto,
+  lideresAlianza,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, eq, gt, inArray } from 'drizzle-orm'
+import { and, eq, gt, inArray, notInArray } from 'drizzle-orm'
 import CorteDetailView from '@/components/comisiones/corte-detail-view'
 import { notFound } from 'next/navigation'
 
 export const metadata = { title: 'Detalle de Corte · BM CORP' }
+
+// Alias para evitar colisión con el join de lideresAlianza para el socio de la matriz
+const lideresMatriz = lideresAlianza
 
 async function getCorteData(tenantId: string, empresaId: string, corteId: string) {
   return db.transaction(async (tx) => {
@@ -33,7 +39,7 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
 
     if (!corte) return null
 
-    // Pagos del corte con datos de la venta
+    // Pagos del corte con datos de la venta + contexto de alianza y matriz
     const pagos = await tx
       .select({
         id: ventasPagoCorte.id,
@@ -43,18 +49,34 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
         montoADispersar: ventasPagoCorte.montoADispersar,
         notasJoana: ventasPagoCorte.notasJoana,
         ventaNombreCliente: ventasBmcorp.cliente,
-
         ventaMonto: ventasBmcorp.monto,
         ventaLote: ventasBmcorp.loteAcciones,
         ventaAsesor: ventasBmcorp.asesor,
         desarrolloNombre: desarrollos.nombre,
+        afiliadoId: ventasBmcorp.afiliadoId,
+        alianzaNombre: afiliados.nombre,
+        socioNombre: lideresMatriz.nombre,
+        pctAfiliacion: matrizAlianzaProducto.porcentajeAfiliacion,
+        pctJorge: matrizAlianzaProducto.porcentajeJorgeBolsa,
+        pctKass: matrizAlianzaProducto.porcentajeKassBolsa,
+        pctDiana: matrizAlianzaProducto.porcentajeDianaBolsa,
       })
       .from(ventasPagoCorte)
       .leftJoin(ventasBmcorp, eq(ventasPagoCorte.ventaId, ventasBmcorp.id))
       .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
+      .leftJoin(afiliados, eq(ventasBmcorp.afiliadoId, afiliados.id))
+      .leftJoin(
+        matrizAlianzaProducto,
+        and(
+          eq(matrizAlianzaProducto.afiliadoId, afiliados.id),
+          eq(matrizAlianzaProducto.tipoProducto, 'TERRENO'),
+        ),
+      )
+      .leftJoin(lideresMatriz, eq(matrizAlianzaProducto.liderId, lideresMatriz.id))
       .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.corteId, corteId)))
 
-    // Ventas finalizadas disponibles para agregar al corte (para evitar escribir UUIDs manualmente)
+    // Ventas finalizadas disponibles para agregar al corte (excluye las ya incluidas)
+    const ventasYaEnCorte = pagos.map((p) => p.ventaId).filter(Boolean) as string[]
     const ventasDisponibles = await tx
       .select({
         id: ventasBmcorp.id,
@@ -70,11 +92,11 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
           eq(ventasBmcorp.tenantId, tenantId),
           eq(ventasBmcorp.empresaId, empresaId),
           inArray(ventasBmcorp.estadoVenta, ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO']),
+          ventasYaEnCorte.length > 0 ? notInArray(ventasBmcorp.id, ventasYaEnCorte) : undefined,
         ),
       )
 
-    // Dispersiones del corte — solo las que tienen monto > 0 (las $0 son las que
-    // la cascada no alcanzó en este abono pero se crearon como placeholder)
+    // Dispersiones del corte — solo las que tienen monto > 0
     const disps = await tx
       .select()
       .from(dispersiones)
@@ -86,7 +108,30 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
         ),
       )
 
-    return { corte, pagos, dispersiones: disps, ventasDisponibles }
+    // Líderes por afiliado — solo los configurados en la matriz de cada alianza
+    const lideresRows = await tx
+      .select({
+        afiliadoId: matrizAlianzaProducto.afiliadoId,
+        liderId: lideresAlianza.id,
+        liderNombre: lideresAlianza.nombre,
+      })
+      .from(matrizAlianzaProducto)
+      .innerJoin(lideresAlianza, eq(matrizAlianzaProducto.liderId, lideresAlianza.id))
+      .where(and(eq(matrizAlianzaProducto.tenantId, tenantId), eq(lideresAlianza.activo, true)))
+
+    // Agrupar: { [afiliadoId]: [{id, nombre}] }
+    const lideresPorAfiliado = lideresRows.reduce<Record<string, { id: string; nombre: string }[]>>(
+      (acc, r) => {
+        if (!r.afiliadoId) return acc
+        if (!acc[r.afiliadoId]) acc[r.afiliadoId] = []
+        const ya = acc[r.afiliadoId]!.some((l) => l.id === r.liderId)
+        if (!ya) acc[r.afiliadoId]!.push({ id: r.liderId, nombre: r.liderNombre })
+        return acc
+      },
+      {},
+    )
+
+    return { corte, pagos, dispersiones: disps, ventasDisponibles, lideresPorAfiliado }
   })
 }
 
@@ -110,6 +155,7 @@ export default async function CorteDetailPage({
       pagos={data.pagos}
       dispersiones={data.dispersiones}
       ventasDisponibles={data.ventasDisponibles}
+      lideresPorAfiliado={data.lideresPorAfiliado}
       userRole={user.role ?? 'admin'}
     />
   )

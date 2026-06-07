@@ -211,14 +211,14 @@ export default function CorteAprobacionView({
         </div>
       )}
 
-      {/* Notas de Joana */}
+      {/* Mensaje de Joana — prominente, imposible de ignorar */}
       {corte.notasJoana && (
-        <div className="bg-card flex items-start gap-3 rounded-xl border p-4">
-          <AlertCircle className="text-primary mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="text-foreground text-sm font-medium">Nota de Joana</p>
-            <p className="text-muted-foreground mt-0.5 text-sm">{corte.notasJoana}</p>
+        <div className="rounded-xl border-2 border-amber-400/60 bg-amber-50 p-5 shadow-sm dark:border-amber-600/40 dark:bg-amber-950/30">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Mensaje de Joana</p>
           </div>
+          <p className="text-base text-amber-900 dark:text-amber-200">{corte.notasJoana}</p>
         </div>
       )}
 

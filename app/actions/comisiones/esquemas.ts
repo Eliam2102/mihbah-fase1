@@ -45,6 +45,20 @@ const matrizSchema = z.object({
   porcentajeJorgeBolsa: pct.optional(),
   porcentajeKassBolsa: pct.optional(),
   porcentajeDianaBolsa: pct.optional(),
+  porcentajeSocioFijoJorgeOverride: z
+    .number()
+    .min(0)
+    .max(100)
+    .transform((v) => v.toFixed(2))
+    .nullable()
+    .optional(),
+  porcentajeSocioFijoKassOverride: z
+    .number()
+    .min(0)
+    .max(100)
+    .transform((v) => v.toFixed(2))
+    .nullable()
+    .optional(),
   reglaEspecial: z.enum(['NINGUNA', 'FLAMINGO_DIRECTO', 'LGI_YCD_ACUMULA']).optional(),
   requiereConfig: z.boolean().optional(),
 })

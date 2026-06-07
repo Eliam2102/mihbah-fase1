@@ -28,7 +28,18 @@ const ESTADOS_CON_COMISION = ['FINALIZADA', 'FINALIZADO_Y_LIQUIDADO'] as const
 
 function handleError(err: unknown): { ok: false; error: string } {
   console.error('[cortes action] error:', err)
-  return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' }
+  if (err instanceof Error) {
+    const cause = (err as Error & { cause?: Error }).cause
+    const detail = cause instanceof Error ? ` — ${cause.message}` : ''
+    // postgres driver puts code + detail on the error directly
+    const pg = err as Error & { code?: string; detail?: string; constraint?: string }
+    if (pg.constraint === 'ventas_pago_corte_unique') {
+      return { ok: false, error: 'Esta venta ya está incluida en el corte' }
+    }
+    const pgDetail = pg.detail ? ` (${pg.detail})` : detail
+    return { ok: false, error: `${err.message}${pgDetail}` }
+  }
+  return { ok: false, error: 'Error desconocido' }
 }
 
 function revalidateCortes(empresaId: string, corteId?: string) {
@@ -513,6 +524,7 @@ export async function ajustarDispersionEnCorteAction(
 export async function enviarCorteAAprobacionAction(
   empresaId: string,
   corteId: string,
+  mensaje?: string | null,
 ): Promise<ActionResult<{ corteId: string }>> {
   try {
     const user = await requireUser()
@@ -545,7 +557,11 @@ export async function enviarCorteAAprobacionAction(
       // Cambiar estado del corte y de sus dispersiones a EN_REVISION
       await tx
         .update(cortesDispersion)
-        .set({ estado: 'EN_REVISION', updatedAt: new Date() })
+        .set({
+          estado: 'EN_REVISION',
+          notasJoana: mensaje?.trim() || null,
+          updatedAt: new Date(),
+        })
         .where(eq(cortesDispersion.id, corteId))
 
       await tx
@@ -976,6 +992,103 @@ export async function eliminarCorteAction(
 
     revalidatePath(`/empresa/${empresaId}/comisiones/cortes`)
     return { ok: true, data: { eliminado: true } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+export async function actualizarNotasCorteAction(
+  empresaId: string,
+  corteId: string,
+  notas: string | null,
+): Promise<ActionResult<{ updated: boolean }>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
+    const tenantId = user.tenantId
+
+    await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+
+      const [corte] = await tx
+        .select({ estado: cortesDispersion.estado })
+        .from(cortesDispersion)
+        .where(and(eq(cortesDispersion.tenantId, tenantId), eq(cortesDispersion.id, corteId)))
+        .limit(1)
+      if (!corte) throw new Error('Corte no encontrado')
+      if (corte.estado !== 'BORRADOR')
+        throw new Error('Solo se pueden editar notas en cortes en BORRADOR')
+
+      await tx
+        .update(cortesDispersion)
+        .set({ notasJoana: notas ?? null, updatedAt: new Date() })
+        .where(and(eq(cortesDispersion.tenantId, tenantId), eq(cortesDispersion.id, corteId)))
+    })
+
+    revalidateCortes(empresaId, corteId)
+    return { ok: true, data: { updated: true } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+export async function reasignarLiderDispersionAction(
+  empresaId: string,
+  dispersionId: string,
+  nuevoLiderId: string,
+): Promise<ActionResult<{ updated: boolean }>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
+    const tenantId = user.tenantId
+
+    let corteIdParaRevalidar: string | null = null
+
+    await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+
+      const [disp] = await tx
+        .select({
+          id: dispersiones.id,
+          tipoBeneficiario: dispersiones.tipoBeneficiario,
+          corteId: dispersiones.corteId,
+        })
+        .from(dispersiones)
+        .where(and(eq(dispersiones.tenantId, tenantId), eq(dispersiones.id, dispersionId)))
+        .limit(1)
+      if (!disp) throw new Error('Dispersión no encontrada')
+      if (disp.tipoBeneficiario !== 'LIDER_SALDO')
+        throw new Error('Solo dispersiones tipo LIDER_SALDO pueden reasignarse')
+
+      if (disp.corteId) {
+        corteIdParaRevalidar = disp.corteId
+        const [corte] = await tx
+          .select({ estado: cortesDispersion.estado })
+          .from(cortesDispersion)
+          .where(eq(cortesDispersion.id, disp.corteId))
+          .limit(1)
+        if (corte && corte.estado !== 'BORRADOR')
+          throw new Error('Solo se puede reasignar en cortes en BORRADOR')
+      }
+
+      const [lider] = await tx
+        .select({ nombre: lideresAlianza.nombre })
+        .from(lideresAlianza)
+        .where(and(eq(lideresAlianza.tenantId, tenantId), eq(lideresAlianza.id, nuevoLiderId)))
+        .limit(1)
+      if (!lider) throw new Error('Líder no encontrado')
+
+      await tx
+        .update(dispersiones)
+        .set({ liderId: nuevoLiderId, beneficiarioNombre: lider.nombre, updatedAt: new Date() })
+        .where(and(eq(dispersiones.tenantId, tenantId), eq(dispersiones.id, dispersionId)))
+    })
+
+    revalidateCortes(empresaId, corteIdParaRevalidar ?? undefined)
+
+    return { ok: true, data: { updated: true } }
   } catch (err) {
     return handleError(err)
   }

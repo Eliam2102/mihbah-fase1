@@ -50,15 +50,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           }
           if (!isOwner && comprobante.asesorId !== null) {
             const [asesor] = await tx
-              .select({ liderId: asesores.liderId, afiliadoId: asesores.afiliadoId })
+              .select({ afiliadoId: asesores.afiliadoId })
               .from(asesores)
               .where(eq(asesores.id, comprobante.asesorId))
-            if (asesor) {
-              if (asesor.liderId !== null && perfil.liderIds.includes(asesor.liderId))
-                isOwner = true
-              else if (asesor.afiliadoId !== null && perfil.alianzasIds.includes(asesor.afiliadoId))
-                isOwner = true
-            }
+            if (
+              asesor?.afiliadoId !== null &&
+              asesor?.afiliadoId !== undefined &&
+              perfil.alianzasIds.includes(asesor.afiliadoId)
+            )
+              isOwner = true
           }
         }
 

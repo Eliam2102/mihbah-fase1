@@ -1,4 +1,3 @@
-import { Fragment } from 'react'
 import { requireUser } from '@/lib/auth/helpers'
 import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { db } from '@/lib/db'
@@ -21,6 +20,7 @@ import { RecalcularBoton } from '@/components/comisiones/recalcular-boton'
 import { VentaEditForm } from '@/components/ventas/venta-edit-form'
 import { RegistrarAbonoForm } from '@/components/ventas/registrar-abono-form'
 import { HistorialAbonos } from '@/components/ventas/historial-abonos'
+import { ComisionDesglose } from '@/components/ventas/comision-desglose'
 import { getCortesBorradorAction, getProximosDiasCorte } from '@/app/actions/cortes'
 
 export default async function VentaDetalle({
@@ -294,16 +294,27 @@ export default async function VentaDetalle({
                 </p>
               </div>
             </div>
-            <div className="bg-muted/20 text-muted-foreground border-t px-4 py-2.5 text-xs">
-              El desglose por beneficiario (BMCorp, YesYuCan, Afiliación, Socios) se gestiona en{' '}
-              <Link
-                href={`/empresa/${empresaId}/comisiones/cortes`}
-                className="text-primary font-medium hover:underline"
-              >
-                Comisiones → Cortes
-              </Link>
-              .
-            </div>
+            {lines.length > 0 && (
+              <ComisionDesglose
+                comisionBruta={comisionBruta}
+                porcentajeTotalAplicado={String(comision.porcentajeTotalAplicado)}
+                lines={lines.map((d) => {
+                  const montoVentaSnap = Number(comision.montoVenta)
+                  const pct =
+                    montoVentaSnap > 0
+                      ? ((Number(d.montoTotal) / montoVentaSnap) * 100).toFixed(2)
+                      : '0.00'
+                  return {
+                    id: d.id,
+                    tipoBeneficiario: d.tipoBeneficiario,
+                    beneficiarioNombre: d.beneficiarioNombre,
+                    montoTotal: d.montoTotal,
+                    pct,
+                    estado: estadoPorTipo(d.tipoBeneficiario, Number(d.montoTotal)),
+                  }
+                })}
+              />
+            )}
           </div>
 
           <div className="space-y-3">
@@ -377,16 +388,4 @@ function Card({ label, value, accent }: { label: string; value: string; accent?:
       </p>
     </div>
   )
-}
-
-function EstadoBadge({ estado }: { estado: string }) {
-  const map: Record<string, string> = {
-    PENDIENTE: 'bg-muted text-muted-foreground',
-    EN_REVISION: 'bg-purple-100 text-purple-800',
-    AUTORIZADA: 'bg-emerald-100 text-emerald-800',
-    PARCIAL: 'bg-amber-100 text-amber-800',
-    PAGADO: 'bg-jade-100 text-jade-800',
-    DIFERIDO: 'bg-blue-100 text-blue-800',
-  }
-  return <span className={`rounded-full px-2 py-0.5 ${map[estado] ?? 'bg-muted'}`}>{estado}</span>
 }

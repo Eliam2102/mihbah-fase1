@@ -21,12 +21,15 @@ import {
   Clock,
   Search,
   Users,
+  MessageSquare,
+  UserCog,
 } from 'lucide-react'
 import {
   agregarVentaAlCorteAction,
   ajustarDispersionEnCorteAction,
   eliminarVentaDelCorteAction,
   enviarCorteAAprobacionAction,
+  reasignarLiderDispersionAction,
 } from '@/app/actions/cortes'
 
 type Corte = {
@@ -51,6 +54,13 @@ type PagoCorte = {
   ventaLote: string | null
   ventaAsesor: string | null
   desarrolloNombre: string | null
+  afiliadoId?: string | null
+  alianzaNombre?: string | null
+  socioNombre?: string | null
+  pctAfiliacion?: string | null
+  pctJorge?: string | null
+  pctKass?: string | null
+  pctDiana?: string | null
 }
 
 type Dispersion = {
@@ -86,6 +96,7 @@ export default function CorteDetailView({
   pagos,
   dispersiones,
   ventasDisponibles = [],
+  lideresPorAfiliado = {},
   userRole,
 }: {
   empresaId: string
@@ -99,13 +110,13 @@ export default function CorteDetailView({
     monto: string
     desarrolloNombre: string | null
   }[]
+  lideresPorAfiliado?: Record<string, { id: string; nombre: string }[]>
   userRole: string
 }) {
   const router = useRouter()
   const { confirm } = useConfirm()
   const [isPending, startTransition] = useTransition()
   const [showAddVenta, setShowAddVenta] = useState(false)
-  const [activeTab, setActiveTab] = useState<'catalog' | 'selected'>('catalog')
 
   // Bloquear el scroll del fondo cuando el modal está abierto
   useEffect(() => {
@@ -132,6 +143,17 @@ export default function CorteDetailView({
   const [ajustando, setAjustando] = useState<string | null>(null)
   const [nuevoMonto, setNuevoMonto] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Modal "Enviar a aprobación" con mensaje
+  const [showEnviarModal, setShowEnviarModal] = useState(false)
+  const [mensajeEnvio, setMensajeEnvio] = useState('')
+
+  // Reasignación de líder en LIDER_SALDO (Tarea 2D)
+  const [reasignandoDisp, setReasignandoDisp] = useState<string | null>(null)
+  const [reasignandoLiderId, setReasignandoLiderId] = useState('')
+
+  // Búsqueda dentro de ventas del corte
+  const [pagosSearch, setPagosSearch] = useState('')
 
   // Helpers para manejar campos de cada venta seleccionada
   const toggleVenta = (v: { id: string; monto: string }) => {
@@ -178,7 +200,6 @@ export default function CorteDetailView({
     setSelectedVentas(new Map())
     setAddError(null)
     setAddProgress(null)
-    setActiveTab('catalog')
   }
 
   const esBorrador = corte.estado === 'BORRADOR'
@@ -258,19 +279,38 @@ export default function CorteDetailView({
     })
   }
 
-  const handleEnviarAprobacion = async () => {
-    const ok = await confirm({
-      title: '¿Enviar este corte a aprobación?',
-      description: 'No podrás modificarlo después.',
-      confirmText: 'Enviar',
-    })
-    if (!ok) return
+  const handleReasignarLider = (dispersionId: string) => {
+    if (!reasignandoLiderId) return
     startTransition(async () => {
-      const res = await enviarCorteAAprobacionAction(empresaId, corte.id)
+      const res = await reasignarLiderDispersionAction(empresaId, dispersionId, reasignandoLiderId)
       if (!res.ok) {
         setError(res.error)
         return
       }
+      setReasignandoDisp(null)
+      setReasignandoLiderId('')
+      router.refresh()
+    })
+  }
+
+  const handleEnviarAprobacion = () => {
+    setMensajeEnvio('')
+    setShowEnviarModal(true)
+  }
+
+  const handleConfirmarEnvio = () => {
+    startTransition(async () => {
+      const res = await enviarCorteAAprobacionAction(
+        empresaId,
+        corte.id,
+        mensajeEnvio.trim() || null,
+      )
+      if (!res.ok) {
+        setError(res.error)
+        setShowEnviarModal(false)
+        return
+      }
+      setShowEnviarModal(false)
       router.refresh()
     })
   }
@@ -339,8 +379,12 @@ export default function CorteDetailView({
               </h1>
               {estadoBadge}
             </div>
+            {/* Mensaje enviado al aprobador — solo aparece si ya se capturó al enviar */}
             {corte.notasJoana && (
-              <p className="text-muted-foreground mt-1 text-sm">{corte.notasJoana}</p>
+              <div className="mt-1 flex items-center gap-1.5 text-sm">
+                <MessageSquare className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                <span className="text-muted-foreground italic">{corte.notasJoana}</span>
+              </div>
             )}
           </div>
           <div className="flex gap-2">
@@ -478,88 +522,75 @@ export default function CorteDetailView({
           const selectedList = (ventasDisponibles ?? []).filter((v) => selectedVentas.has(v.id))
 
           return (
-            <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-2 backdrop-blur-md md:p-4">
-              <div className="bg-card animate-scale-up flex max-h-[95vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-200/80 shadow-2xl dark:border-slate-800/80">
-                {/* Header */}
-                <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-                  <span className="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-xl">
-                    <Plus className="h-4 w-4" />
-                  </span>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
+              {/* Modal — rectángulo horizontal claro */}
+              <div
+                className="border-border flex w-full flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl dark:bg-zinc-900"
+                style={{ maxWidth: 880, height: 'min(560px, calc(100vh - 48px))' }}
+              >
+                {/* ─── HEADER ─────────────────────────────────────── */}
+                <div className="flex shrink-0 items-center gap-3 border-b border-zinc-200 bg-zinc-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+                    <Plus className="h-5 w-5" />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-foreground text-sm font-bold">Agregar ventas al corte</h2>
-                    <p className="text-muted-foreground text-[11px]">
-                      Toca una venta → llena su abono → confirma
+                    <h2 className="text-foreground text-base font-bold">Agregar ventas al corte</h2>
+                    <p className="text-muted-foreground text-xs">
+                      Selecciona ventas · captura abono · confirma
                     </p>
                   </div>
                   {selectedCount > 0 && (
                     <span className="bg-primary text-primary-foreground shrink-0 rounded-full px-3 py-1 text-xs font-bold">
-                      {selectedCount} lista{selectedCount !== 1 ? 's' : ''}
+                      {selectedCount} seleccionada{selectedCount !== 1 ? 's' : ''}
                     </span>
                   )}
                   <button
                     onClick={resetModal}
-                    className="text-muted-foreground hover:text-foreground shrink-0 rounded-lg p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                    className="text-muted-foreground hover:text-foreground shrink-0 rounded-lg p-2 transition-colors hover:bg-zinc-200 dark:hover:bg-zinc-700"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                {/* Mobile Tab Bar */}
-                <div className="flex shrink-0 border-b border-slate-100 bg-slate-50/50 md:hidden dark:border-slate-800 dark:bg-slate-900/30">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('catalog')}
-                    className={`flex-1 border-b-2 py-3 text-xs font-semibold transition-all ${activeTab === 'catalog' ? 'border-primary text-primary bg-background' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
-                  >
-                    Ventas ({filteredVentas.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('selected')}
-                    className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 py-3 text-xs font-semibold transition-all ${activeTab === 'selected' ? 'border-primary text-primary bg-background' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
-                  >
-                    Cola ({selectedCount})
-                    {selectedCount > 0 && (
-                      <span className="bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-bold">
-                        {selectedCount}
-                      </span>
-                    )}
-                  </button>
-                </div>
-
-                {/* Body split */}
-                <div className="flex min-h-0 flex-1 overflow-hidden">
-                  {/* Panel IZQUIERDO — catálogo */}
+                {/* ─── BODY (split 55 / 45) ────────────────────────── */}
+                <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                  {/* ── Panel izquierdo: catálogo ── */}
                   <div
-                    className={`w-full flex-col border-r border-slate-100 md:w-[52%] dark:border-slate-800 ${activeTab === 'catalog' ? 'flex' : 'hidden md:flex'}`}
+                    style={{
+                      width: '55%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      borderRight: '1px solid var(--border)',
+                    }}
                   >
-                    {/* Filtros */}
-                    <div className="shrink-0 space-y-2 border-b border-slate-100 bg-slate-50/60 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/30">
+                    {/* Buscador */}
+                    <div className="shrink-0 space-y-2 border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
                       <div className="relative">
-                        <Search className="text-muted-foreground/50 absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
+                        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Buscar cliente, lote o desarrollo..."
-                          className="bg-background focus:border-primary focus:ring-primary w-full rounded-lg border border-slate-200 py-2 pr-8 pl-8 text-xs transition-all focus:ring-1 focus:outline-none dark:border-slate-700"
+                          className="bg-background border-input focus:border-primary w-full rounded-lg border py-2 pr-8 pl-9 text-sm focus:outline-none"
                         />
                         {searchQuery && (
                           <button
                             type="button"
                             onClick={() => setSearchQuery('')}
-                            className="text-muted-foreground/60 hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2"
+                            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
                           >
-                            <X className="h-3.5 w-3.5" />
+                            <X className="h-4 w-4" />
                           </button>
                         )}
                       </div>
                       {desarrollos.length > 0 && (
-                        <div className="scrollbar-none flex gap-1.5 overflow-x-auto pb-0.5">
+                        <div className="scrollbar-none flex gap-1.5 overflow-x-auto">
                           <button
                             type="button"
                             onClick={() => setSelectedDesarrollo(null)}
-                            className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-all ${selectedDesarrollo === null ? 'bg-primary text-primary-foreground' : 'text-muted-foreground border bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700'}`}
+                            className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${selectedDesarrollo === null ? 'bg-primary text-primary-foreground' : 'border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'}`}
                           >
                             Todos
                           </button>
@@ -570,7 +601,7 @@ export default function CorteDetailView({
                               onClick={() =>
                                 setSelectedDesarrollo(selectedDesarrollo === d ? null : d)
                               }
-                              className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-all ${selectedDesarrollo === d ? 'bg-primary text-primary-foreground' : 'text-muted-foreground border bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700'}`}
+                              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${selectedDesarrollo === d ? 'bg-primary text-primary-foreground' : 'border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'}`}
                             >
                               {d}
                             </button>
@@ -580,16 +611,19 @@ export default function CorteDetailView({
                     </div>
 
                     {/* Lista de ventas */}
-                    <div className="scrollbar-thin flex-1 divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
+                    <div
+                      style={{ flex: 1, overflowY: 'auto' }}
+                      className="divide-y divide-zinc-100 dark:divide-zinc-800"
+                    >
                       {filteredVentas.length === 0 ? (
-                        <div className="text-muted-foreground/70 flex flex-col items-center justify-center gap-2 py-12 text-center">
-                          <Search className="h-7 w-7 opacity-40" />
-                          <span className="text-xs">Sin ventas disponibles</span>
+                        <div className="text-muted-foreground flex flex-col items-center justify-center gap-2 py-14 text-center">
+                          <Search className="h-7 w-7 opacity-30" />
+                          <p className="text-sm">Sin resultados</p>
                           {searchQuery && (
                             <button
                               type="button"
                               onClick={() => setSearchQuery('')}
-                              className="text-primary text-[11px] underline"
+                              className="text-primary text-xs underline"
                             >
                               Limpiar búsqueda
                             </button>
@@ -603,39 +637,35 @@ export default function CorteDetailView({
                               key={v.id}
                               type="button"
                               onClick={() => toggleVenta(v)}
-                              className={`group flex w-full items-center gap-3 px-4 py-3 text-left transition-all duration-150 active:scale-[0.99] ${isSel ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}`}
+                              className={`group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${isSel ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/60'}`}
                             >
                               <span
-                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ${isSel ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 bg-white group-hover:border-emerald-400 dark:border-slate-600 dark:bg-slate-800'}`}
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isSel ? 'border-emerald-500 bg-emerald-500' : 'border-muted-foreground/30 group-hover:border-emerald-400'}`}
                               >
-                                {isSel ? (
-                                  <Check className="h-3 w-3 text-white" />
-                                ) : (
-                                  <Plus className="h-3 w-3 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100" />
-                                )}
+                                {isSel && <Check className="h-3 w-3 text-white" />}
                               </span>
                               <div className="min-w-0 flex-1">
                                 <p
-                                  className={`truncate text-xs font-bold ${isSel ? 'text-emerald-800 dark:text-emerald-300' : 'text-foreground'}`}
+                                  className={`truncate text-sm font-semibold ${isSel ? 'text-emerald-700 dark:text-emerald-300' : 'text-foreground'}`}
                                 >
                                   {v.cliente}
                                 </p>
-                                <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[9px]">
+                                <p className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
                                   {v.desarrolloNombre && (
-                                    <span className="inline-flex items-center gap-0.5">
-                                      <Building2 className="h-2.5 w-2.5" />
+                                    <span className="flex items-center gap-1">
+                                      <Building2 className="h-3 w-3" />
                                       {v.desarrolloNombre}
                                     </span>
                                   )}
                                   {v.loteAcciones && (
-                                    <span className="text-primary/80 rounded bg-slate-100 px-1 font-mono dark:bg-slate-800">
+                                    <span className="bg-muted rounded px-1.5 py-0.5 font-mono text-[10px]">
                                       L:{v.loteAcciones}
                                     </span>
                                   )}
                                 </p>
                               </div>
                               <span
-                                className={`shrink-0 text-xs font-bold tabular-nums ${isSel ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}
+                                className={`shrink-0 text-sm font-bold tabular-nums ${isSel ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}
                               >
                                 {fmt(Number(v.monto))}
                               </span>
@@ -645,173 +675,191 @@ export default function CorteDetailView({
                       )}
                     </div>
 
-                    <div className="shrink-0 border-t border-slate-100 px-4 py-2 dark:border-slate-800">
-                      <p className="text-muted-foreground text-[10px]">
-                        {filteredVentas.length} disponible{filteredVentas.length !== 1 ? 's' : ''}
+                    {/* Pie del panel */}
+                    <div className="shrink-0 border-t border-zinc-200 bg-zinc-50 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                      <p className="text-muted-foreground text-xs">
+                        {filteredVentas.length} disponibles
                       </p>
                     </div>
                   </div>
 
-                  {/* Panel DERECHO — cola con formularios */}
+                  {/* ── Panel derecho: cola de abonos ── */}
                   <div
-                    className={`w-full flex-col md:w-[48%] ${activeTab === 'selected' ? 'flex' : 'hidden md:flex'}`}
+                    style={{ width: '45%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                    className="bg-zinc-50 dark:bg-zinc-800/40"
                   >
-                    <div className="shrink-0 border-b border-slate-100 bg-slate-50/40 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/20">
-                      <p className="text-foreground text-xs font-bold">
-                        Cola de ventas
-                        {selectedCount > 0 && (
-                          <span className="text-muted-foreground ml-1.5 font-normal">
-                            — captura el abono de cada una
-                          </span>
-                        )}
+                    {/* Cabecera panel */}
+                    <div className="shrink-0 border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+                      <p className="text-foreground text-sm font-semibold">Cola de abonos</p>
+                      <p className="text-muted-foreground text-xs">
+                        {selectedCount === 0
+                          ? 'Selecciona ventas de la izquierda'
+                          : `Captura el monto de cada venta`}
                       </p>
                     </div>
 
-                    <div className="scrollbar-thin flex-1 overflow-y-auto">
+                    {/* Contenido */}
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        padding: 16,
+                      }}
+                    >
                       {selectedCount === 0 ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-3 px-8 py-12 text-center">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                            <Banknote className="text-muted-foreground/40 h-6 w-6" />
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                          <div className="border-border flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed">
+                            <Banknote className="text-muted-foreground/30 h-6 w-6" />
                           </div>
                           <div>
                             <p className="text-foreground text-sm font-semibold">Sin ventas aún</p>
-                            <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                              Toca cualquier venta de la izquierda para agregarla aquí.
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Toca una venta para agregarla.
                             </p>
                           </div>
                         </div>
                       ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {selectedList.map((v) => {
-                            const entry = selectedVentas.get(v.id)!
-                            const ventaMonto = Number(v.monto)
-                            const pct =
-                              entry.montoPagadoCliente && ventaMonto > 0
-                                ? Math.min(
-                                    (Number(entry.montoPagadoCliente) / ventaMonto) * 100,
-                                    100,
-                                  )
-                                : 0
-                            const montoOk =
-                              !!entry.montoPagadoCliente &&
-                              !isNaN(Number(entry.montoPagadoCliente)) &&
-                              Number(entry.montoPagadoCliente) > 0
+                        selectedList.map((v) => {
+                          const entry = selectedVentas.get(v.id)!
+                          const ventaMonto = Number(v.monto)
+                          const pct =
+                            entry.montoPagadoCliente && ventaMonto > 0
+                              ? Math.min((Number(entry.montoPagadoCliente) / ventaMonto) * 100, 100)
+                              : 0
+                          const montoOk =
+                            !!entry.montoPagadoCliente &&
+                            !isNaN(Number(entry.montoPagadoCliente)) &&
+                            Number(entry.montoPagadoCliente) > 0
 
-                            return (
-                              <div key={v.id} className="px-4 py-3">
-                                <div className="mb-2.5 flex items-start justify-between gap-2">
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5">
-                                      {montoOk ? (
-                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500">
-                                          <Check className="h-2.5 w-2.5 text-white" />
-                                        </span>
-                                      ) : (
-                                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/20">
-                                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                                        </span>
-                                      )}
-                                      <p className="text-foreground truncate text-xs font-bold">
-                                        {v.cliente}
-                                      </p>
-                                    </div>
-                                    <p className="text-muted-foreground mt-0.5 pl-5 text-[9px]">
-                                      {v.desarrolloNombre ?? ''}
-                                      {v.loteAcciones ? ` · Lote ${v.loteAcciones}` : ''}
+                          return (
+                            <div
+                              key={v.id}
+                              className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-800"
+                            >
+                              {/* Cabecera card */}
+                              <div className="mb-3 flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    {montoOk ? (
+                                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+                                        <Check className="h-2.5 w-2.5 text-white" />
+                                      </span>
+                                    ) : (
+                                      <span className="h-4 w-4 shrink-0 rounded-full border-2 border-amber-400" />
+                                    )}
+                                    <p className="text-foreground truncate text-sm font-bold">
+                                      {v.cliente}
                                     </p>
                                   </div>
-                                  <div className="flex shrink-0 items-center gap-1.5">
-                                    <span className="text-[10px] font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
-                                      {fmt(ventaMonto)}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleVenta(v)}
-                                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-md p-1 transition-all"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
+                                  <p className="text-muted-foreground mt-0.5 pl-6 text-xs">
+                                    {[
+                                      v.desarrolloNombre,
+                                      v.loteAcciones ? `L.${v.loteAcciones}` : '',
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </p>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-muted-foreground mb-1 block text-[9px] font-bold tracking-wider uppercase">
-                                      Monto $
-                                    </label>
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={entry.montoPagadoCliente}
-                                      onChange={(e) =>
-                                        updateVentaField(
-                                          v.id,
-                                          'montoPagadoCliente',
-                                          e.target.value.replace(/[^0-9.]/g, ''),
-                                          ventaMonto,
-                                        )
-                                      }
-                                      placeholder="0.00"
-                                      className={`bg-background w-full rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all focus:ring-1 focus:outline-none ${montoOk ? 'border-emerald-400/60 focus:border-emerald-500 focus:ring-emerald-500/30' : 'focus:border-primary focus:ring-primary border-slate-200 dark:border-slate-700'}`}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-muted-foreground mb-1 block text-[9px] font-bold tracking-wider uppercase">
-                                      %
-                                    </label>
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={entry.porcentajeInput}
-                                      onChange={(e) =>
-                                        updateVentaField(
-                                          v.id,
-                                          'porcentajeInput',
-                                          e.target.value.replace(/[^0-9.]/g, ''),
-                                          ventaMonto,
-                                        )
-                                      }
-                                      placeholder="0.00"
-                                      className={`bg-background w-full rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all focus:ring-1 focus:outline-none ${montoOk ? 'border-emerald-400/60 focus:border-emerald-500 focus:ring-emerald-500/30' : 'focus:border-primary focus:ring-primary border-slate-200 dark:border-slate-700'}`}
-                                    />
-                                  </div>
-                                </div>
-
-                                {ventaMonto > 0 && (
-                                  <div className="mt-2">
-                                    <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/50">
-                                      <div
-                                        className={`h-full rounded-full transition-all duration-500 ${pct >= 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-primary' : ''}`}
-                                        style={{ width: `${pct}%` }}
-                                      />
-                                    </div>
-                                    <p className="text-muted-foreground mt-0.5 text-right text-[9px] tabular-nums">
-                                      {pct > 0
-                                        ? `${pct.toFixed(1)}% de ${fmt(ventaMonto)}`
-                                        : 'Ingresa el monto'}
-                                    </p>
-                                  </div>
-                                )}
-
-                                <input
-                                  type="text"
-                                  value={entry.notasJoana}
-                                  onChange={(e) =>
-                                    updateVentaField(v.id, 'notasJoana', e.target.value)
-                                  }
-                                  placeholder="Nota interna (opcional)"
-                                  className="bg-background focus:border-primary focus:ring-primary mt-2 w-full rounded-lg border border-slate-200/70 px-2.5 py-1.5 text-[11px] text-slate-500 transition-all focus:ring-1 focus:outline-none dark:border-slate-700/60"
-                                />
+                                <button
+                                  type="button"
+                                  onClick={() => toggleVenta(v)}
+                                  className="text-muted-foreground hover:text-destructive shrink-0 rounded p-1 transition-colors"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
                               </div>
-                            )
-                          })}
-                        </div>
+
+                              {/* Monto de venta */}
+                              <p className="text-muted-foreground mb-2 text-xs tabular-nums">
+                                Venta:{' '}
+                                <span className="text-foreground font-semibold">
+                                  {fmt(ventaMonto)}
+                                </span>
+                              </p>
+
+                              {/* Inputs */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide uppercase">
+                                    Abono $
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={entry.montoPagadoCliente}
+                                    onChange={(e) =>
+                                      updateVentaField(
+                                        v.id,
+                                        'montoPagadoCliente',
+                                        e.target.value.replace(/[^0-9.]/g, ''),
+                                        ventaMonto,
+                                      )
+                                    }
+                                    placeholder="0.00"
+                                    className={`bg-background w-full rounded-lg border px-3 py-2 text-sm font-semibold tabular-nums focus:outline-none ${montoOk ? 'border-emerald-400 focus:border-emerald-500' : 'border-input focus:border-primary'}`}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide uppercase">
+                                    %
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={entry.porcentajeInput}
+                                    onChange={(e) =>
+                                      updateVentaField(
+                                        v.id,
+                                        'porcentajeInput',
+                                        e.target.value.replace(/[^0-9.]/g, ''),
+                                        ventaMonto,
+                                      )
+                                    }
+                                    placeholder="0.00"
+                                    className={`bg-background w-full rounded-lg border px-3 py-2 text-sm font-semibold tabular-nums focus:outline-none ${montoOk ? 'border-emerald-400 focus:border-emerald-500' : 'border-input focus:border-primary'}`}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Barra progreso */}
+                              {ventaMonto > 0 && (
+                                <div className="mt-2.5">
+                                  <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-300 ${pct >= 100 ? 'bg-emerald-500' : pct > 0 ? 'bg-primary' : ''}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-muted-foreground mt-1 text-right text-[10px] tabular-nums">
+                                    {pct > 0 ? `${pct.toFixed(1)}% del total` : 'Ingresa el monto'}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Nota */}
+                              <input
+                                type="text"
+                                value={entry.notasJoana}
+                                onChange={(e) =>
+                                  updateVentaField(v.id, 'notasJoana', e.target.value)
+                                }
+                                placeholder="Nota interna (opcional)"
+                                className="border-input bg-background focus:border-primary mt-2 w-full rounded-lg border px-3 py-1.5 text-xs text-slate-500 focus:outline-none"
+                              />
+                            </div>
+                          )
+                        })
                       )}
                     </div>
 
+                    {/* Progreso guardado */}
                     {addProgress && (
-                      <div className="shrink-0 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
-                        <div className="text-primary mb-1.5 flex justify-between text-[10px] font-semibold">
+                      <div className="shrink-0 border-t border-zinc-200 px-5 py-3 dark:border-zinc-800">
+                        <div className="text-primary mb-1.5 flex justify-between text-xs font-semibold">
                           <span>Guardando...</span>
                           <span>
                             {addProgress.done}/{addProgress.total}
@@ -827,17 +875,17 @@ export default function CorteDetailView({
                     )}
 
                     {addError && (
-                      <div className="bg-destructive/10 text-destructive border-destructive/20 mx-4 mb-3 shrink-0 rounded-lg border p-2.5 text-xs">
+                      <div className="bg-destructive/10 text-destructive border-destructive/20 mx-4 mb-3 shrink-0 rounded-lg border p-3 text-xs">
                         {addError}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Footer */}
-                <div className="shrink-0 border-t border-slate-100 px-5 py-3.5 dark:border-slate-800">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-xs">
+                {/* ─── FOOTER ──────────────────────────────────────── */}
+                <div className="shrink-0 border-t border-zinc-200 bg-zinc-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm">
                       {selectedCount === 0 ? (
                         <span className="text-muted-foreground">Selecciona ventas de la lista</span>
                       ) : (
@@ -855,18 +903,18 @@ export default function CorteDetailView({
                               {selectedCount - listos} sin monto
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 font-medium text-emerald-600">
-                              <Check className="h-3.5 w-3.5" /> Todas listas
+                            <span className="flex items-center gap-1.5 font-medium text-emerald-600">
+                              <Check className="h-4 w-4" /> Listas para guardar
                             </span>
                           )
                         })()
                       )}
-                    </div>
-                    <div className="flex gap-2">
+                    </p>
+                    <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={resetModal}
-                        className="text-muted-foreground rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium transition-all hover:bg-slate-200/80 active:scale-[0.98] dark:bg-slate-800 dark:hover:bg-slate-700/80"
+                        className="rounded-lg border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                       >
                         Cancelar
                       </button>
@@ -874,7 +922,7 @@ export default function CorteDetailView({
                         id="btn-agregar-venta-submit"
                         onClick={handleAgregarVentas}
                         disabled={isPending || selectedCount === 0}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 rounded-lg px-5 py-2 text-xs font-semibold shadow-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-6 py-2.5 text-sm font-semibold shadow-sm transition-colors disabled:opacity-40"
                       >
                         {isPending
                           ? `Guardando${addProgress ? ` ${addProgress.done}/${addProgress.total}` : '...'}`
@@ -892,318 +940,178 @@ export default function CorteDetailView({
           )
         })()}
 
+      {/* Modal — Enviar a aprobación con mensaje */}
+      {showEnviarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="bg-card w-full max-w-md rounded-2xl border border-slate-200/80 shadow-2xl dark:border-slate-800/80">
+            <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
+                <Send className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </span>
+              <div>
+                <h2 className="text-foreground text-sm font-bold">Enviar corte a aprobación</h2>
+                <p className="text-muted-foreground text-[11px]">
+                  El aprobador verá este mensaje al revisar el corte
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 py-4">
+              <label className="text-foreground mb-2 block text-xs font-semibold">
+                Mensaje para el aprobador{' '}
+                <span className="text-muted-foreground font-normal">(opcional)</span>
+              </label>
+              <textarea
+                value={mensajeEnvio}
+                onChange={(e) => setMensajeEnvio(e.target.value)}
+                rows={4}
+                autoFocus
+                className="bg-background border-input w-full rounded-xl border px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400/50 focus:outline-none"
+                placeholder="Ej: Este corte incluye el pago del cliente Pérez que llegó tarde. Los montos de Flamingo están ajustados por el descuento acordado..."
+              />
+              <p className="text-muted-foreground mt-1.5 text-[10px]">
+                Este mensaje aparecerá destacado en la pantalla de autorización para que el
+                aprobador tenga contexto antes de aprobar o rechazar.
+              </p>
+            </div>
+
+            <div className="flex gap-3 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+              <button
+                onClick={() => setShowEnviarModal(false)}
+                disabled={isPending}
+                className="text-muted-foreground flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 disabled:opacity-50 dark:hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+              <button
+                id="btn-confirmar-envio-aprobacion"
+                onClick={handleConfirmarEnvio}
+                disabled={isPending}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {isPending ? 'Enviando...' : 'Enviar a aprobación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ventas del corte */}
       {pagos.length > 0 && (
         <div>
-          <h2 className="text-foreground mb-3 font-semibold">Ventas incluidas en el corte</h2>
-          <div className="space-y-3">
-            {pagos.map((pago) => {
-              const dispsVenta = dispersiones.filter((d) => d.pagoCorteId === pago.id)
-              return (
-                <div
-                  key={pago.id}
-                  className="bg-card border-l-primary/60 hover:border-primary/20 rounded-xl border border-l-4 p-5 shadow-sm transition-all duration-200 hover:shadow-md"
+          <div className="mb-3 flex items-center gap-3">
+            <h2 className="text-foreground font-semibold">Ventas incluidas en el corte</h2>
+            <span className="text-muted-foreground text-xs">
+              {pagos.length} venta{pagos.length !== 1 ? 's' : ''}
+            </span>
+            <div className="relative ml-auto w-64">
+              <Search className="text-muted-foreground absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
+              <input
+                type="text"
+                value={pagosSearch}
+                onChange={(e) => setPagosSearch(e.target.value)}
+                placeholder="Buscar cliente, lote…"
+                className="border-input bg-background focus:border-primary w-full rounded-lg border py-1.5 pr-7 pl-8 text-xs focus:outline-none"
+              />
+              {pagosSearch && (
+                <button
+                  type="button"
+                  onClick={() => setPagosSearch('')}
+                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
                 >
-                  {/* Cabecera venta */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <User className="text-primary h-4 w-4 shrink-0" />
-                        <span className="text-foreground font-semibold">
-                          {pago.ventaNombreCliente ?? 'Cliente sin nombre'}
-                        </span>
-                      </div>
-                      {(pago.desarrolloNombre || pago.ventaLote) && (
-                        <div className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
-                          <Building2 className="h-3.5 w-3.5" />
-                          <span>
-                            {pago.desarrolloNombre ?? '—'} · Lote {pago.ventaLote ?? '—'}
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="space-y-3">
+            {pagos
+              .filter((p) => {
+                if (!pagosSearch) return true
+                const q = pagosSearch.toLowerCase()
+                return (
+                  p.ventaNombreCliente?.toLowerCase().includes(q) ||
+                  p.ventaLote?.toLowerCase().includes(q) ||
+                  p.desarrolloNombre?.toLowerCase().includes(q) ||
+                  p.alianzaNombre?.toLowerCase().includes(q)
+                )
+              })
+              .map((pago) => {
+                const dispsVenta = dispersiones.filter((d) => d.pagoCorteId === pago.id)
+                return (
+                  <div
+                    key={pago.id}
+                    className="bg-card border-l-primary/60 hover:border-primary/20 rounded-xl border border-l-4 p-5 shadow-sm transition-all duration-200 hover:shadow-md"
+                  >
+                    {/* Cabecera venta */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <User className="text-primary h-4 w-4 shrink-0" />
+                          <span className="text-foreground font-semibold">
+                            {pago.ventaNombreCliente ?? 'Cliente sin nombre'}
                           </span>
                         </div>
+                        {(pago.desarrolloNombre || pago.ventaLote) && (
+                          <div className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
+                            <Building2 className="h-3.5 w-3.5" />
+                            <span>
+                              {pago.desarrolloNombre ?? '—'} · Lote {pago.ventaLote ?? '—'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {esBorrador && (
+                        <button
+                          onClick={() => handleEliminar(pago.id)}
+                          disabled={isPending}
+                          className="text-muted-foreground hover:text-destructive shrink-0 p-1 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       )}
                     </div>
-                    {esBorrador && (
-                      <button
-                        onClick={() => handleEliminar(pago.id)}
-                        disabled={isPending}
-                        className="text-muted-foreground hover:text-destructive shrink-0 p-1 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
 
-                  {/* Métricas del pago */}
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <Metric label="Monto total venta" value={fmt(Number(pago.ventaMonto ?? 0))} />
-                    <Metric
-                      label="Pagó el cliente"
-                      value={fmt(Number(pago.montoPagadoCliente))}
-                      accent="primary"
-                    />
-                    <Metric
-                      label="% abonado"
-                      value={`${Number(pago.porcentajePagado).toFixed(2)}%`}
-                      accent="warning"
-                    />
-                    <Metric
-                      label="A dispersar"
-                      value={fmt(Number(pago.montoADispersar))}
-                      accent="success"
+                    <VentaComisionDetalle
+                      pago={pago}
+                      dispsVenta={dispsVenta}
+                      esBorrador={esBorrador}
+                      isPending={isPending}
+                      ajustando={ajustando}
+                      nuevoMonto={nuevoMonto}
+                      reasignandoDisp={reasignandoDisp}
+                      reasignandoLiderId={reasignandoLiderId}
+                      lideresDisponibles={
+                        pago.afiliadoId ? (lideresPorAfiliado[pago.afiliadoId] ?? []) : []
+                      }
+                      onSetAjustando={(id) => {
+                        setAjustando(id)
+                        if (id === null) setNuevoMonto('')
+                      }}
+                      onSetNuevoMonto={setNuevoMonto}
+                      onGuardarAjuste={handleAjustar}
+                      onSetReasignandoDisp={(id) => setReasignandoDisp(id)}
+                      onSetReasignandoLiderId={setReasignandoLiderId}
+                      onGuardarReasignacion={handleReasignarLider}
                     />
                   </div>
-
-                  {pago.notasJoana && (
-                    <p className="text-muted-foreground mt-3 text-xs">{pago.notasJoana}</p>
-                  )}
-
-                  {/* Desglose de dispersiones de este pago */}
-                  {dispsVenta.length > 0 && (
-                    <div className="mt-5 border-t pt-4">
-                      {(() => {
-                        const sumDisp = dispsVenta.reduce((s, d) => s + Number(d.montoTotal), 0)
-                        const aDispersar = Number(pago.montoADispersar)
-                        const diferencia = sumDisp - aDispersar
-                        const ok = Math.abs(diferencia) < 0.01
-                        // Cascada de prioridad para "distribuir restante"
-                        const CASCADA_ORDER = [
-                          'OP_BMCORP',
-                          'OP_YESYUCAN',
-                          'ASESOR',
-                          'LIDER_SALDO',
-                          'SOCIO_BOLSA_JORGE',
-                          'SOCIO_BOLSA_KASS',
-                          'SOCIO_BOLSA_DIANA',
-                          'SOCIO_FIJO_JORGE',
-                          'SOCIO_FIJO_KASS',
-                        ]
-                        const primeroConEspacio =
-                          esBorrador && !ok && diferencia < 0
-                            ? dispsVenta
-                                .slice()
-                                .sort(
-                                  (a, b) =>
-                                    CASCADA_ORDER.indexOf(a.tipoBeneficiario) -
-                                    CASCADA_ORDER.indexOf(b.tipoBeneficiario),
-                                )
-                                .find((d) => d)
-                            : null
-
-                        return (
-                          <div className="mb-3 space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <h4 className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase">
-                                <Users className="h-3.5 w-3.5" /> Dispersión de comisiones
-                              </h4>
-                              <div
-                                className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${ok ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'}`}
-                              >
-                                <span>Dispersado: {fmt(sumDisp)}</span>
-                                <span className="text-muted-foreground font-normal">|</span>
-                                <span>Abono: {fmt(aDispersar)}</span>
-                                {!ok && (
-                                  <>
-                                    <span className="text-muted-foreground font-normal">|</span>
-                                    <span>
-                                      {diferencia > 0 ? 'Excede' : 'Falta'}:{' '}
-                                      {fmt(Math.abs(diferencia))}
-                                    </span>
-                                  </>
-                                )}
-                                {ok && (
-                                  <span className="font-semibold text-emerald-600">Cuadra</span>
-                                )}
-                              </div>
-                            </div>
-                            {esBorrador && !ok && diferencia < 0 && (
-                              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
-                                <p className="mb-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                                  Faltan {fmt(Math.abs(diferencia))} — agregar a:
-                                </p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {dispsVenta.map((d) => (
-                                    <button
-                                      key={d.id}
-                                      type="button"
-                                      disabled={isPending}
-                                      onClick={() => {
-                                        const nuevo =
-                                          Math.round(
-                                            (Number(d.montoTotal) + Math.abs(diferencia)) * 100,
-                                          ) / 100
-                                        startTransition(async () => {
-                                          await ajustarDispersionEnCorteAction({
-                                            empresaId,
-                                            dispersionId: d.id,
-                                            nuevoMonto: nuevo,
-                                          })
-                                          router.refresh()
-                                        })
-                                      }}
-                                      className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-40 dark:bg-amber-950/40 dark:text-amber-300"
-                                    >
-                                      {TIPO_LABELS[d.tipoBeneficiario] ?? d.beneficiarioNombre}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })()}
-
-                      {/* Mobile Dispersion List */}
-                      <div className="block divide-y divide-slate-100 overflow-hidden rounded-lg border bg-slate-50/50 sm:hidden dark:divide-slate-800 dark:bg-slate-900/30">
-                        {dispsVenta.map((d) => (
-                          <div
-                            key={d.id}
-                            className="space-y-2 p-3 hover:bg-slate-100/30 dark:hover:bg-slate-950/20"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p className="text-foreground text-xs font-semibold">
-                                  {d.beneficiarioNombre}
-                                </p>
-                                <p className="text-muted-foreground mt-0.5 text-[10px]">
-                                  {TIPO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario}
-                                  {d.acumulaMensual && (
-                                    <span className="text-warning bg-warning/10 ml-1.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold">
-                                      Acumula
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                {ajustando === d.id ? (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <input
-                                      type="number"
-                                      step="0.01"
-                                      value={nuevoMonto}
-                                      onChange={(e) => setNuevoMonto(e.target.value)}
-                                      className="bg-background border-input w-20 rounded border px-1.5 py-0.5 text-right text-xs"
-                                      autoFocus
-                                    />
-                                    <button
-                                      onClick={() => handleAjustar(d.id)}
-                                      disabled={isPending}
-                                      className="text-success rounded p-0.5 transition-all hover:bg-emerald-500/10 active:scale-[0.9]"
-                                    >
-                                      <Check className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => setAjustando(null)}
-                                      className="text-muted-foreground rounded p-0.5 transition-all hover:bg-slate-200 active:scale-[0.9] dark:hover:bg-slate-800"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <span className="text-foreground text-xs font-bold tabular-nums">
-                                      {fmt(Number(d.montoTotal))}
-                                    </span>
-                                    {esBorrador && (
-                                      <button
-                                        onClick={() => {
-                                          setAjustando(d.id)
-                                          setNuevoMonto(d.montoTotal)
-                                        }}
-                                        className="text-muted-foreground hover:text-foreground rounded p-1 transition-all hover:bg-slate-100 dark:hover:bg-slate-800"
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Desktop Dispersion Table */}
-                      <div className="hidden overflow-hidden rounded-lg border border-slate-100 bg-slate-50/50 sm:block dark:border-slate-800/80 dark:bg-slate-900/30">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-muted-foreground border-b bg-slate-100/50 text-left text-[10px] font-semibold dark:bg-slate-900/50">
-                              <th className="px-3 py-2">Beneficiario</th>
-                              <th className="px-3 py-2">Rol / Tipo</th>
-                              <th className="px-3 py-2 text-right">Monto</th>
-                              {esBorrador && <th className="w-10 px-3 py-2"></th>}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {dispsVenta.map((d) => (
-                              <tr
-                                key={d.id}
-                                className="hover:bg-slate-100/30 dark:hover:bg-slate-950/20"
-                              >
-                                <td className="text-foreground px-3 py-2 font-medium">
-                                  {d.beneficiarioNombre}
-                                </td>
-                                <td className="text-muted-foreground px-3 py-2">
-                                  {TIPO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario}
-                                  {d.acumulaMensual && (
-                                    <span className="text-warning bg-warning/10 ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold">
-                                      Acumula
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 text-right font-semibold tabular-nums">
-                                  {ajustando === d.id ? (
-                                    <div className="flex items-center justify-end gap-1">
-                                      <input
-                                        type="number"
-                                        step="0.01"
-                                        value={nuevoMonto}
-                                        onChange={(e) => setNuevoMonto(e.target.value)}
-                                        className="bg-background border-input w-20 rounded border px-1.5 py-0.5 text-right text-xs"
-                                        autoFocus
-                                      />
-                                      <button
-                                        onClick={() => handleAjustar(d.id)}
-                                        disabled={isPending}
-                                        className="text-success rounded p-0.5 transition-all hover:bg-emerald-500/10 active:scale-[0.9]"
-                                      >
-                                        <Check className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => setAjustando(null)}
-                                        className="text-muted-foreground rounded p-0.5 transition-all hover:bg-slate-200 active:scale-[0.9] dark:hover:bg-slate-800"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span>{fmt(Number(d.montoTotal))}</span>
-                                  )}
-                                </td>
-                                {esBorrador && (
-                                  <td className="px-3 py-2 text-right">
-                                    {ajustando !== d.id && (
-                                      <button
-                                        onClick={() => {
-                                          setAjustando(d.id)
-                                          setNuevoMonto(d.montoTotal)
-                                        }}
-                                        className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-all hover:bg-slate-100 active:scale-[0.9] dark:hover:bg-slate-800"
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                      </button>
-                                    )}
-                                  </td>
-                                )}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+                )
+              })}
+            {pagosSearch &&
+              !pagos.some((p) => {
+                const q = pagosSearch.toLowerCase()
+                return (
+                  p.ventaNombreCliente?.toLowerCase().includes(q) ||
+                  p.ventaLote?.toLowerCase().includes(q) ||
+                  p.desarrolloNombre?.toLowerCase().includes(q) ||
+                  p.alianzaNombre?.toLowerCase().includes(q)
+                )
+              }) && (
+                <div className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
+                  Sin resultados para &ldquo;{pagosSearch}&rdquo;
                 </div>
-              )
-            })}
+              )}
           </div>
         </div>
       )}
@@ -1293,6 +1201,312 @@ function Metric({
         {label}
       </p>
       <p className="mt-1 text-sm font-bold tabular-nums">{value}</p>
+    </div>
+  )
+}
+
+const CONCEPTO_LABELS: Record<string, string> = {
+  OP_BMCORP: 'Op. BM Corp',
+  OP_YESYUCAN: 'Op. Yesyucan',
+  ASESOR: 'Asesor',
+  LIDER_SALDO: 'Afiliación',
+  SOCIO_FIJO_JORGE: 'Fijo Jorge',
+  SOCIO_FIJO_KASS: 'Fijo Kass',
+  SOCIO_BOLSA_JORGE: 'Bolsa Jorge',
+  SOCIO_BOLSA_KASS: 'Bolsa Kass',
+  SOCIO_BOLSA_DIANA: 'Bolsa Diana',
+}
+
+function VentaComisionDetalle({
+  pago,
+  dispsVenta,
+  esBorrador,
+  isPending,
+  ajustando,
+  nuevoMonto,
+  reasignandoDisp,
+  reasignandoLiderId,
+  lideresDisponibles,
+  onSetAjustando,
+  onSetNuevoMonto,
+  onGuardarAjuste,
+  onSetReasignandoDisp,
+  onSetReasignandoLiderId,
+  onGuardarReasignacion,
+}: {
+  pago: PagoCorte
+  dispsVenta: Dispersion[]
+  esBorrador: boolean
+  isPending: boolean
+  ajustando: string | null
+  nuevoMonto: string
+  reasignandoDisp: string | null
+  reasignandoLiderId: string
+  lideresDisponibles: { id: string; nombre: string }[]
+  onSetAjustando: (id: string | null) => void
+  onSetNuevoMonto: (v: string) => void
+  onGuardarAjuste: (id: string) => void
+  onSetReasignandoDisp: (id: string | null) => void
+  onSetReasignandoLiderId: (id: string) => void
+  onGuardarReasignacion: (id: string) => void
+}) {
+  const totalDisp = dispsVenta.reduce((s, d) => s + Number(d.montoTotal), 0)
+  const montoADispersar = Number(pago.montoADispersar)
+  const diferencia = Math.abs(totalDisp - montoADispersar)
+  const cuadra = diferencia < 0.01
+
+  // Monto ASESOR se absorbe visualmente en la línea Afiliación
+  const asesorMonto = dispsVenta
+    .filter((d) => d.tipoBeneficiario === 'ASESOR')
+    .reduce((s, d) => s + Number(d.montoTotal), 0)
+
+  if (dispsVenta.length === 0) {
+    return (
+      <div className="mt-3 rounded-lg border border-dashed border-slate-200 px-4 py-3 text-center text-xs text-slate-400 dark:border-slate-700">
+        Sin dispersiones calculadas para este pago.
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      {/* Contexto: solo alianza (asesor no se muestra por ser interno a la afiliación) */}
+      {pago.alianzaNombre && (
+        <div className="px-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="font-semibold text-slate-700 dark:text-slate-300">Alianza:</span>{' '}
+          {pago.alianzaNombre}
+        </div>
+      )}
+
+      {/* Tabla de dispersiones */}
+      <div className="overflow-hidden rounded-lg border border-slate-100 bg-slate-50/50 dark:border-slate-800/80 dark:bg-slate-900/30">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-muted-foreground border-b bg-slate-100/60 text-left text-[10px] font-semibold dark:bg-slate-900/60">
+              <th className="px-3 py-2">Concepto</th>
+              <th className="hidden px-3 py-2 sm:table-cell">Beneficiario</th>
+              <th className="px-3 py-2 text-right tabular-nums">Monto</th>
+              {esBorrador && <th className="w-14 px-2 py-2" />}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {dispsVenta.map((d) => {
+              // ASESOR se absorbe en la línea de Afiliación — no se muestra por separado
+              if (d.tipoBeneficiario === 'ASESOR') return null
+
+              const esAfiliacion = d.tipoBeneficiario === 'LIDER_SALDO'
+              // Para Afiliación: suma el monto del asesor interno de la alianza
+              const montoDisplay = esAfiliacion
+                ? Number(d.montoTotal) + asesorMonto
+                : Number(d.montoTotal)
+              const pctReal = montoADispersar > 0 ? (montoDisplay / montoADispersar) * 100 : 0
+              const concepto = CONCEPTO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario
+              const isAjustando = ajustando === d.id
+              const isReasignando = reasignandoDisp === d.id
+
+              return (
+                <tr key={d.id} className="hover:bg-slate-100/30 dark:hover:bg-slate-950/20">
+                  {/* Concepto */}
+                  <td className="px-3 py-2">
+                    <span className="text-foreground font-medium">{concepto}</span>
+                    {esAfiliacion && pago.alianzaNombre && (
+                      <span className="ml-1.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400">
+                        {pago.alianzaNombre}
+                      </span>
+                    )}
+                    {d.acumulaMensual && (
+                      <span className="ml-1.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
+                        Acumula
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Beneficiario — hidden en móvil */}
+                  <td className="text-muted-foreground hidden px-3 py-2 sm:table-cell">
+                    {isReasignando && esAfiliacion ? (
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={reasignandoLiderId}
+                          onChange={(e) => onSetReasignandoLiderId(e.target.value)}
+                          className="bg-background border-input flex-1 rounded border px-2 py-0.5 text-[10px]"
+                          autoFocus
+                        >
+                          <option value="">— Selecciona líder —</option>
+                          {lideresDisponibles.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.nombre}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => onGuardarReasignacion(d.id)}
+                          disabled={isPending || !reasignandoLiderId}
+                          className="text-success rounded p-0.5 transition-all hover:bg-emerald-500/10 active:scale-[0.9] disabled:opacity-40"
+                        >
+                          <Check className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            onSetReasignandoDisp(null)
+                            onSetReasignandoLiderId('')
+                          }}
+                          className="text-muted-foreground rounded p-0.5 transition-all hover:bg-slate-200 active:scale-[0.9] dark:hover:bg-slate-800"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : esAfiliacion ? (
+                      // Afiliación muestra el nombre de la alianza, no el nombre personal
+                      <span className="font-medium text-slate-600 dark:text-slate-300">
+                        {pago.alianzaNombre ?? d.beneficiarioNombre}
+                      </span>
+                    ) : (
+                      d.beneficiarioNombre
+                    )}
+                  </td>
+
+                  {/* Monto */}
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                    {isAjustando ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={nuevoMonto}
+                          onChange={(e) => onSetNuevoMonto(e.target.value)}
+                          className="bg-background border-input w-20 rounded border px-1.5 py-0.5 text-right text-xs"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => onGuardarAjuste(d.id)}
+                          disabled={isPending}
+                          className="text-success rounded p-0.5 transition-all hover:bg-emerald-500/10 active:scale-[0.9]"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onSetAjustando(null)}
+                          className="text-muted-foreground rounded p-0.5 transition-all hover:bg-slate-200 active:scale-[0.9] dark:hover:bg-slate-800"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={esAfiliacion ? 'text-indigo-600 dark:text-indigo-400' : ''}>
+                        {fmt(montoDisplay)}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Acciones (solo BORRADOR) */}
+                  {esBorrador && (
+                    <td className="px-2 py-2 text-right">
+                      {!isAjustando && !isReasignando && (
+                        <div className="flex items-center justify-end gap-0.5">
+                          <button
+                            onClick={() => {
+                              onSetAjustando(d.id)
+                              onSetNuevoMonto(montoDisplay.toFixed(2))
+                            }}
+                            className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-all hover:bg-slate-100 active:scale-[0.9] dark:hover:bg-slate-800"
+                            title="Ajustar monto"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          {esAfiliacion && (
+                            <button
+                              onClick={() => {
+                                onSetReasignandoDisp(d.id)
+                                onSetReasignandoLiderId('')
+                              }}
+                              className="text-muted-foreground rounded p-0.5 transition-all hover:bg-indigo-50 hover:text-indigo-600 active:scale-[0.9] dark:hover:bg-indigo-950/40"
+                              title="Reasignar afiliación"
+                            >
+                              <UserCog className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot className="border-t border-slate-200 bg-slate-100/40 dark:border-slate-700 dark:bg-slate-900/40">
+            <tr>
+              <td
+                colSpan={2}
+                className="text-muted-foreground px-3 py-2 text-[10px] font-bold tracking-wider uppercase"
+              >
+                Total dispersado
+              </td>
+              <td className="px-3 py-2 text-right font-bold tabular-nums">
+                <span
+                  className={
+                    cuadra
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-amber-600 dark:text-amber-400'
+                  }
+                >
+                  {fmt(totalDisp)}
+                </span>
+              </td>
+              {esBorrador && (
+                <td className="px-2 py-2 text-right">
+                  {cuadra ? (
+                    <CheckCircle2 className="ml-auto h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <span title={`Diferencia: ${fmt(diferencia)}`}>
+                      <AlertCircle className="ml-auto h-3.5 w-3.5 text-amber-500" />
+                    </span>
+                  )}
+                </td>
+              )}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Móvil: selector reasignación cuando no hay columna beneficiario */}
+      {esBorrador && reasignandoDisp !== null && (
+        <div className="block rounded-lg border border-indigo-200 bg-indigo-50 p-3 sm:hidden dark:border-indigo-800/60 dark:bg-indigo-950/20">
+          <p className="mb-2 text-[10px] font-bold tracking-wider text-indigo-700 uppercase dark:text-indigo-400">
+            Reasignar afiliación a:
+          </p>
+          <div className="flex items-center gap-2">
+            <select
+              value={reasignandoLiderId}
+              onChange={(e) => onSetReasignandoLiderId(e.target.value)}
+              className="bg-background border-input flex-1 rounded border px-2 py-1 text-xs"
+              autoFocus
+            >
+              <option value="">— Selecciona líder —</option>
+              {lideresDisponibles.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.nombre}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => onGuardarReasignacion(reasignandoDisp)}
+              disabled={isPending || !reasignandoLiderId}
+              className="text-success rounded p-1 transition-all hover:bg-emerald-500/10 active:scale-[0.9] disabled:opacity-40"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => {
+                onSetReasignandoDisp(null)
+                onSetReasignandoLiderId('')
+              }}
+              className="text-muted-foreground rounded p-1 transition-all hover:bg-slate-200 active:scale-[0.9] dark:hover:bg-slate-800"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

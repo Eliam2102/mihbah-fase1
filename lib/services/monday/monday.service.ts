@@ -10,6 +10,7 @@ import {
   ventasBmcorp,
   repartosBmcorp,
   afiliados,
+  asesores,
   desarrollos,
   sincronizacionesMonday,
 } from '@/lib/db/schema'
@@ -83,6 +84,65 @@ async function upsertDesarrollo(
     .insert(desarrollos)
     .values({ tenantId, nombre: normalized, desarrolladora })
     .returning({ id: desarrollos.id })
+
+  return created!.id
+}
+
+// ─── Upsert asesor ────────────────────────────────────────────────────────────
+
+async function upsertAsesor(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  mondayNombre: string,
+  afiliadoId: string,
+  tenantId: string,
+): Promise<string> {
+  const normalizado = normalizeNombre(mondayNombre)
+  const label = mondayNombre.trim()
+
+  // Buscar por mondayNombre exacto dentro del afiliado
+  const [byLabel] = await tx
+    .select({ id: asesores.id, mondayNombre: asesores.mondayNombre })
+    .from(asesores)
+    .where(
+      and(
+        eq(asesores.tenantId, tenantId),
+        eq(asesores.afiliadoId, afiliadoId),
+        ilike(asesores.mondayNombre, label),
+      ),
+    )
+    .limit(1)
+
+  if (byLabel) return byLabel.id
+
+  // Buscar por nombre normalizado (asesor creado manualmente sin mondayNombre)
+  const [byNombre] = await tx
+    .select({ id: asesores.id, mondayNombre: asesores.mondayNombre })
+    .from(asesores)
+    .where(
+      and(
+        eq(asesores.tenantId, tenantId),
+        eq(asesores.afiliadoId, afiliadoId),
+        ilike(asesores.nombre, normalizado),
+      ),
+    )
+    .limit(1)
+
+  if (byNombre) {
+    // Backfill mondayNombre si faltaba
+    if (!byNombre.mondayNombre) {
+      await tx
+        .update(asesores)
+        .set({ mondayNombre: label, updatedAt: new Date() })
+        .where(eq(asesores.id, byNombre.id))
+    }
+    return byNombre.id
+  }
+
+  // Crear stub — Joana lo configura después (asigna líder, crea cuenta portal)
+  const [created] = await tx
+    .insert(asesores)
+    .values({ tenantId, afiliadoId, nombre: normalizado, mondayNombre: label })
+    .returning({ id: asesores.id })
 
   return created!.id
 }
@@ -199,6 +259,12 @@ export async function syncBoard(
             afiliadoId = await upsertAfiliado(tx, mapped.afiliadoNombre, tenantId)
           }
 
+          // Auto-crear asesor si viene en Monday y no existe aún
+          let asesorId: string | null = null
+          if (mapped.asesor && afiliadoId) {
+            asesorId = await upsertAsesor(tx, mapped.asesor, afiliadoId, tenantId)
+          }
+
           let desarrolloId: string | null = null
           if (mapped.desarrolloNombre) {
             desarrolloId = await upsertDesarrollo(
@@ -230,6 +296,7 @@ export async function syncBoard(
             mondayItemId: mapped.mondayItemId,
             cliente: mapped.cliente,
             afiliadoId,
+            asesorId,
             desarrolloId,
             financiamiento: mapped.financiamiento,
             paqueteAccion: mapped.paqueteAccion,

@@ -53,7 +53,6 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { theme, setTheme } = useTheme()
 
-  // mounted = false en servidor, true en cliente. Mismo patrón que el theme icon.
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,

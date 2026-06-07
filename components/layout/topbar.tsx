@@ -22,7 +22,6 @@ export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) 
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
 
-  // Hydration guard via useSyncExternalStore (avoids setState-in-effect)
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,

@@ -102,6 +102,14 @@ function matrizRowToConfig(
     liderNombre,
     asesorNombre,
     requiereConfig: row.requiereConfig,
+    porcentajeSocioFijoJorgeOverride:
+      row.porcentajeSocioFijoJorgeOverride != null
+        ? Number(row.porcentajeSocioFijoJorgeOverride)
+        : null,
+    porcentajeSocioFijoKassOverride:
+      row.porcentajeSocioFijoKassOverride != null
+        ? Number(row.porcentajeSocioFijoKassOverride)
+        : null,
   }
 }
 

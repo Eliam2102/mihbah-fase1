@@ -252,7 +252,8 @@ export async function getAsesoresPortalLider(userId: string) {
     perfil.liderIds.length === 0
   )
     return []
-  const liderIds = perfil.liderIds
+  const alianzasIds = perfil.alianzasIds
+  if (alianzasIds.length === 0) return []
   return db.transaction(async (tx) => {
     await setTenant(tx, perfil.tenantId)
     return tx
@@ -261,7 +262,7 @@ export async function getAsesoresPortalLider(userId: string) {
       .where(
         and(
           eq(asesores.tenantId, perfil.tenantId),
-          inArray(asesores.liderId, liderIds),
+          inArray(asesores.afiliadoId, alianzasIds),
           eq(asesores.activo, true),
         ),
       )

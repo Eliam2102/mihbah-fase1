@@ -49,6 +49,9 @@ export interface MatrizConfig {
   liderNombre: string
   asesorNombre?: string | null
   requiereConfig?: boolean
+  // Override de socios fijos por alianza (null = usar valor del esquema global)
+  porcentajeSocioFijoJorgeOverride?: number | null
+  porcentajeSocioFijoKassOverride?: number | null
 }
 
 export interface CalculatorInput {
@@ -127,8 +130,17 @@ export function calcular(input: CalculatorInput): CalculatorOutput {
   const comisionBrutaTotal = pct(montoVenta, esquema.porcentajeTotalCliente)
   const montoOpBmcorp = pct(montoVenta, esquema.porcentajeOpBmcorp)
   const montoOpYesyucan = pct(montoVenta, esquema.porcentajeOpYesyucan)
-  const montoSocioFijoJorge = pct(montoVenta, esquema.porcentajeSocioFijoJorge)
-  const montoSocioFijoKass = pct(montoVenta, esquema.porcentajeSocioFijoKass)
+  // Socios fijos: override por alianza tiene prioridad sobre el esquema global
+  const pctSocioFijoJorge =
+    matriz.porcentajeSocioFijoJorgeOverride != null
+      ? matriz.porcentajeSocioFijoJorgeOverride
+      : esquema.porcentajeSocioFijoJorge
+  const pctSocioFijoKass =
+    matriz.porcentajeSocioFijoKassOverride != null
+      ? matriz.porcentajeSocioFijoKassOverride
+      : esquema.porcentajeSocioFijoKass
+  const montoSocioFijoJorge = pct(montoVenta, pctSocioFijoJorge)
+  const montoSocioFijoKass = pct(montoVenta, pctSocioFijoKass)
   const montoBolsaComercial = pct(montoVenta, esquema.porcentajeBolsaComercial)
 
   const montoAsesor = pct(montoVenta, esquema.porcentajeAsesorEstandar)

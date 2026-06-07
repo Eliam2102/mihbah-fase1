@@ -261,6 +261,18 @@ export async function getBoard(boardId: string): Promise<{ name: string; items: 
     const allItems: MondayItem[] = []
     for (const group of board.groups) {
       allItems.push(...group.items_page.items)
+      // Si el grupo supera 500 ítems, continúa con cursor dentro del grupo
+      let groupCursor = group.items_page.cursor
+      while (groupCursor) {
+        const nextPage = await mondayFetch<{
+          next_items_page: { cursor: string | null; items: MondayItem[] }
+        }>(
+          `query($cursor:String!){next_items_page(limit:500,cursor:$cursor){cursor items{id name group{title}column_values(ids:["n_meros8","n_mero_de_lote","desarrollo","desarrolladora","texto2","n_meros","numeric_mkv1tbc3","n_meros4","estado_1","estado_14","color_mkv1cg83","color","color2","date","fecha","fecha7","tel_fono","correo_electr_nico","pa_s5","pa_s0","estado10"]){id text value type}}}}`,
+          { cursor: groupCursor },
+        )
+        allItems.push(...nextPage.next_items_page.items)
+        groupCursor = nextPage.next_items_page.cursor
+      }
     }
     return { name: board.name, items: allItems }
   }

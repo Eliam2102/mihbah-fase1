@@ -65,6 +65,15 @@ export function MatrizDialog({
     porcentajeJorgeBolsa: Number(matrizActual?.porcentajeJorgeBolsa ?? 0),
     porcentajeKassBolsa: Number(matrizActual?.porcentajeKassBolsa ?? 0),
     porcentajeDianaBolsa: Number(matrizActual?.porcentajeDianaBolsa ?? 0),
+    // null = usar valor del esquema global; number = override para esta alianza
+    socioFijoJorgeOverride:
+      matrizActual?.porcentajeSocioFijoJorgeOverride != null
+        ? Number(matrizActual.porcentajeSocioFijoJorgeOverride)
+        : (null as number | null),
+    socioFijoKassOverride:
+      matrizActual?.porcentajeSocioFijoKassOverride != null
+        ? Number(matrizActual.porcentajeSocioFijoKassOverride)
+        : (null as number | null),
     reglaEspecial: (matrizActual?.reglaEspecial ?? 'NINGUNA') as
       | 'NINGUNA'
       | 'FLAMINGO_DIRECTO'
@@ -116,6 +125,8 @@ export function MatrizDialog({
       porcentajeJorgeBolsa: form.porcentajeJorgeBolsa,
       porcentajeKassBolsa: form.porcentajeKassBolsa,
       porcentajeDianaBolsa: form.porcentajeDianaBolsa,
+      porcentajeSocioFijoJorgeOverride: form.socioFijoJorgeOverride,
+      porcentajeSocioFijoKassOverride: form.socioFijoKassOverride,
       reglaEspecial: form.reglaEspecial,
       requiereConfig: form.requiereConfig,
     }
@@ -233,6 +244,107 @@ export function MatrizDialog({
             </div>
           </div>
 
+          {/* Socios fijos — override por alianza */}
+          {tipoProducto === 'TERRENO' && (
+            <div className="space-y-3">
+              <p className="text-muted-foreground text-xs font-medium uppercase">
+                Socios fijos (override por alianza)
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Por defecto vienen del esquema global (1.5% c/u). Si esta alianza es excepción
+                (p.ej. FLAMINGO = 0%), activa el override y pon el valor correcto.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Jorge fijo */}
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={form.socioFijoJorgeOverride !== null}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          socioFijoJorgeOverride: e.target.checked
+                            ? tipoProducto === 'TERRENO'
+                              ? 1.5
+                              : 0
+                            : null,
+                        })
+                      }
+                    />
+                    <span className="text-muted-foreground font-medium uppercase">
+                      % Fijo Jorge (override)
+                    </span>
+                  </label>
+                  {form.socioFijoJorgeOverride !== null && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={10}
+                        step={0.1}
+                        value={form.socioFijoJorgeOverride}
+                        onChange={(e) =>
+                          setForm({ ...form, socioFijoJorgeOverride: Number(e.target.value) })
+                        }
+                        className="input flex-1 tabular-nums"
+                      />
+                      <span className="text-muted-foreground text-xs">%</span>
+                    </div>
+                  )}
+                  {form.socioFijoJorgeOverride === null && (
+                    <p className="text-muted-foreground text-[10px]">
+                      Usa valor del esquema global
+                    </p>
+                  )}
+                </div>
+                {/* Kass fijo */}
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={form.socioFijoKassOverride !== null}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          socioFijoKassOverride: e.target.checked
+                            ? tipoProducto === 'TERRENO'
+                              ? 1.5
+                              : 0
+                            : null,
+                        })
+                      }
+                    />
+                    <span className="text-muted-foreground font-medium uppercase">
+                      % Fijo Kass (override)
+                    </span>
+                  </label>
+                  {form.socioFijoKassOverride !== null && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        max={10}
+                        step={0.1}
+                        value={form.socioFijoKassOverride}
+                        onChange={(e) =>
+                          setForm({ ...form, socioFijoKassOverride: Number(e.target.value) })
+                        }
+                        className="input flex-1 tabular-nums"
+                      />
+                      <span className="text-muted-foreground text-xs">%</span>
+                    </div>
+                  )}
+                  {form.socioFijoKassOverride === null && (
+                    <p className="text-muted-foreground text-[10px]">
+                      Usa valor del esquema global
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Suma indicator — barra visual */}
           <div
             className={`rounded-md border px-3 py-2.5 ${
@@ -294,9 +406,28 @@ export function MatrizDialog({
                   )}
                 </tbody>
               </table>
+              {tipoProducto === 'TERRENO' && (
+                <Row
+                  label={`→ Fijo Jorge (${form.socioFijoJorgeOverride !== null ? form.socioFijoJorgeOverride + '%' : 'global 1.5%'})`}
+                  value={fmt(
+                    (ej.monto *
+                      (form.socioFijoJorgeOverride !== null ? form.socioFijoJorgeOverride : 1.5)) /
+                      100,
+                  )}
+                />
+              )}
+              {tipoProducto === 'TERRENO' && (
+                <Row
+                  label={`→ Fijo Kass (${form.socioFijoKassOverride !== null ? form.socioFijoKassOverride + '%' : 'global 1.5%'})`}
+                  value={fmt(
+                    (ej.monto *
+                      (form.socioFijoKassOverride !== null ? form.socioFijoKassOverride : 1.5)) /
+                      100,
+                  )}
+                />
+              )}
               <p className="text-muted-foreground mt-2 text-xs">
-                + costos operativos (OP BM Corp + OP YESYUCAN) y socios fijos no se muestran aquí
-                porque vienen del esquema global, no de tu matriz.
+                + costos operativos (OP BM Corp + OP YESYUCAN) vienen del esquema global.
               </p>
             </div>
           )}

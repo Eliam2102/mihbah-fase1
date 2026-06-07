@@ -1061,6 +1061,16 @@ export const matrizAlianzaProducto = pgTable(
     porcentajeDianaBolsa: numeric('porcentaje_diana_bolsa', { precision: 5, scale: 2 })
       .notNull()
       .default('0'),
+    // Override de socios fijos por alianza (nullable = usa el valor del esquema global)
+    // Permite que alianzas como FLAMINGO tengan 0% en fijos aunque el esquema global diga 1.5%
+    porcentajeSocioFijoJorgeOverride: numeric('porcentaje_socio_fijo_jorge_override', {
+      precision: 5,
+      scale: 2,
+    }),
+    porcentajeSocioFijoKassOverride: numeric('porcentaje_socio_fijo_kass_override', {
+      precision: 5,
+      scale: 2,
+    }),
     reglaEspecial: reglaEspecialAlianzaEnum('regla_especial').notNull().default('NINGUNA'),
     // Si la alianza requiere configuración manual (e.g. está en Monday pero no en doc)
     requiereConfig: boolean('requiere_config').notNull().default(false),
