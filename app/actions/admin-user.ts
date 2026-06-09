@@ -8,6 +8,7 @@ import {
   updateUserRole,
   grantEmpresaAccess,
   revokeEmpresaAccess,
+  deleteUser,
 } from '@/lib/services/admin/user.service'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -124,5 +125,25 @@ export async function actionRevokeAccess(
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Error desconocido' }
+  }
+}
+
+export async function actionDeleteUser(targetUserId: string): Promise<AdminUserResult> {
+  try {
+    const actor = await requireSuperAdminOrAbove()
+    await deleteUser(targetUserId, actor.id)
+    revalidatePath('/configuracion/usuarios')
+    return { ok: true }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error desconocido'
+    // FK restrict de Postgres
+    const isFkError =
+      msg.includes('foreign key') || msg.includes('violates') || msg.includes('restrict')
+    return {
+      ok: false,
+      error: isFkError
+        ? 'No se puede eliminar: el usuario tiene cortes o comprobantes registrados. Bloquéalo en su lugar.'
+        : msg,
+    }
   }
 }

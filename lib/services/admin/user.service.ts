@@ -218,3 +218,19 @@ export async function revokeEmpresaAccess(userId: string, empresaId: string): Pr
     .delete(userEmpresaAccess)
     .where(and(eq(userEmpresaAccess.userId, userId), eq(userEmpresaAccess.empresaId, empresaId)))
 }
+
+export async function deleteUser(targetUserId: string, actorId: string): Promise<void> {
+  if (targetUserId === actorId) throw new Error('No puedes eliminarte a ti mismo')
+
+  const [target] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1)
+  if (!target) throw new Error('Usuario no encontrado')
+  if (target.role === 'super_admin_dev') throw new Error('No se puede eliminar un super_admin_dev')
+
+  // FK restrict en cortes (creado_por) y comprobantes (subido_por) bloquearán si hay registros.
+  // Postgres lanzará error — lo capturamos en la action y mostramos mensaje claro.
+  await db.delete(users).where(eq(users.id, targetUserId))
+}

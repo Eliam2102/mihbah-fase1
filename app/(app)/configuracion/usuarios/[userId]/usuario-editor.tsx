@@ -8,6 +8,7 @@ import {
   actionGrantAccess,
   actionRevokeAccess,
   actionBanUser,
+  actionDeleteUser,
 } from '@/app/actions/admin-user'
 import { actionSetModuloPermiso, actionResetModulos } from '@/app/actions/admin-modulo'
 import { MODULOS_META, getModulosParaTipo } from '@/lib/modulos-config'
@@ -23,6 +24,7 @@ import {
   X,
   ShieldOff,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react'
 
 type UserRole = 'super_admin' | 'admin' | 'tesoreria' | 'viewer' | 'user'
@@ -127,6 +129,23 @@ export function UsuarioEditor({
       const res = await actionBanUser(userId, ban)
       if (!res.ok) setError(res.error ?? 'Error')
       else router.refresh()
+    })
+  }
+
+  // ── Eliminar usuario ─────────────────────────────────────────────────────────
+  async function handleDelete() {
+    const ok = await confirm({
+      title: '¿Eliminar este usuario permanentemente?',
+      description:
+        'Esta acción no se puede deshacer. El usuario perderá acceso inmediatamente y todos sus datos de sesión serán eliminados.',
+      confirmText: 'Eliminar',
+    })
+    if (!ok) return
+    setError(null)
+    startTransition(async () => {
+      const res = await actionDeleteUser(userId)
+      if (!res.ok) setError(res.error ?? 'Error al eliminar')
+      else router.push('/configuracion/usuarios')
     })
   }
 
@@ -476,6 +495,26 @@ export function UsuarioEditor({
           </div>
         )}
       </div>
+
+      {/* ── Zona de peligro — eliminar usuario ───────────────────────────────── */}
+      {!isSelf && !isSaasDev && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-800 dark:bg-red-950/20">
+          <h2 className="text-sm font-semibold text-red-700 dark:text-red-400">Zona de peligro</h2>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-500">
+            Eliminar el usuario es permanente. Si el usuario tiene cortes o comprobantes
+            registrados, esta acción será rechazada — bloquéalo en su lugar.
+          </p>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={handleDelete}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Eliminar usuario
+          </button>
+        </div>
+      )}
     </div>
   )
 }
