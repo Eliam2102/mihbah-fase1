@@ -295,8 +295,16 @@ export interface VentaLiderPortal {
 }
 
 // Tipos de beneficiario que NO se muestran a líderes/asesores.
-// OP_BMCORP y OP_YESYUCAN son comisiones internas de la empresa.
-const TIPOS_INTERNOS = ['OP_BMCORP', 'OP_YESYUCAN'] as const
+// Socios (Jorge/Kass/Diana) y comisiones operativas son internos — el líder no debe ver esos montos.
+const TIPOS_INTERNOS = [
+  'OP_BMCORP',
+  'OP_YESYUCAN',
+  'SOCIO_BOLSA_JORGE',
+  'SOCIO_BOLSA_KASS',
+  'SOCIO_BOLSA_DIANA',
+  'SOCIO_FIJO_JORGE',
+  'SOCIO_FIJO_KASS',
+] as const
 
 export async function getVentasPortalLider(userId: string): Promise<VentaLiderPortal[]> {
   const perfil = await getPerfilPortal(userId)
