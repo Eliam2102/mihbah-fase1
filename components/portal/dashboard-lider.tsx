@@ -63,21 +63,17 @@ export function DashboardLider({
       return next
     })
 
-  // KPIs globales
-  const totalComision = ventas.reduce((s, v) => s + v.comisionTotal, 0)
+  // KPIs globales — usar sum de dispersiones (ya filtradas, sin socios internos)
+  const totalAlianza = ventas.reduce(
+    (s, v) => s + v.dispersiones.reduce((sd, d) => sd + d.montoTotal, 0),
+    0,
+  )
   const totalPagado = ventas.reduce(
     (s, v) => s + v.dispersiones.reduce((sd, d) => sd + d.montoPagado, 0),
     0,
   )
-  const totalPendiente = ventas.reduce(
-    (s, v) =>
-      s +
-      v.dispersiones
-        .filter((d) => d.estado !== 'PAGADO')
-        .reduce((sd, d) => sd + (d.montoTotal - d.montoPagado), 0),
-    0,
-  )
-  const pct = totalComision > 0 ? (totalPagado / totalComision) * 100 : 0
+  const totalPendiente = totalAlianza - totalPagado
+  const pct = totalAlianza > 0 ? (totalPagado / totalAlianza) * 100 : 0
 
   const ventasFiltradas = busqueda
     ? ventas.filter(
@@ -116,7 +112,7 @@ export function DashboardLider({
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="Comisión total"
-          value={fmt(totalComision)}
+          value={fmt(totalAlianza)}
           color="text-foreground"
         />
         <KpiCard
@@ -176,10 +172,19 @@ export function DashboardLider({
           <div className="divide-y">
             {ventasFiltradas.map((v) => {
               const expanded = expandidas.has(v.ventaId)
-              const dispPagadas = v.dispersiones.filter((d) => d.estado === 'PAGADO').length
-              const totalDisp = v.dispersiones.length
+              const montoAlianzaTotal = v.dispersiones.reduce((s, d) => s + d.montoTotal, 0)
               const montoPagadoVenta = v.dispersiones.reduce((s, d) => s + d.montoPagado, 0)
-              const pctVenta = v.comisionTotal > 0 ? (montoPagadoVenta / v.comisionTotal) * 100 : 0
+              const montoPendienteVenta = montoAlianzaTotal - montoPagadoVenta
+              const pctVenta =
+                montoAlianzaTotal > 0 ? (montoPagadoVenta / montoAlianzaTotal) * 100 : 0
+              const pctPendienteVenta = 100 - pctVenta
+              const dispPagadas = v.dispersiones.filter((d) => d.estado === 'PAGADO')
+              const ultimaFechaPago =
+                dispPagadas.length > 0
+                  ? dispPagadas.sort((a, b) =>
+                      (b.fechaPago ?? '').localeCompare(a.fechaPago ?? ''),
+                    )[0]?.fechaPago
+                  : null
 
               return (
                 <div key={v.ventaId}>
@@ -218,13 +223,13 @@ export function DashboardLider({
                           />
                         </div>
                         <span className="text-muted-foreground text-xs">
-                          {pctVenta.toFixed(0)}% · {dispPagadas}/{totalDisp} pagadas
+                          {pctVenta.toFixed(0)}% cobrado
                         </span>
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-foreground text-sm font-bold tabular-nums">
-                        {fmt(v.comisionTotal)}
+                        {fmt(montoAlianzaTotal)}
                       </div>
                       <div className="text-muted-foreground text-xs tabular-nums">
                         {fmt(montoPagadoVenta)} pagado
@@ -232,61 +237,78 @@ export function DashboardLider({
                     </div>
                   </button>
 
-                  {/* Desglose dispersiones — expandible */}
+                  {/* Detalle agregado — sin desglose interno, solo totales + % */}
                   {expanded && (
-                    <div className="bg-muted/10 border-t px-4 pt-2 pb-3">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-muted-foreground border-b text-left">
-                            <th className="pb-1.5 font-medium">Beneficiario</th>
-                            <th className="pb-1.5 font-medium">Tipo</th>
-                            <th className="pb-1.5 text-right font-medium">Monto</th>
-                            <th className="pb-1.5 text-right font-medium">Pagado</th>
-                            <th className="pb-1.5 text-center font-medium">Estado</th>
-                            <th className="pb-1.5 text-right font-medium">Fecha pago</th>
-                            <th className="pb-1.5 font-medium"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-muted/50 divide-y">
-                          {v.dispersiones.map((d) => {
-                            const s = SEMAFORO[d.estado as Estado] ?? SEMAFORO.PENDIENTE
-                            return (
-                              <tr key={d.id} className="hover:bg-muted/20">
-                                <td className="py-2 font-medium">{d.beneficiarioNombre}</td>
-                                <td className="text-muted-foreground py-2">
-                                  {TIPO_LABELS[d.tipoBeneficiario] ?? d.tipoBeneficiario}
-                                </td>
-                                <td className="py-2 text-right tabular-nums">
-                                  {fmt(d.montoTotal)}
-                                </td>
-                                <td className="py-2 text-right text-emerald-600 tabular-nums">
-                                  {fmt(d.montoPagado)}
-                                </td>
-                                <td className="py-2 text-center">
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.pill}`}
-                                  >
-                                    {s.label}
-                                  </span>
-                                </td>
-                                <td className="text-muted-foreground py-2 text-right tabular-nums">
-                                  {d.fechaPago ?? '—'}
-                                </td>
-                                <td className="py-2 text-right">
-                                  {d.estado === 'PAGADO' && (
-                                    <Link
-                                      href={`/portal/comprobantes/${d.id}`}
-                                      className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100"
-                                    >
-                                      <FileText className="h-3 w-3" /> PDF
-                                    </Link>
-                                  )}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+                    <div className="bg-muted/10 border-t px-4 py-4">
+                      <div className="space-y-3">
+                        {/* Barra de progreso */}
+                        <div>
+                          <div className="mb-1 flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground font-medium">
+                              Avance de cobro
+                            </span>
+                            <span className="font-bold">{pctVenta.toFixed(1)}%</span>
+                          </div>
+                          <div className="bg-muted h-2.5 overflow-hidden rounded-full">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-all"
+                              style={{ width: `${Math.min(100, pctVenta)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 3 tarjetas: Total | Pagado | Pendiente */}
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="bg-card rounded-lg border p-3">
+                            <p className="text-muted-foreground mb-1 font-medium">Total comisión</p>
+                            <p className="text-foreground font-bold tabular-nums">
+                              {fmt(montoAlianzaTotal)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+                            <p className="mb-1 font-medium text-emerald-700 dark:text-emerald-400">
+                              Pagado
+                            </p>
+                            <p className="font-bold text-emerald-700 tabular-nums dark:text-emerald-400">
+                              {fmt(montoPagadoVenta)}
+                            </p>
+                            <p className="mt-0.5 text-emerald-600 dark:text-emerald-500">
+                              {pctVenta.toFixed(1)}%
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+                            <p className="mb-1 font-medium text-amber-700 dark:text-amber-400">
+                              Pendiente
+                            </p>
+                            <p className="font-bold text-amber-700 tabular-nums dark:text-amber-400">
+                              {fmt(montoPendienteVenta)}
+                            </p>
+                            <p className="mt-0.5 text-amber-600 dark:text-amber-500">
+                              {pctPendienteVenta.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Último pago + comprobantes */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          {ultimaFechaPago && (
+                            <p className="text-muted-foreground text-xs">
+                              Último pago: {ultimaFechaPago}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {dispPagadas.map((d) => (
+                              <Link
+                                key={d.id}
+                                href={`/portal/comprobantes/${d.id}`}
+                                className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100"
+                              >
+                                <FileText className="h-3 w-3" /> Comprobante PDF
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
