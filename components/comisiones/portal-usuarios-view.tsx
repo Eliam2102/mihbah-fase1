@@ -26,6 +26,7 @@ import {
   toggleActivoUsuarioPortalAction,
   resetearPasswordPortalAction,
   eliminarUsuarioPortalAction,
+  actualizarSocioTipoAction,
 } from '@/app/actions/comisiones/portal-usuarios'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import type { Lider, Asesor } from '@/lib/services/comisiones/alianzas.service'
@@ -226,6 +227,7 @@ export function PortalUsuariosView({
                 <th className="px-4 py-2.5 text-left font-medium">Usuario</th>
                 <th className="px-4 py-2.5 text-left font-medium">Rol</th>
                 <th className="px-4 py-2.5 text-left font-medium">Vinculado a</th>
+                <th className="px-4 py-2.5 text-left font-medium">Tipo de socio</th>
                 <th className="px-4 py-2.5 text-center font-medium">Estado</th>
                 <th className="px-4 py-2.5 text-right font-medium">Acciones</th>
               </tr>
@@ -233,7 +235,7 @@ export function PortalUsuariosView({
             <tbody className="divide-y">
               {usuarios.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-muted-foreground px-4 py-12 text-center">
+                  <td colSpan={6} className="text-muted-foreground px-4 py-12 text-center">
                     <User className="mx-auto mb-3 h-8 w-8 opacity-30" />
                     <p className="font-medium">Sin cuentas del portal</p>
                     <p className="mt-1 text-xs">
@@ -243,7 +245,7 @@ export function PortalUsuariosView({
                 </tr>
               ) : usuariosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-muted-foreground px-4 py-12 text-center">
+                  <td colSpan={6} className="text-muted-foreground px-4 py-12 text-center">
                     <Search className="mx-auto mb-3 h-8 w-8 opacity-30" />
                     <p className="font-medium">Sin resultados</p>
                     <p className="mt-1 text-xs">Ajusta los filtros o limpia la búsqueda.</p>
@@ -341,6 +343,15 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
     })
   }
 
+  function cambiarSocioTipo(value: string) {
+    const socioTipo = (value || null) as 'JORGE' | 'KASS' | 'DIANA' | null
+    startTransition(async () => {
+      const result = await actualizarSocioTipoAction(empresaId, usuario.usuario.id, socioTipo)
+      if (!result.ok) alert(result.error)
+      router.refresh()
+    })
+  }
+
   async function eliminar() {
     const ok = await confirm({
       title: esVinculado
@@ -425,6 +436,20 @@ function FilaUsuario({ empresaId, usuario }: { empresaId: string; usuario: Usuar
         </td>
         <td className="text-muted-foreground px-4 py-3 text-xs">
           {usuario.liderNombre ?? usuario.asesorNombre ?? '—'}
+        </td>
+        <td className="px-4 py-3">
+          <select
+            value={usuario.usuario.socioTipo ?? ''}
+            onChange={(e) => cambiarSocioTipo(e.target.value)}
+            disabled={pending}
+            title="Tipo de socio — agrega sección 'Mis comisiones como socio' en el portal"
+            className="border-input bg-background rounded-md border px-2 py-1 text-xs disabled:opacity-60"
+          >
+            <option value="">— Ninguno —</option>
+            <option value="JORGE">Jorge</option>
+            <option value="KASS">Kass</option>
+            <option value="DIANA">Diana</option>
+          </select>
         </td>
         <td className="px-4 py-3 text-center">
           {usuario.usuario.activo ? (
@@ -604,6 +629,7 @@ function RolYEntidadFields({
   rolPortal,
   liderId,
   asesorId,
+  socioTipo,
   lideres,
   asesores,
   onChange,
@@ -611,6 +637,7 @@ function RolYEntidadFields({
   rolPortal: 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR'
   liderId: string
   asesorId: string
+  socioTipo: '' | 'JORGE' | 'KASS' | 'DIANA'
   lideres: LiderConAlianza[]
   asesores: AsesorConAlianza[]
   onChange: (
@@ -618,6 +645,7 @@ function RolYEntidadFields({
       rolPortal: 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR'
       liderId: string
       asesorId: string
+      socioTipo: '' | 'JORGE' | 'KASS' | 'DIANA'
     }>,
   ) => void
 }) {
@@ -684,6 +712,25 @@ function RolYEntidadFields({
           </p>
         </Field>
       )}
+
+      <Field label="Tipo de socio (opcional)">
+        <select
+          value={socioTipo}
+          onChange={(e) =>
+            onChange({ socioTipo: e.target.value as '' | 'JORGE' | 'KASS' | 'DIANA' })
+          }
+          className="input"
+        >
+          <option value="">— Ninguno —</option>
+          <option value="JORGE">Jorge</option>
+          <option value="KASS">Kass</option>
+          <option value="DIANA">Diana</option>
+        </select>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Si esta cuenta es de un socio (o su asistente), verá una sección extra con sus comisiones
+          de bolsa/fijo en todas las alianzas donde aplique.
+        </p>
+      </Field>
     </>
   )
 }
@@ -708,6 +755,7 @@ function NuevoUsuarioDialog({
     rolPortal: 'ASESOR' as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR',
     liderId: '',
     asesorId: '',
+    socioTipo: '' as '' | 'JORGE' | 'KASS' | 'DIANA',
     email: '',
     nombre: '',
     password: '',
@@ -717,6 +765,7 @@ function NuevoUsuarioDialog({
     rolPortal: 'LIDER_ALIANZA' as 'LIDER_ALIANZA' | 'ADMINISTRATIVO' | 'ASESOR',
     liderId: '',
     asesorId: '',
+    socioTipo: '' as '' | 'JORGE' | 'KASS' | 'DIANA',
     email: '',
   })
 
@@ -731,6 +780,7 @@ function NuevoUsuarioDialog({
             ? formNuevo.liderId
             : null,
         asesorId: formNuevo.rolPortal === 'ASESOR' ? formNuevo.asesorId : null,
+        socioTipo: formNuevo.socioTipo || null,
         email: formNuevo.email,
         nombre: formNuevo.nombre,
         password: formNuevo.password,
@@ -755,6 +805,7 @@ function NuevoUsuarioDialog({
             ? formVincular.liderId
             : null,
         asesorId: formVincular.rolPortal === 'ASESOR' ? formVincular.asesorId : null,
+        socioTipo: formVincular.socioTipo || null,
         email: formVincular.email,
       })
       if (!result.ok) {
@@ -821,6 +872,7 @@ function NuevoUsuarioDialog({
                 rolPortal={formNuevo.rolPortal}
                 liderId={formNuevo.liderId}
                 asesorId={formNuevo.asesorId}
+                socioTipo={formNuevo.socioTipo}
                 lideres={lideres}
                 asesores={asesores}
                 onChange={(f) => setFormNuevo((prev) => ({ ...prev, ...f }))}
@@ -887,6 +939,7 @@ function NuevoUsuarioDialog({
                 rolPortal={formVincular.rolPortal}
                 liderId={formVincular.liderId}
                 asesorId={formVincular.asesorId}
+                socioTipo={formVincular.socioTipo}
                 lideres={lideres}
                 asesores={asesores}
                 onChange={(f) => setFormVincular((prev) => ({ ...prev, ...f }))}

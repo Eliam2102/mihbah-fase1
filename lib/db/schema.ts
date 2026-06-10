@@ -1582,6 +1582,9 @@ export const usuariosPortal = pgTable(
     // Exactamente uno tendrá valor según el rolPortal
     liderId: uuid('lider_id').references(() => lideresAlianza.id, { onDelete: 'cascade' }),
     asesorId: uuid('asesor_id').references(() => asesores.id, { onDelete: 'cascade' }),
+    // Identifica al usuario como socio (Jorge/Kass/Diana) independiente de rolPortal.
+    // Permite que la cuenta de portal sea de un asistente del socio.
+    socioTipo: text('socio_tipo'),
     activo: boolean('activo').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

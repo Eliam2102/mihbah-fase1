@@ -19,6 +19,7 @@ const crearSchema = z.object({
   email: z.string().email(),
   nombre: z.string().min(2),
   password: z.string().min(8),
+  socioTipo: z.enum(['JORGE', 'KASS', 'DIANA']).nullable().optional(),
 })
 
 const vincularSchema = z.object({
@@ -26,6 +27,7 @@ const vincularSchema = z.object({
   liderId: z.string().uuid().nullable().optional(),
   asesorId: z.string().uuid().nullable().optional(),
   email: z.string().email(),
+  socioTipo: z.enum(['JORGE', 'KASS', 'DIANA']).nullable().optional(),
 })
 
 const ADMIN_ROLES = ['admin', 'super_admin', 'super_admin_dev']
@@ -47,7 +49,7 @@ export async function crearUsuarioPortalAction(
     if (!admin.tenantId) return { ok: false, error: 'Admin sin tenant' }
     const parsed = crearSchema.safeParse(input)
     if (!parsed.success) return { ok: false, error: 'Validación falló' }
-    const { rolPortal, liderId, asesorId, email, nombre, password } = parsed.data
+    const { rolPortal, liderId, asesorId, email, nombre, password, socioTipo } = parsed.data
 
     if ((rolPortal === 'LIDER_ALIANZA' || rolPortal === 'ADMINISTRATIVO') && !liderId) {
       return { ok: false, error: `liderId requerido para rol ${rolPortal}` }
@@ -112,6 +114,7 @@ export async function crearUsuarioPortalAction(
       liderId: liderId ?? null,
       asesorId: asesorId ?? null,
       activo: true,
+      socioTipo: socioTipo ?? null,
     })
 
     revalidatePath(`/empresa/${empresaId}/comisiones/portal-usuarios`)
@@ -130,7 +133,7 @@ export async function vincularUsuarioExistenteAction(
     if (!admin.tenantId) return { ok: false, error: 'Admin sin tenant' }
     const parsed = vincularSchema.safeParse(input)
     if (!parsed.success) return { ok: false, error: 'Validación falló' }
-    const { rolPortal, liderId, asesorId, email } = parsed.data
+    const { rolPortal, liderId, asesorId, email, socioTipo } = parsed.data
 
     if ((rolPortal === 'LIDER_ALIANZA' || rolPortal === 'ADMINISTRATIVO') && !liderId) {
       return { ok: false, error: `liderId requerido para rol ${rolPortal}` }
@@ -158,6 +161,7 @@ export async function vincularUsuarioExistenteAction(
       liderId: liderId ?? null,
       asesorId: asesorId ?? null,
       activo: true,
+      socioTipo: socioTipo ?? null,
     })
 
     revalidatePath(`/empresa/${empresaId}/comisiones/portal-usuarios`)
@@ -230,6 +234,28 @@ export async function eliminarUsuarioPortalAction(
 
     revalidatePath(`/empresa/${empresaId}/comisiones/portal-usuarios`)
     return { ok: true, data: { id: usuarioPortalId } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+// ─── Tipo de socio (Jorge / Kass / Diana) ────────────────────────────────────
+
+const socioTipoSchema = z.enum(['JORGE', 'KASS', 'DIANA']).nullable()
+
+export async function actualizarSocioTipoAction(
+  empresaId: string,
+  id: string,
+  socioTipo: 'JORGE' | 'KASS' | 'DIANA' | null,
+): Promise<ActionResult<{ id: string; socioTipo: string | null }>> {
+  try {
+    const admin = await requireUser()
+    if (!admin.tenantId) return { ok: false, error: 'Admin sin tenant' }
+    const parsed = socioTipoSchema.safeParse(socioTipo)
+    if (!parsed.success) return { ok: false, error: 'Tipo de socio inválido' }
+    await service.actualizarUsuarioPortal(admin.tenantId, id, { socioTipo: parsed.data })
+    revalidatePath(`/empresa/${empresaId}/comisiones/portal-usuarios`)
+    return { ok: true, data: { id, socioTipo: parsed.data } }
   } catch (err) {
     return handleError(err)
   }

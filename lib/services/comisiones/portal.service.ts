@@ -20,6 +20,7 @@ import {
   ventasBmcorp,
   afiliados,
   users,
+  tipoBeneficiarioEnum,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
 import { and, desc, eq, gt, inArray, isNotNull, or, isNull, not } from 'drizzle-orm'
@@ -40,6 +41,9 @@ export interface PerfilPortal {
   alianzaNombre: string | null
   // Nombres de TODAS las alianzas del líder/asesor (para UI multi-alianza).
   alianzasNombres: string[]
+  // Si tiene valor, el usuario también ve "Mis comisiones como socio"
+  // con sus dispersiones SOCIO_BOLSA_*/SOCIO_FIJO_* (independiente de rolPortal).
+  socioTipo: string | null
 }
 
 export interface DispersionPortal {
@@ -164,6 +168,7 @@ export async function getPerfilPortal(userId: string): Promise<PerfilPortal | nu
     asesorNombre: row.asesor?.nombre ?? null,
     alianzaNombre: alianzasNombres[0] ?? null,
     alianzasNombres,
+    socioTipo: row.usuario.socioTipo,
   }
 }
 
@@ -351,6 +356,84 @@ export async function getVentasPortalLider(userId: string): Promise<VentaLiderPo
       .orderBy(desc(ventasBmcorp.fecha), desc(comisionesCalculadas.createdAt))
 
     // Agrupar por venta
+    const ventaMap = new Map<string, VentaLiderPortal>()
+    for (const r of rows) {
+      const vid = r.v.id
+      if (!ventaMap.has(vid)) {
+        ventaMap.set(vid, {
+          ventaId: vid,
+          cliente: r.v.cliente,
+          loteAcciones: r.v.loteAcciones,
+          monto: Number(r.v.monto),
+          desarrolloNombre: r.desarrolloNombre,
+          alianzaNombre: r.alianzaNombre,
+          estadoVenta: r.v.estadoVenta,
+          fecha: r.v.fecha,
+          comisionTotal: Number(r.c.comisionBrutaTotal),
+          dispersiones: [],
+        })
+      }
+      const venta = ventaMap.get(vid)!
+      venta.dispersiones.push({
+        id: r.d.id,
+        tipoBeneficiario: r.d.tipoBeneficiario,
+        beneficiarioNombre: r.d.beneficiarioNombre,
+        montoTotal: Number(r.d.montoTotal),
+        montoPagado: Number(r.d.montoPagado),
+        estado: r.d.estado,
+        fechaPago: r.d.fechaPago,
+      })
+    }
+
+    return Array.from(ventaMap.values())
+  })
+}
+
+// Tipos de dispersión que corresponden a cada socio (Jorge/Kass/Diana).
+// Diana solo tiene "bolsa" en algunas alianzas (ej. Flamingo 1%); no tiene SOCIO_FIJO_DIANA.
+type TipoBeneficiario = (typeof tipoBeneficiarioEnum.enumValues)[number]
+const TIPOS_POR_SOCIO: Record<string, TipoBeneficiario[]> = {
+  JORGE: ['SOCIO_BOLSA_JORGE', 'SOCIO_FIJO_JORGE'],
+  KASS: ['SOCIO_BOLSA_KASS', 'SOCIO_FIJO_KASS'],
+  DIANA: ['SOCIO_BOLSA_DIANA'],
+}
+
+// ─── Vista SOCIO (Jorge/Kass/Diana) ─────────────────────────────────────────
+// El socio (o su asistente) ve TODAS las dispersiones de su tipo, sin importar
+// la alianza — el % por alianza ya fue aplicado por el motor de cálculo.
+export async function getComisionesSocio(userId: string): Promise<VentaLiderPortal[]> {
+  const perfil = await getPerfilPortal(userId)
+  if (!perfil?.socioTipo) return []
+
+  const tipos = TIPOS_POR_SOCIO[perfil.socioTipo]
+  if (!tipos || tipos.length === 0) return []
+
+  return db.transaction(async (tx) => {
+    await setTenant(tx, perfil.tenantId)
+
+    const rows = await tx
+      .select({
+        v: ventasBmcorp,
+        c: comisionesCalculadas,
+        d: dispersiones,
+        desarrolloNombre: desarrollos.nombre,
+        alianzaNombre: afiliados.nombre,
+      })
+      .from(dispersiones)
+      .innerJoin(comisionesCalculadas, eq(dispersiones.comisionId, comisionesCalculadas.id))
+      .innerJoin(ventasBmcorp, eq(comisionesCalculadas.ventaId, ventasBmcorp.id))
+      .leftJoin(desarrollos, eq(ventasBmcorp.desarrolloId, desarrollos.id))
+      .leftJoin(afiliados, eq(ventasBmcorp.afiliadoId, afiliados.id))
+      .where(
+        and(
+          eq(dispersiones.tenantId, perfil.tenantId),
+          isNotNull(dispersiones.corteId),
+          inArray(dispersiones.tipoBeneficiario, tipos),
+          gt(dispersiones.montoTotal, '0'),
+        ),
+      )
+      .orderBy(desc(ventasBmcorp.fecha), desc(comisionesCalculadas.createdAt))
+
     const ventaMap = new Map<string, VentaLiderPortal>()
     for (const r of rows) {
       const vid = r.v.id
