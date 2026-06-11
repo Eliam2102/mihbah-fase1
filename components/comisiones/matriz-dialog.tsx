@@ -404,28 +404,32 @@ export function MatrizDialog({
                   {montoDianaBolsa > 0 && (
                     <Row label="→ Diana bolsa" value={fmt(montoDianaBolsa)} />
                   )}
+                  {tipoProducto === 'TERRENO' && (
+                    <Row
+                      label={`→ Fijo Jorge (${form.socioFijoJorgeOverride !== null ? form.socioFijoJorgeOverride + '%' : 'global 1.5%'})`}
+                      value={fmt(
+                        (ej.monto *
+                          (form.socioFijoJorgeOverride !== null
+                            ? form.socioFijoJorgeOverride
+                            : 1.5)) /
+                          100,
+                      )}
+                    />
+                  )}
+                  {tipoProducto === 'TERRENO' && (
+                    <Row
+                      label={`→ Fijo Kass (${form.socioFijoKassOverride !== null ? form.socioFijoKassOverride + '%' : 'global 1.5%'})`}
+                      value={fmt(
+                        (ej.monto *
+                          (form.socioFijoKassOverride !== null
+                            ? form.socioFijoKassOverride
+                            : 1.5)) /
+                          100,
+                      )}
+                    />
+                  )}
                 </tbody>
               </table>
-              {tipoProducto === 'TERRENO' && (
-                <Row
-                  label={`→ Fijo Jorge (${form.socioFijoJorgeOverride !== null ? form.socioFijoJorgeOverride + '%' : 'global 1.5%'})`}
-                  value={fmt(
-                    (ej.monto *
-                      (form.socioFijoJorgeOverride !== null ? form.socioFijoJorgeOverride : 1.5)) /
-                      100,
-                  )}
-                />
-              )}
-              {tipoProducto === 'TERRENO' && (
-                <Row
-                  label={`→ Fijo Kass (${form.socioFijoKassOverride !== null ? form.socioFijoKassOverride + '%' : 'global 1.5%'})`}
-                  value={fmt(
-                    (ej.monto *
-                      (form.socioFijoKassOverride !== null ? form.socioFijoKassOverride : 1.5)) /
-                      100,
-                  )}
-                />
-              )}
               <p className="text-muted-foreground mt-2 text-xs">
                 + costos operativos (OP BM Corp + OP YESYUCAN) vienen del esquema global.
               </p>

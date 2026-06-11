@@ -10,9 +10,10 @@ import {
   afiliados,
   matrizAlianzaProducto,
   lideresAlianza,
+  comisionesCalculadas,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, eq, gt, inArray, notInArray } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNotNull, notInArray } from 'drizzle-orm'
 import CorteDetailView from '@/components/comisiones/corte-detail-view'
 import { notFound } from 'next/navigation'
 
@@ -20,6 +21,15 @@ export const metadata = { title: 'Detalle de Corte · BM CORP' }
 
 // Alias para evitar colisión con el join de lideresAlianza para el socio de la matriz
 const lideresMatriz = lideresAlianza
+
+// Conceptos diferidos por la cascada (tier 3-4) que pueden incluirse manualmente en un corte
+const TIPOS_DIFERIDOS = [
+  'SOCIO_BOLSA_JORGE',
+  'SOCIO_BOLSA_KASS',
+  'SOCIO_BOLSA_DIANA',
+  'SOCIO_FIJO_JORGE',
+  'SOCIO_FIJO_KASS',
+] as const
 
 async function getCorteData(tenantId: string, empresaId: string, corteId: string) {
   return db.transaction(async (tx) => {
@@ -60,6 +70,14 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
         pctJorge: matrizAlianzaProducto.porcentajeJorgeBolsa,
         pctKass: matrizAlianzaProducto.porcentajeKassBolsa,
         pctDiana: matrizAlianzaProducto.porcentajeDianaBolsa,
+        // Snapshot del motor de cálculo — montos totales de conceptos diferidos
+        // (bolsa comercial y socios fijos). Se muestran como placeholder editable.
+        comisionId: comisionesCalculadas.id,
+        montoSocioFijoJorge: comisionesCalculadas.montoSocioFijoJorge,
+        montoSocioFijoKass: comisionesCalculadas.montoSocioFijoKass,
+        montoSocioBolsaJorge: comisionesCalculadas.montoSocioBolsaJorge,
+        montoSocioBolsaKass: comisionesCalculadas.montoSocioBolsaKass,
+        montoSocioBolsaDiana: comisionesCalculadas.montoSocioBolsaDiana,
       })
       .from(ventasPagoCorte)
       .leftJoin(ventasBmcorp, eq(ventasPagoCorte.ventaId, ventasBmcorp.id))
@@ -73,6 +91,14 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
         ),
       )
       .leftJoin(lideresMatriz, eq(matrizAlianzaProducto.liderId, lideresMatriz.id))
+      // Join a comisiones calculadas para obtener los montos de socios fijos (snapshot)
+      .leftJoin(
+        comisionesCalculadas,
+        and(
+          eq(comisionesCalculadas.tenantId, tenantId),
+          eq(comisionesCalculadas.ventaId, ventasPagoCorte.ventaId),
+        ),
+      )
       .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.corteId, corteId)))
 
     // Ventas finalizadas disponibles para agregar al corte (excluye las ya incluidas)
@@ -108,6 +134,30 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
         ),
       )
 
+    // Conceptos diferidos ya incluidos en algún corte (corteId no nulo) — para no
+    // mostrar el placeholder de "incluir" más de una vez por comisión+concepto.
+    const comisionIds = [...new Set(pagos.map((p) => p.comisionId).filter(Boolean))] as string[]
+    const diferidosIncluidosRows =
+      comisionIds.length > 0
+        ? await tx
+            .select({
+              comisionId: dispersiones.comisionId,
+              tipoBeneficiario: dispersiones.tipoBeneficiario,
+            })
+            .from(dispersiones)
+            .where(
+              and(
+                eq(dispersiones.tenantId, tenantId),
+                inArray(dispersiones.comisionId, comisionIds),
+                inArray(dispersiones.tipoBeneficiario, TIPOS_DIFERIDOS),
+                isNotNull(dispersiones.corteId),
+              ),
+            )
+        : []
+    const diferidosIncluidos = diferidosIncluidosRows.map(
+      (r) => `${r.comisionId}:${r.tipoBeneficiario}`,
+    )
+
     // Líderes por afiliado — solo los configurados en la matriz de cada alianza
     const lideresRows = await tx
       .select({
@@ -131,7 +181,14 @@ async function getCorteData(tenantId: string, empresaId: string, corteId: string
       {},
     )
 
-    return { corte, pagos, dispersiones: disps, ventasDisponibles, lideresPorAfiliado }
+    return {
+      corte,
+      pagos,
+      dispersiones: disps,
+      ventasDisponibles,
+      lideresPorAfiliado,
+      diferidosIncluidos,
+    }
   })
 }
 
@@ -156,6 +213,7 @@ export default async function CorteDetailPage({
       dispersiones={data.dispersiones}
       ventasDisponibles={data.ventasDisponibles}
       lideresPorAfiliado={data.lideresPorAfiliado}
+      diferidosIncluidos={data.diferidosIncluidos}
       userRole={user.role ?? 'admin'}
     />
   )

@@ -29,6 +29,7 @@ import {
   ajustarDispersionEnCorteAction,
   eliminarVentaDelCorteAction,
   enviarCorteAAprobacionAction,
+  incluirDispersionDiferidaAction,
   reasignarLiderDispersionAction,
 } from '@/app/actions/cortes'
 
@@ -61,6 +62,14 @@ type PagoCorte = {
   pctJorge?: string | null
   pctKass?: string | null
   pctDiana?: string | null
+  // Snapshot del motor de cálculo — montos totales de conceptos diferidos
+  // (bolsa comercial y socios fijos). Nulos si la alianza/esquema no los configura.
+  comisionId?: string | null
+  montoSocioFijoJorge?: string | null
+  montoSocioFijoKass?: string | null
+  montoSocioBolsaJorge?: string | null
+  montoSocioBolsaKass?: string | null
+  montoSocioBolsaDiana?: string | null
 }
 
 type Dispersion = {
@@ -97,6 +106,7 @@ export default function CorteDetailView({
   dispersiones,
   ventasDisponibles = [],
   lideresPorAfiliado = {},
+  diferidosIncluidos = [],
   userRole,
 }: {
   empresaId: string
@@ -111,6 +121,7 @@ export default function CorteDetailView({
     desarrolloNombre: string | null
   }[]
   lideresPorAfiliado?: Record<string, { id: string; nombre: string }[]>
+  diferidosIncluidos?: string[]
   userRole: string
 }) {
   const router = useRouter()
@@ -258,6 +269,36 @@ export default function CorteDetailView({
         return
       }
       setAjustando(null)
+      router.refresh()
+    })
+  }
+
+  const diferidosIncluidosSet = new Set(diferidosIncluidos)
+
+  const handleIncluirDiferido = (
+    pagoCorteId: string,
+    comisionId: string,
+    tipoBeneficiario: string,
+    monto: number,
+  ) => {
+    startTransition(async () => {
+      const res = await incluirDispersionDiferidaAction({
+        empresaId,
+        corteId: corte.id,
+        pagoCorteId,
+        comisionId,
+        tipoBeneficiario: tipoBeneficiario as
+          | 'SOCIO_BOLSA_JORGE'
+          | 'SOCIO_BOLSA_KASS'
+          | 'SOCIO_BOLSA_DIANA'
+          | 'SOCIO_FIJO_JORGE'
+          | 'SOCIO_FIJO_KASS',
+        monto,
+      })
+      if (!res.ok) {
+        setError(res.error)
+        return
+      }
       router.refresh()
     })
   }
@@ -1076,6 +1117,8 @@ export default function CorteDetailView({
                     <VentaComisionDetalle
                       pago={pago}
                       dispsVenta={dispsVenta}
+                      diferidosIncluidos={diferidosIncluidosSet}
+                      onIncluirDiferido={handleIncluirDiferido}
                       esBorrador={esBorrador}
                       isPending={isPending}
                       ajustando={ajustando}
@@ -1117,53 +1160,59 @@ export default function CorteDetailView({
       )}
 
       {/* Resumen Consolidado del Corte */}
-      {dispersiones.length > 0 && (
-        <div className="bg-card rounded-xl border border-slate-200/80 p-5 shadow-sm dark:border-slate-800/80">
-          <h2 className="text-foreground mb-1 flex items-center gap-1.5 text-sm font-bold">
-            <Users className="h-4 w-4 text-purple-600" /> Resumen consolidado del corte
-          </h2>
-          <p className="text-muted-foreground mb-4 text-xs">
-            Total a dispersar por beneficiario agrupado en este periodo.
-          </p>
-          <div className="overflow-hidden rounded-lg border border-slate-100 dark:border-slate-800/80">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead>
-                <tr className="text-muted-foreground border-b bg-slate-50 text-[10px] font-bold tracking-wider uppercase dark:bg-slate-900/50">
-                  <th className="px-4 py-2.5">Beneficiario</th>
-                  <th className="px-4 py-2.5">Rol / Tipo</th>
-                  <th className="px-4 py-2.5 text-right">Monto total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {resumenList.map((item) => (
-                  <tr key={item.nombre} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10">
-                    <td className="text-foreground px-4 py-3 font-semibold">{item.nombre}</td>
-                    <td className="text-muted-foreground px-4 py-3 text-xs">
-                      {TIPO_LABELS[item.tipo] ?? item.tipo}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
-                      {fmt(item.total)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="border-t bg-slate-50/80 dark:bg-slate-900/30">
-                <tr className="text-foreground font-bold">
-                  <td
-                    colSpan={2}
-                    className="text-muted-foreground px-4 py-3 text-xs tracking-wider uppercase"
-                  >
-                    Total dispersado
-                  </td>
-                  <td className="px-4 py-3 text-right text-base text-emerald-600 tabular-nums dark:text-emerald-400">
-                    {fmt(dispersiones.reduce((s, d) => s + Number(d.montoTotal), 0))}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
+      {dispersiones.length > 0 &&
+        (() => {
+          return (
+            <div className="bg-card rounded-xl border border-slate-200/80 p-5 shadow-sm dark:border-slate-800/80">
+              <h2 className="text-foreground mb-1 flex items-center gap-1.5 text-sm font-bold">
+                <Users className="h-4 w-4 text-purple-600" /> Resumen consolidado del corte
+              </h2>
+              <p className="text-muted-foreground mb-4 text-xs">
+                Total a dispersar por beneficiario agrupado en este periodo.
+              </p>
+              <div className="overflow-hidden rounded-lg border border-slate-100 dark:border-slate-800/80">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead>
+                    <tr className="text-muted-foreground border-b bg-slate-50 text-[10px] font-bold tracking-wider uppercase dark:bg-slate-900/50">
+                      <th className="px-4 py-2.5">Beneficiario</th>
+                      <th className="px-4 py-2.5">Rol / Tipo</th>
+                      <th className="px-4 py-2.5 text-right">Monto total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {resumenList.map((item) => (
+                      <tr
+                        key={item.nombre}
+                        className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10"
+                      >
+                        <td className="text-foreground px-4 py-3 font-semibold">{item.nombre}</td>
+                        <td className="text-muted-foreground px-4 py-3 text-xs">
+                          {TIPO_LABELS[item.tipo] ?? item.tipo}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
+                          {fmt(item.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t bg-slate-50/80 dark:bg-slate-900/30">
+                    <tr className="text-foreground font-bold">
+                      <td
+                        colSpan={2}
+                        className="text-muted-foreground px-4 py-3 text-xs tracking-wider uppercase"
+                      >
+                        Total dispersado
+                      </td>
+                      <td className="px-4 py-3 text-right text-base text-emerald-600 tabular-nums dark:text-emerald-400">
+                        {fmt(dispersiones.reduce((s, d) => s + Number(d.montoTotal), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
 
       {/* Sin ventas */}
       {pagos.length === 0 && (
@@ -1217,9 +1266,20 @@ const CONCEPTO_LABELS: Record<string, string> = {
   SOCIO_BOLSA_DIANA: 'Bolsa Diana',
 }
 
+// Conceptos diferidos por la cascada (tier 3-4): socios de bolsa comercial y fijos
+const CONCEPTOS_DIFERIDOS: { tipo: string; label: string }[] = [
+  { tipo: 'SOCIO_BOLSA_JORGE', label: 'Bolsa Jorge' },
+  { tipo: 'SOCIO_BOLSA_KASS', label: 'Bolsa Kass' },
+  { tipo: 'SOCIO_BOLSA_DIANA', label: 'Bolsa Diana' },
+  { tipo: 'SOCIO_FIJO_JORGE', label: 'Fijo Jorge' },
+  { tipo: 'SOCIO_FIJO_KASS', label: 'Fijo Kass' },
+]
+
 function VentaComisionDetalle({
   pago,
   dispsVenta,
+  diferidosIncluidos,
+  onIncluirDiferido,
   esBorrador,
   isPending,
   ajustando,
@@ -1236,6 +1296,13 @@ function VentaComisionDetalle({
 }: {
   pago: PagoCorte
   dispsVenta: Dispersion[]
+  diferidosIncluidos: Set<string>
+  onIncluirDiferido: (
+    pagoCorteId: string,
+    comisionId: string,
+    tipoBeneficiario: string,
+    monto: number,
+  ) => void
   esBorrador: boolean
   isPending: boolean
   ajustando: string | null
@@ -1250,17 +1317,41 @@ function VentaComisionDetalle({
   onSetReasignandoLiderId: (id: string) => void
   onGuardarReasignacion: (id: string) => void
 }) {
-  const totalDisp = dispsVenta.reduce((s, d) => s + Number(d.montoTotal), 0)
+  const [montosDiferidos, setMontosDiferidos] = useState<Record<string, string>>({})
+
+  const dispsReales = dispsVenta
+
+  const totalDisp = dispsReales.reduce((s, d) => s + Number(d.montoTotal), 0)
   const montoADispersar = Number(pago.montoADispersar)
   const diferencia = Math.abs(totalDisp - montoADispersar)
   const cuadra = diferencia < 0.01
 
   // Monto ASESOR se absorbe visualmente en la línea Afiliación
-  const asesorMonto = dispsVenta
+  const asesorMonto = dispsReales
     .filter((d) => d.tipoBeneficiario === 'ASESOR')
     .reduce((s, d) => s + Number(d.montoTotal), 0)
 
-  if (dispsVenta.length === 0) {
+  // Conceptos diferidos pendientes de incluir: tienen monto snapshot > 0,
+  // no tienen ya una dispersión real en este pago y no fueron incluidos en otro corte.
+  const PAGO_SNAPSHOT: Record<string, string | null | undefined> = {
+    SOCIO_BOLSA_JORGE: pago.montoSocioBolsaJorge,
+    SOCIO_BOLSA_KASS: pago.montoSocioBolsaKass,
+    SOCIO_BOLSA_DIANA: pago.montoSocioBolsaDiana,
+    SOCIO_FIJO_JORGE: pago.montoSocioFijoJorge,
+    SOCIO_FIJO_KASS: pago.montoSocioFijoKass,
+  }
+  const tiposConDispersionReal = new Set(dispsVenta.map((d) => d.tipoBeneficiario))
+  const conceptosPendientes = pago.comisionId
+    ? CONCEPTOS_DIFERIDOS.filter(({ tipo }) => {
+        const monto = Number(PAGO_SNAPSHOT[tipo] ?? 0)
+        if (monto <= 0) return false
+        if (tiposConDispersionReal.has(tipo)) return false
+        if (diferidosIncluidos.has(`${pago.comisionId}:${tipo}`)) return false
+        return true
+      })
+    : []
+
+  if (dispsVenta.length === 0 && conceptosPendientes.length === 0) {
     return (
       <div className="mt-3 rounded-lg border border-dashed border-slate-200 px-4 py-3 text-center text-xs text-slate-400 dark:border-slate-700">
         Sin dispersiones calculadas para este pago.
@@ -1290,7 +1381,7 @@ function VentaComisionDetalle({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {dispsVenta.map((d) => {
+            {dispsReales.map((d) => {
               // ASESOR se absorbe en la línea de Afiliación — no se muestra por separado
               if (d.tipoBeneficiario === 'ASESOR') return null
 
@@ -1467,6 +1558,78 @@ function VentaComisionDetalle({
           </tfoot>
         </table>
       </div>
+
+      {/* Conceptos diferidos — bolsa comercial y socios fijos pendientes de incluir */}
+      {conceptosPendientes.length > 0 && (
+        <div className="overflow-hidden rounded-lg border border-amber-200/60 bg-amber-50/50 dark:border-amber-800/40 dark:bg-amber-950/20">
+          <div className="flex items-center gap-2 border-b border-amber-200/50 bg-amber-100/40 px-3 py-1.5 dark:border-amber-800/30 dark:bg-amber-900/20">
+            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+            <span className="text-[10px] font-bold tracking-wider text-amber-700 uppercase dark:text-amber-300">
+              Conceptos diferidos de la matriz
+            </span>
+            {esBorrador && (
+              <span className="ml-1 text-[10px] text-amber-600/70 dark:text-amber-400/60">
+                Edita el monto y confirma para incluirlo en este corte
+              </span>
+            )}
+          </div>
+          <table className="w-full text-xs">
+            <tbody className="divide-y divide-amber-100/60 dark:divide-amber-900/30">
+              {conceptosPendientes.map(({ tipo, label }) => {
+                const montoCalculado = Number(PAGO_SNAPSHOT[tipo] ?? 0)
+                const montoInput = montosDiferidos[tipo] ?? montoCalculado.toFixed(2)
+                return (
+                  <tr key={tipo} className="opacity-90">
+                    <td className="px-3 py-2">
+                      <span className="font-medium text-amber-800 dark:text-amber-200">
+                        {label}
+                      </span>
+                      <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                        Diferido
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <span className="text-[9px] text-amber-600/60 dark:text-amber-400/50">
+                        Calculado: {fmt(montoCalculado)}
+                      </span>
+                    </td>
+                    {esBorrador ? (
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={montoInput}
+                            onChange={(e) =>
+                              setMontosDiferidos((prev) => ({ ...prev, [tipo]: e.target.value }))
+                            }
+                            className="bg-background border-input w-24 rounded border px-1.5 py-1 text-right text-xs tabular-nums"
+                          />
+                          <button
+                            onClick={() => {
+                              const monto = Number(montoInput)
+                              if (!monto || monto <= 0 || !pago.comisionId) return
+                              onIncluirDiferido(pago.id, pago.comisionId, tipo, monto)
+                            }}
+                            disabled={isPending || !Number(montoInput) || Number(montoInput) <= 0}
+                            className="shrink-0 rounded bg-amber-500 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-40"
+                          >
+                            Incluir
+                          </button>
+                        </div>
+                      </td>
+                    ) : (
+                      <td className="px-3 py-2 text-right text-[10px] text-amber-600/70 dark:text-amber-400/60">
+                        Sin incluir
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Móvil: selector reasignación cuando no hay columna beneficiario */}
       {esBorrador && reasignandoDisp !== null && (

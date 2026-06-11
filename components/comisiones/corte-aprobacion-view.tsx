@@ -105,6 +105,10 @@ export default function CorteAprobacionView({
   const esEnRevision = corte.estado === 'EN_REVISION'
   const esAprobado = corte.estado === 'APROBADO'
 
+  // Todas las dispersiones traídas para este corte ya tienen corteId asignado
+  // (incluye SOCIO_BOLSA_*/SOCIO_FIJO_* cuando Joana los incluyó manualmente).
+  const dispersionesReales = dispersiones
+
   // Método de pago = fijo en el perfil del líder (lideresAlianza.metodoPago).
   // Ya copiado a la dispersión al aprobar; en revisión se previsualiza desde el perfil.
   const metodoDe = (d: Dispersion): MetodoPago =>
@@ -113,7 +117,7 @@ export default function CorteAprobacionView({
   // Agrupar líderes para mostrar su método (solo lectura)
   const lideres = Array.from(
     new Map(
-      dispersiones
+      dispersionesReales
         .filter((d) => d.liderId)
         .map((d) => [
           d.liderId!,
@@ -126,8 +130,8 @@ export default function CorteAprobacionView({
     ).values(),
   )
 
-  // Calcular resúmenes de retiro según el método del perfil
-  const dispersionesPorMetodo = dispersiones.reduce(
+  // Calcular resúmenes de retiro según el método del perfil — excluye socios fijos
+  const dispersionesPorMetodo = dispersionesReales.reduce(
     (acc, d) => {
       const metodo = metodoDe(d)
       if (!acc[metodo]) acc[metodo] = 0
@@ -241,7 +245,7 @@ export default function CorteAprobacionView({
         <ResumenCard
           label="Total del corte"
           value={fmt(totalADispersar)}
-          desc={`${dispersiones.length} dispersiones`}
+          desc={`${dispersionesReales.length} dispersiones reales`}
           icon={<Users className="h-4 w-4 text-slate-500" />}
         />
       </div>
@@ -289,7 +293,7 @@ export default function CorteAprobacionView({
 
         {/* Mobile List View */}
         <div className="bg-card block divide-y divide-slate-100 overflow-hidden rounded-xl border sm:hidden dark:divide-slate-800">
-          {dispersiones.map((d) => (
+          {dispersionesReales.map((d) => (
             <div key={d.id} className="flex items-center justify-between gap-3 p-3">
               <div>
                 <p className="text-foreground text-xs font-semibold">{d.beneficiarioNombre}</p>
@@ -329,7 +333,7 @@ export default function CorteAprobacionView({
                 </tr>
               </thead>
               <tbody>
-                {dispersiones.map((d) => (
+                {dispersionesReales.map((d) => (
                   <tr key={d.id} className="border-b last:border-0">
                     <td className="text-foreground px-4 py-3 font-medium">
                       {d.beneficiarioNombre}

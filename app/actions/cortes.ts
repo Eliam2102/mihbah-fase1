@@ -1,7 +1,7 @@
 'use server'
 
 import { z } from 'zod'
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import {
@@ -512,6 +512,152 @@ export async function ajustarDispersionEnCorteAction(
         cambios: { nuevoMonto },
       })
     })
+
+    return { ok: true, data: { dispersionId } }
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+// ─── 3b. Incluir concepto diferido (bolsa/fijo) en el corte ──────────────────
+// Los conceptos SOCIO_BOLSA_* y SOCIO_FIJO_* quedan diferidos por la cascada
+// (sin corteId/pagoCorteId). Joana puede incluirlos manualmente en un corte,
+// ajustando el monto si lo necesita.
+
+const TIPOS_DIFERIDOS = [
+  'SOCIO_BOLSA_JORGE',
+  'SOCIO_BOLSA_KASS',
+  'SOCIO_BOLSA_DIANA',
+  'SOCIO_FIJO_JORGE',
+  'SOCIO_FIJO_KASS',
+] as const
+
+const incluirDiferidaSchema = z.object({
+  empresaId: z.string().uuid(),
+  corteId: z.string().uuid(),
+  pagoCorteId: z.string().uuid(),
+  comisionId: z.string().uuid(),
+  tipoBeneficiario: z.enum(TIPOS_DIFERIDOS),
+  monto: z.number().positive('El monto debe ser mayor a 0'),
+})
+
+export async function incluirDispersionDiferidaAction(
+  input: z.input<typeof incluirDiferidaSchema>,
+): Promise<ActionResult<{ dispersionId: string }>> {
+  try {
+    const user = await requireUser()
+    if (!user.tenantId) return { ok: false, error: 'Usuario sin tenant' }
+    const parsed = incluirDiferidaSchema.safeParse(input)
+    if (!parsed.success)
+      return { ok: false, error: parsed.error.errors[0]?.message ?? 'Validación falló' }
+
+    const { empresaId, corteId, pagoCorteId, comisionId, tipoBeneficiario, monto } = parsed.data
+    await requireEmpresaAccess(user, empresaId, 'comisiones')
+    const tenantId = user.tenantId
+
+    const dispersionId = await db.transaction(async (tx) => {
+      await setTenant(tx, tenantId)
+
+      const [corte] = await tx
+        .select({ estado: cortesDispersion.estado })
+        .from(cortesDispersion)
+        .where(and(eq(cortesDispersion.tenantId, tenantId), eq(cortesDispersion.id, corteId)))
+        .limit(1)
+      if (!corte) throw new Error('Corte no encontrado')
+      if (corte.estado !== 'BORRADOR')
+        throw new Error('Solo se pueden incluir conceptos diferidos en cortes BORRADOR')
+
+      // Dispersión "plantilla" generada por el motor de cálculo (sin corte/pago asignado)
+      const [plantilla] = await tx
+        .select()
+        .from(dispersiones)
+        .where(
+          and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(dispersiones.comisionId, comisionId),
+            eq(dispersiones.tipoBeneficiario, tipoBeneficiario),
+            isNull(dispersiones.corteId),
+            isNull(dispersiones.pagoCorteId),
+          ),
+        )
+        .limit(1)
+      if (!plantilla)
+        throw new Error('No hay dispersión calculada para este concepto. Recalcula la comisión.')
+
+      // Verificar que no haya sido incluido ya en otro corte
+      const [yaIncluida] = await tx
+        .select({ id: dispersiones.id })
+        .from(dispersiones)
+        .where(
+          and(
+            eq(dispersiones.tenantId, tenantId),
+            eq(dispersiones.comisionId, comisionId),
+            eq(dispersiones.tipoBeneficiario, tipoBeneficiario),
+            isNotNull(dispersiones.corteId),
+          ),
+        )
+        .limit(1)
+      if (yaIncluida) throw new Error('Este concepto ya fue incluido en un corte')
+
+      const [nueva] = await tx
+        .insert(dispersiones)
+        .values({
+          tenantId,
+          comisionId,
+          corteId,
+          pagoCorteId,
+          liderId: plantilla.liderId,
+          asesorId: plantilla.asesorId,
+          tipoBeneficiario: plantilla.tipoBeneficiario,
+          beneficiarioNombre: plantilla.beneficiarioNombre,
+          montoTotal: monto.toFixed(2),
+          montoPagado: '0',
+          montoDiferido: '0',
+          estado: 'PENDIENTE',
+          acumulaMensual: plantilla.acumulaMensual,
+        })
+        .returning({ id: dispersiones.id })
+      if (!nueva) throw new Error('No se pudo crear la dispersión')
+
+      // Sumar al monto a dispersar del pago de esta venta
+      const [pago] = await tx
+        .select({ montoADispersar: ventasPagoCorte.montoADispersar })
+        .from(ventasPagoCorte)
+        .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.id, pagoCorteId)))
+        .limit(1)
+      if (!pago) throw new Error('Pago de corte no encontrado')
+
+      await tx
+        .update(ventasPagoCorte)
+        .set({
+          montoADispersar: (Number(pago.montoADispersar) + monto).toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(ventasPagoCorte.id, pagoCorteId))
+
+      // Recalcular total del corte
+      const [totalActual] = await tx
+        .select({ suma: sql<string>`COALESCE(SUM(${ventasPagoCorte.montoADispersar}), 0)` })
+        .from(ventasPagoCorte)
+        .where(and(eq(ventasPagoCorte.tenantId, tenantId), eq(ventasPagoCorte.corteId, corteId)))
+      await tx
+        .update(cortesDispersion)
+        .set({ totalADispersar: totalActual?.suma ?? '0', updatedAt: new Date() })
+        .where(eq(cortesDispersion.id, corteId))
+
+      await tx.insert(auditLogs).values({
+        tenantId,
+        userId: user.id,
+        recursoTipo: 'dispersion',
+        recursoId: nueva.id,
+        accion: 'INCLUIR_DIFERIDO_CORTE',
+        cambios: { corteId, tipoBeneficiario, monto },
+      })
+
+      return nueva.id
+    })
+
+    revalidatePath(`/empresa/${empresaId}/comisiones/cortes/${corteId}`)
 
     return { ok: true, data: { dispersionId } }
   } catch (err) {
