@@ -25,6 +25,7 @@ export async function marcarPagoBeneficiarioAction(formData: FormData) {
 
   const corteId = formData.get('corteId') as string
   const beneficiarioKey = formData.get('beneficiarioKey') as string // 'lider_id:UUID' | 'asesor_id:UUID' | 'tipo:ENUM'
+  const dispersionIdsRaw = formData.get('dispersionIds') as string | null
   const metodoPago = formData.get('metodoPago') as MetodoPagoLider
   const fechaPagoStr = formData.get('fechaPago') as string
   const file = formData.get('file') as File | null
@@ -50,15 +51,27 @@ export async function marcarPagoBeneficiarioAction(formData: FormData) {
     throw new Error('Formato de beneficiarioKey inválido')
   }
 
+  let dispersionIds: string[] = []
+  if (dispersionIdsRaw) {
+    const parsed: unknown = JSON.parse(dispersionIdsRaw)
+    if (Array.isArray(parsed))
+      dispersionIds = parsed.filter((id): id is string => typeof id === 'string')
+  }
+
   await db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
 
-    // Obtener dispersiones
+    // Obtener dispersiones: si vienen ids explícitos (caso normal desde
+    // tesorería) se usan directamente — esto incluye dispersiones fusionadas
+    // (p.ej. ASESOR interno de alianzas FLAMINGO_DIRECTO) que no comparten
+    // liderId/asesorId/tipoBeneficiario con el resto del grupo. Si no, se cae
+    // al filtro por beneficiarioKey (compatibilidad).
     const conds = [
       eq(dispersiones.corteId, corteId),
       inArray(dispersiones.estado, ['AUTORIZADA', 'PARCIAL']),
     ]
-    if (liderId) conds.push(eq(dispersiones.liderId, liderId))
+    if (dispersionIds.length > 0) conds.push(inArray(dispersiones.id, dispersionIds))
+    else if (liderId) conds.push(eq(dispersiones.liderId, liderId))
     else if (asesorId) conds.push(eq(dispersiones.asesorId, asesorId))
     else if (tipoBeneficiario)
       conds.push(eq(dispersiones.tipoBeneficiario, tipoBeneficiario as TipoBeneficiario))
@@ -100,7 +113,7 @@ export async function marcarPagoBeneficiarioAction(formData: FormData) {
 
     if (!nuevoComprobante) throw new Error('No se pudo registrar el comprobante')
 
-    const dispersionIds = targetDispersiones.map((d) => d.id)
+    const targetIds = targetDispersiones.map((d) => d.id)
 
     await tx
       .update(dispersiones)
@@ -111,7 +124,7 @@ export async function marcarPagoBeneficiarioAction(formData: FormData) {
         comprobanteId: nuevoComprobante.id,
         pagadoPor: user.id,
       })
-      .where(inArray(dispersiones.id, dispersionIds))
+      .where(inArray(dispersiones.id, targetIds))
 
     await tx.insert(auditLogs).values({
       tenantId,

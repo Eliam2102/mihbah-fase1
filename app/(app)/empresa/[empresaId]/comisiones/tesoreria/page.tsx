@@ -87,17 +87,34 @@ export default async function TesoreriaPage({
       let totalEfectivo = 0
       let totalDeposito = 0
 
+      // Mapear comisionId -> fila LIDER_SALDO. El monto ASESOR de alianzas con
+      // regla FLAMINGO_DIRECTO es interno (líder = asesor): se fusiona con la
+      // línea LIDER_SALDO (afiliación) de la misma comisión, igual que hace
+      // corte-detail-view.
+      const liderSaldoRowByComision = new Map<string, (typeof dispCorte)[number]>()
+      for (const row of dispCorte) {
+        if (row.dispersion.tipoBeneficiario === 'LIDER_SALDO') {
+          liderSaldoRowByComision.set(row.dispersion.comisionId, row)
+        }
+      }
+
       // Dispersiones normales
       for (const row of dispCorte) {
-        const { dispersion, lider } = row
+        const { dispersion } = row
+
+        const fusionRow =
+          dispersion.tipoBeneficiario === 'ASESOR'
+            ? liderSaldoRowByComision.get(dispersion.comisionId)
+            : undefined
+        const { dispersion: refDispersion, lider } = fusionRow ?? row
 
         let key = ''
-        if (dispersion.liderId) key = `lider_id:${dispersion.liderId}`
-        else if (dispersion.asesorId) key = `asesor_id:${dispersion.asesorId}`
-        else key = `tipo:${dispersion.tipoBeneficiario}`
+        if (refDispersion.liderId) key = `lider_id:${refDispersion.liderId}`
+        else if (refDispersion.asesorId) key = `asesor_id:${refDispersion.asesorId}`
+        else key = `tipo:${refDispersion.tipoBeneficiario}`
 
         if (!grupos.has(key)) {
-          let metodoPago: string = dispersion.metodoPago || 'EFECTIVO'
+          let metodoPago: string = refDispersion.metodoPago || 'EFECTIVO'
           let clabe: string | null = null
           let banco: string | null = null
           let numeroCuenta: string | null = null
@@ -111,8 +128,8 @@ export default async function TesoreriaPage({
 
           grupos.set(key, {
             key,
-            tipoBeneficiario: dispersion.tipoBeneficiario,
-            nombre: dispersion.beneficiarioNombre,
+            tipoBeneficiario: refDispersion.tipoBeneficiario,
+            nombre: refDispersion.beneficiarioNombre,
             metodoPago,
             clabe,
             banco,

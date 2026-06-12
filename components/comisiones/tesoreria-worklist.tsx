@@ -98,6 +98,7 @@ export default function TesoreriaWorklist({
       const formData = new FormData()
       formData.append('corteId', selectedCorte.id)
       formData.append('beneficiarioKey', selectedGroup.key)
+      formData.append('dispersionIds', JSON.stringify(selectedGroup.dispersiones.map((d) => d.id)))
       formData.append('metodoPago', selectedGroup.metodoPago)
       formData.append('fechaPago', fechaPago)
       formData.append('file', file)
