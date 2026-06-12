@@ -1,43 +1,42 @@
 'use client'
-import NumberInput from '@/components/ui/number-input'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, AlertCircle, CheckCircle2, Info } from 'lucide-react'
-import { actualizarEsquemaAction } from '@/app/actions/comisiones/esquemas'
-import type { Esquema } from '@/lib/services/comisiones/esquemas.service'
+import { crearEsquemaAction } from '@/app/actions/comisiones/esquemas'
 
-export function EditarEsquemaDialog({
+const TIPOS_ESQUEMA = ['ALIADOS_DEL_UNIVERSO', 'YUCAN_PARTNERS'] as const
+const TIPOS_PRODUCTO = ['TERRENO', 'ACCION'] as const
+
+export function CrearEsquemaDialog({
   empresaId,
-  esquema,
   onClose,
 }: {
   empresaId: string
-  esquema: Esquema
   onClose: () => void
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
-    nombre: esquema.nombre,
-    porcentajeTotalCliente: Number(esquema.porcentajeTotalCliente),
-    porcentajeOpBmcorp: Number(esquema.porcentajeOpBmcorp),
-    porcentajeOpYesyucan: Number(esquema.porcentajeOpYesyucan),
-    porcentajeSocioFijoJorge: Number(esquema.porcentajeSocioFijoJorge),
-    porcentajeSocioFijoKass: Number(esquema.porcentajeSocioFijoKass),
-    porcentajeBolsaComercial: Number(esquema.porcentajeBolsaComercial),
-    porcentajeAsesorEstandar: Number(esquema.porcentajeAsesorEstandar),
-    porcentajeLiderTope:
-      esquema.porcentajeLiderTope != null ? Number(esquema.porcentajeLiderTope) : 0,
-    porcentajeLiderTopeActivo: esquema.porcentajeLiderTope != null,
-    razonSocial: esquema.razonSocial ?? '',
-    fechaInicio: esquema.fechaInicio,
-    fechaFin: esquema.fechaFin ?? '',
-    observaciones: esquema.observaciones ?? '',
+    tipoEsquema: TIPOS_ESQUEMA[0] as (typeof TIPOS_ESQUEMA)[number],
+    tipoProducto: TIPOS_PRODUCTO[0] as (typeof TIPOS_PRODUCTO)[number],
+    nombre: '',
+    porcentajeTotalCliente: 0,
+    porcentajeOpBmcorp: 0,
+    porcentajeOpYesyucan: 0,
+    porcentajeSocioFijoJorge: 0,
+    porcentajeSocioFijoKass: 0,
+    porcentajeBolsaComercial: 0,
+    porcentajeAsesorEstandar: 0,
+    porcentajeLiderTope: 0,
+    porcentajeLiderTopeActivo: false,
+    razonSocial: '',
+    fechaInicio: '',
+    fechaFin: '',
+    observaciones: '',
   })
 
-  // Suma esperada = total cliente. Debe cuadrar.
   const sumaConceptos =
     form.porcentajeOpBmcorp +
     form.porcentajeOpYesyucan +
@@ -55,12 +54,18 @@ export function EditarEsquemaDialog({
       )
       return
     }
+    if (!form.fechaInicio) {
+      setError('Indica la fecha "vigente desde"')
+      return
+    }
     if (form.fechaFin && form.fechaFin < form.fechaInicio) {
       setError('Fecha fin no puede ser anterior a fecha inicio')
       return
     }
     startTransition(async () => {
-      const result = await actualizarEsquemaAction(empresaId, esquema.id, {
+      const result = await crearEsquemaAction(empresaId, {
+        tipoEsquema: form.tipoEsquema,
+        tipoProducto: form.tipoProducto,
         nombre: form.nombre,
         porcentajeTotalCliente: form.porcentajeTotalCliente,
         porcentajeOpBmcorp: form.porcentajeOpBmcorp,
@@ -95,13 +100,11 @@ export function EditarEsquemaDialog({
         </button>
 
         <div className="mb-4">
-          <p className="text-muted-foreground text-xs font-semibold uppercase">
-            {esquema.tipoEsquema} · {esquema.tipoProducto}
-          </p>
-          <h2 className="text-foreground text-lg font-semibold">Editar esquema global</h2>
+          <h2 className="text-foreground text-lg font-semibold">Nuevo esquema global</h2>
           <p className="text-muted-foreground mt-1 text-xs">
-            Este esquema aplica a TODAS las alianzas de tipo {esquema.tipoProducto}. Lo distinto por
-            alianza (% afiliación, socios bolsa) vive en la matriz de cada alianza.
+            Crea una versión distinta del esquema para un periodo diferente (ej. esquema histórico
+            2022-2024 con % distintos). El sistema usa el esquema cuya fecha de vigencia cubra la
+            fecha de apertura de cada venta.
           </p>
         </div>
 
@@ -117,12 +120,52 @@ export function EditarEsquemaDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Tipo de esquema">
+              <select
+                value={form.tipoEsquema}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    tipoEsquema: e.target.value as (typeof TIPOS_ESQUEMA)[number],
+                  })
+                }
+                className="input"
+              >
+                {TIPOS_ESQUEMA.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Tipo de producto">
+              <select
+                value={form.tipoProducto}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    tipoProducto: e.target.value as (typeof TIPOS_PRODUCTO)[number],
+                  })
+                }
+                className="input"
+              >
+                {TIPOS_PRODUCTO.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
           <Field label="Nombre">
             <input
               required
               value={form.nombre}
               onChange={(e) => setForm({ ...form, nombre: e.target.value })}
               className="input"
+              placeholder="Ej. Esquema terrenos 2022-2024"
             />
           </Field>
 
@@ -179,7 +222,6 @@ export function EditarEsquemaDialog({
             />
           </div>
 
-          {/* Verificación visual */}
           <div
             className={`rounded-md border px-3 py-2.5 ${
               cuadra ? 'border-success/40 bg-success/10' : 'border-warning/40 bg-warning/10'
@@ -207,7 +249,6 @@ export function EditarEsquemaDialog({
             )}
           </div>
 
-          {/* Tope líder */}
           <div>
             <label className="text-muted-foreground flex items-center gap-2 text-xs font-medium uppercase">
               <input
@@ -264,8 +305,8 @@ export function EditarEsquemaDialog({
             </Field>
           </div>
           <p className="text-muted-foreground -mt-2 text-[10px]">
-            Ventas con fecha de apertura fuera de este rango no encuentran esquema y fallan al
-            calcular. Deja &quot;hasta&quot; vacío para que siga vigente indefinidamente.
+            Ventas con fecha de apertura dentro de este rango usarán este esquema. Si se solapa con
+            otro esquema activo del mismo tipo de producto, se usa el más reciente.
           </p>
 
           <Field label="Observaciones">
@@ -297,14 +338,14 @@ export function EditarEsquemaDialog({
               disabled={pending || !cuadra}
               className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm disabled:opacity-40"
             >
-              {pending ? 'Guardando...' : 'Guardar cambios'}
+              {pending ? 'Creando...' : 'Crear esquema'}
             </button>
           </div>
 
           <p className="text-muted-foreground border-t pt-3 text-xs">
-            ⚠ Cambios en este esquema afectan a las comisiones <strong>nuevas</strong>. Para
-            actualizar también las comisiones ya calculadas, después de guardar click en{' '}
-            <strong>Recalcular todas</strong> en la pantalla de Esquemas.
+            ⚠ Este esquema solo aplica a ventas <strong>nuevas</strong> con fecha de apertura en su
+            rango. Para aplicarlo a ventas ya calculadas, después de crearlo click en{' '}
+            <strong>Recalcular todas</strong>.
           </p>
         </form>
       </div>

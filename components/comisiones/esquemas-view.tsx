@@ -3,15 +3,17 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useConfirm } from '@/components/ui/confirm-dialog'
-import { CheckCircle, Building2, Percent, Pencil, RefreshCw, AlertCircle } from 'lucide-react'
+import { CheckCircle, Building2, Percent, Pencil, RefreshCw, AlertCircle, Plus } from 'lucide-react'
 import type { Esquema } from '@/lib/services/comisiones/esquemas.service'
 import { EditarEsquemaDialog } from './editar-esquema-dialog'
+import { CrearEsquemaDialog } from './crear-esquema-dialog'
 import { recalcularTodasComisionesAction } from '@/app/actions/comisiones/dispersiones'
 
 export function EsquemasView({ empresaId, esquemas }: { empresaId: string; esquemas: Esquema[] }) {
   const router = useRouter()
   const { confirm } = useConfirm()
   const [edit, setEdit] = useState<Esquema | null>(null)
+  const [creating, setCreating] = useState(false)
   const [recalcPending, startRecalc] = useTransition()
   const [recalcResult, setRecalcResult] = useState<{
     ok: number
@@ -86,6 +88,17 @@ export function EsquemasView({ empresaId, esquemas }: { empresaId: string; esque
         </div>
       )}
 
+      <div className="flex items-center justify-between">
+        <h2 className="text-foreground text-sm font-semibold">Esquemas globales</h2>
+        <button
+          onClick={() => setCreating(true)}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1 rounded-md px-3 py-2 text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Nuevo esquema
+        </button>
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
         {esquemas.map((e) => (
           <EsquemaCard key={e.id} esquema={e} onEdit={() => setEdit(e)} />
@@ -94,6 +107,7 @@ export function EsquemasView({ empresaId, esquemas }: { empresaId: string; esque
       {edit && (
         <EditarEsquemaDialog empresaId={empresaId} esquema={edit} onClose={() => setEdit(null)} />
       )}
+      {creating && <CrearEsquemaDialog empresaId={empresaId} onClose={() => setCreating(false)} />}
     </>
   )
 }
