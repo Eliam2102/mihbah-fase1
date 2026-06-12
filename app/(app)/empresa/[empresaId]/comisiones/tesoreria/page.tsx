@@ -111,7 +111,10 @@ export default async function TesoreriaPage({
         let key = ''
         if (refDispersion.liderId) key = `lider_id:${refDispersion.liderId}`
         else if (refDispersion.asesorId) key = `asesor_id:${refDispersion.asesorId}`
-        else key = `tipo:${refDispersion.tipoBeneficiario}`
+        // Sin lider_id/asesor_id no se puede agrupar por persona — usar
+        // tipo + nombre para no mezclar beneficiarios distintos (p.ej. dos
+        // líderes LIDER_SALDO sin lider_id asignado) en una sola card.
+        else key = `tipo:${refDispersion.tipoBeneficiario}:${refDispersion.beneficiarioNombre}`
 
         if (!grupos.has(key)) {
           let metodoPago: string = refDispersion.metodoPago || 'EFECTIVO'

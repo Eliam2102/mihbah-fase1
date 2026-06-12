@@ -46,7 +46,8 @@ export async function marcarPagoBeneficiarioAction(formData: FormData) {
   } else if (beneficiarioKey.startsWith('asesor_id:')) {
     asesorId = beneficiarioKey.replace('asesor_id:', '')
   } else if (beneficiarioKey.startsWith('tipo:')) {
-    tipoBeneficiario = beneficiarioKey.replace('tipo:', '')
+    // Formato 'tipo:TIPO_BENEFICIARIO' o 'tipo:TIPO_BENEFICIARIO:NOMBRE'
+    tipoBeneficiario = beneficiarioKey.replace('tipo:', '').split(':')[0] ?? null
   } else {
     throw new Error('Formato de beneficiarioKey inválido')
   }
