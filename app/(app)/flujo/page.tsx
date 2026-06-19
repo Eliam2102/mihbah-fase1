@@ -47,7 +47,7 @@ export default async function FlujoConsolidadoPage({
   const user = await requireUser()
   const tenantId = user.tenantId!
 
-  const allEmpresas = await getEmpresasForUser(user.id, tenantId)
+  const allEmpresas = await getEmpresasForUser(user.id, tenantId, user.role)
 
   // Años con datos: unión de todas las empresas
   const añosSets = await Promise.all(

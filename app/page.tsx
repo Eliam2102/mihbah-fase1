@@ -27,7 +27,7 @@ export default async function RootPage() {
     // Verificar si el usuario todavía tiene acceso o si es super_admin
     if (user.tenantId) {
       try {
-        const empresas = await getEmpresasForUser(user.id, user.tenantId)
+        const empresas = await getEmpresasForUser(user.id, user.tenantId, user.role)
         const tieneAcceso = empresas.some((e) => e.id === empresaActiva)
         if (tieneAcceso) {
           targetRedirect = `/empresa/${empresaActiva}/dashboard`
@@ -41,7 +41,7 @@ export default async function RootPage() {
   // 2. Si no hay cookie o era 'TODAS', pero el tenant solo tiene 1 empresa, mandarlo directo
   if (targetRedirect === '/dashboard' && user.tenantId) {
     try {
-      const empresas = await getEmpresasForUser(user.id, user.tenantId)
+      const empresas = await getEmpresasForUser(user.id, user.tenantId, user.role)
       if (empresas.length === 1) {
         targetRedirect = `/empresa/${empresas[0]!.id}/dashboard`
       }

@@ -7,6 +7,7 @@ import type { EmpresaBasic } from './empresas.types'
 export async function getEmpresasForUser(
   userId: string,
   tenantId: string,
+  userRole?: string | null,
 ): Promise<EmpresaBasic[]> {
   return db.transaction(async (tx) => {
     await setTenant(tx, tenantId)
@@ -19,11 +20,17 @@ export async function getEmpresasForUser(
 
     if (rows.length > 0) return rows
 
-    // Fallback: super_admin sin acceso explícito → todas las empresas del tenant
-    return tx
-      .select({ id: empresas.id, name: empresas.name, tipo: empresas.tipo })
-      .from(empresas)
-      .where(eq(empresas.tenantId, tenantId))
+    // Fallback: SOLO super_admin sin acceso explícito → todas las empresas del tenant.
+    // Otros roles (tesorería, viewer, admin) deben tener acceso explícito por empresa;
+    // devolverles todas sin restricción causaría un loop con empresa-guards.ts.
+    if (userRole === 'super_admin' || userRole === 'super_admin_dev') {
+      return tx
+        .select({ id: empresas.id, name: empresas.name, tipo: empresas.tipo })
+        .from(empresas)
+        .where(eq(empresas.tenantId, tenantId))
+    }
+
+    return []
   })
 }
 

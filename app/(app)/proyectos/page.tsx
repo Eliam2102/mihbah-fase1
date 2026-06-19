@@ -18,7 +18,7 @@ export default async function ProyectosConsolidadoPage() {
   const user = await requireUser()
   const tenantId = user.tenantId!
 
-  const allEmpresas = await getEmpresasForUser(user.id, tenantId)
+  const allEmpresas = await getEmpresasForUser(user.id, tenantId, user.role)
 
   const empresasProyectos = await Promise.all(
     allEmpresas.map(async (e) => {

@@ -68,7 +68,7 @@ export default async function ReportesConsolidadoPage({
   const user = await requireUser()
   const tenantId = user.tenantId!
 
-  const allEmpresas = await getEmpresasForUser(user.id, tenantId)
+  const allEmpresas = await getEmpresasForUser(user.id, tenantId, user.role)
 
   return (
     <section className="space-y-8 p-6">

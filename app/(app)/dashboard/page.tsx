@@ -55,7 +55,7 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
 
   if (empresaActiva && empresaActiva !== 'TODAS') {
     try {
-      const empresas = await getEmpresasForUser(user.id, tenantId)
+      const empresas = await getEmpresasForUser(user.id, tenantId, user.role)
       if (empresas.some((e) => e.id === empresaActiva)) {
         targetRedirect = `/empresa/${empresaActiva}/dashboard`
       }
@@ -67,7 +67,7 @@ export default async function DashboardGeneralPage({ searchParams }: PageProps) 
   // 2. Redirigir si el usuario solo tiene acceso a exactamente 1 empresa
   if (!targetRedirect) {
     try {
-      const empresas = await getEmpresasForUser(user.id, tenantId)
+      const empresas = await getEmpresasForUser(user.id, tenantId, user.role)
       if (empresas.length === 1) {
         targetRedirect = `/empresa/${empresas[0]!.id}/dashboard`
       }
