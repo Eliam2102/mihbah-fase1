@@ -70,11 +70,11 @@ export function MondaySyncButton({ empresaId, syncedBoardIds = [] }: Props) {
       const res = await getWorkspaceBoardsAction()
       if (res.ok) {
         setBoards(res.boards)
-        // Pre-seleccionar solo el board 2026 si NO ha sido sincronizado aún
-        // (si ya está sincronizado, el usuario decide cuándo re-sincronizar)
-        const preselectIds = res.boards
-          .filter((b) => is2026Board(b.name) && !syncedSet.has(b.id))
-          .map((b) => b.id)
+        // Pre-seleccionar siempre el board 2026 (formato homologado, único
+        // activo para ventas nuevas) — así el botón "Sincronizar" nunca cae
+        // al fallback legado MONDAY_BOARD_ID ("Seguimiento General"), que
+        // dejaba fuera ventas nuevas agregadas después del primer sync.
+        const preselectIds = res.boards.filter((b) => is2026Board(b.name)).map((b) => b.id)
         setSelectedIds(new Set(preselectIds))
       } else {
         setBoardsError(res.error ?? 'Error desconocido')
