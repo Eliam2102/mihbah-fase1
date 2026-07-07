@@ -93,6 +93,8 @@ export function SocioComisionesSection({
               <tr className="text-muted-foreground border-b text-left">
                 <th className="px-4 py-2.5 font-semibold">Cliente / Lote</th>
                 <th className="px-3 py-2.5 font-semibold">Alianza</th>
+                <th className="px-3 py-2.5 text-right font-semibold">Valor del lote</th>
+                <th className="px-3 py-2.5 text-center font-semibold">% pagado (cliente)</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Total comisión</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Pagado</th>
                 <th className="px-3 py-2.5 text-center font-semibold">% Pagado</th>
@@ -131,6 +133,12 @@ export function SocioComisionesSection({
                         </p>
                       </td>
                       <td className="text-muted-foreground px-3 py-3">{v.alianzaNombre ?? '—'}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">{fmt(v.monto)}</td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 font-bold text-blue-700">
+                          {v.porcentajeClientePagado.toFixed(1)}%
+                        </span>
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums">
                         <span className="text-foreground font-bold">{fmt(montoTotal)}</span>
                       </td>
@@ -172,7 +180,7 @@ export function SocioComisionesSection({
 
                     {expanded && hasPdf && (
                       <tr key={`${v.ventaId}-pdf`}>
-                        <td colSpan={8} className="bg-muted/10 px-4 py-2">
+                        <td colSpan={10} className="bg-muted/10 px-4 py-2">
                           <div className="flex flex-wrap gap-2">
                             {dispPagadas.map((d) => (
                               <Link
