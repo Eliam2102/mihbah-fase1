@@ -33,6 +33,19 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Plantillas de configuración que sí se commitean
+!.env.example
+!.mcp.example.json
+
+# MCP local — puede contener slugs/tokens internos de Sentry
+.mcp.json
+
+# Inspecciones / dumps locales (datos de cliente)
+monday-inspection.json
+monday-historic-boards-inspection.json
+*.local.json
+*.local.md
+
 # vercel
 .vercel
 
@@ -58,13 +71,11 @@ GEMINI.md
 .cursorignore
 .aiderignore
 
-# Inspecciones / dumps locales (datos de cliente)
-monday-inspection.json
-*.local.json
-*.local.md
-
 # Markdown — documentación interna no se sube al repo
 *.md
+
+# Excepción: el README sí se versiona
+!README.md
 
 # Screenshots de validación — locales, no al repo
 docs/screenshots/
