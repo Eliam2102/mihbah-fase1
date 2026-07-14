@@ -12,10 +12,69 @@ import { requirePortalUser } from '@/lib/auth/portal-helpers'
 import {
   getVentasPortalLider,
   getComisionesPortalAsesor,
+  getComisionesSocio,
+  type VentaLiderPortal,
 } from '@/lib/services/comisiones/portal.service'
 
 function toCsv(rows: string[][]): string {
   return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+}
+
+const HEADER_VENTAS_LIDER = [
+  'Cliente',
+  'Lote',
+  'Valor del lote',
+  'Desarrollo',
+  'Alianza',
+  'Estado venta',
+  '% pagado cliente',
+  'Comisión total',
+  'Pagado total',
+  'Pendiente',
+  'Beneficiario',
+  'Tipo',
+  'Monto linea',
+  'Pagado línea',
+  'Estado línea',
+  'Fecha pago',
+]
+
+function filasVentasLider(ventas: VentaLiderPortal[]): string[][] {
+  const rows: string[][] = []
+  for (const v of ventas) {
+    const pagadoTotal = v.dispersiones.reduce((s, d) => s + d.montoPagado, 0)
+    for (const d of v.dispersiones) {
+      rows.push([
+        v.cliente,
+        v.loteAcciones ?? '',
+        v.monto.toFixed(2),
+        v.desarrolloNombre ?? '',
+        v.alianzaNombre ?? '',
+        v.estadoVenta,
+        `${v.porcentajeClientePagado.toFixed(1)}%`,
+        v.comisionTotal.toFixed(2),
+        pagadoTotal.toFixed(2),
+        Math.max(0, v.comisionTotal - pagadoTotal).toFixed(2),
+        d.beneficiarioNombre,
+        d.tipoBeneficiario,
+        d.montoTotal.toFixed(2),
+        d.montoPagado.toFixed(2),
+        d.estado,
+        d.fechaPago ?? '',
+      ])
+    }
+  }
+  return rows
+}
+
+// Sección extra "Mis comisiones como socio" — independiente de rolPortal
+// (perfil.socioTipo), replicando lo que ya ve el usuario en /portal/dashboard.
+// Sin esto, un usuario cuyo rol base no tiene alianza/líder asociado descarga
+// un CSV vacío aunque sí tenga comisiones de socio.
+async function bloqueSocio(userId: string): Promise<string[][]> {
+  const ventasSocio = await getComisionesSocio(userId)
+  if (ventasSocio.length === 0) return []
+  return [[], ['Mis comisiones como socio'], HEADER_VENTAS_LIDER, ...filasVentasLider(ventasSocio)]
 }
 
 export async function GET(req: NextRequest) {
@@ -51,7 +110,7 @@ export async function GET(req: NextRequest) {
         d.fechaPago ?? '',
       ])
 
-      const csv = toCsv([header, ...rows])
+      const csv = toCsv([header, ...rows, ...(await bloqueSocio(user.id))])
       return new NextResponse(csv, {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -63,47 +122,11 @@ export async function GET(req: NextRequest) {
     // Líder / Administrativo
     const ventas = await getVentasPortalLider(user.id)
 
-    const header = [
-      'Cliente',
-      'Lote',
-      'Desarrollo',
-      'Alianza',
-      'Estado venta',
-      'Comisión total',
-      'Pagado total',
-      'Pendiente',
-      'Beneficiario',
-      'Tipo',
-      'Monto linea',
-      'Pagado línea',
-      'Estado línea',
-      'Fecha pago',
-    ]
-
-    const rows: string[][] = []
-    for (const v of ventas) {
-      const pagadoTotal = v.dispersiones.reduce((s, d) => s + d.montoPagado, 0)
-      for (const d of v.dispersiones) {
-        rows.push([
-          v.cliente,
-          v.loteAcciones ?? '',
-          v.desarrolloNombre ?? '',
-          v.alianzaNombre ?? '',
-          v.estadoVenta,
-          v.comisionTotal.toFixed(2),
-          pagadoTotal.toFixed(2),
-          Math.max(0, v.comisionTotal - pagadoTotal).toFixed(2),
-          d.beneficiarioNombre,
-          d.tipoBeneficiario,
-          d.montoTotal.toFixed(2),
-          d.montoPagado.toFixed(2),
-          d.estado,
-          d.fechaPago ?? '',
-        ])
-      }
-    }
-
-    const csv = toCsv([header, ...rows])
+    const csv = toCsv([
+      HEADER_VENTAS_LIDER,
+      ...filasVentasLider(ventas),
+      ...(await bloqueSocio(user.id)),
+    ])
     return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',

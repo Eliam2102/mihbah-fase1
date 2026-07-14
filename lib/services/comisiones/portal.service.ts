@@ -18,12 +18,34 @@ import {
   lideresAlianza,
   usuariosPortal,
   ventasBmcorp,
+  ventasPagoCorte,
   afiliados,
   users,
   tipoBeneficiarioEnum,
 } from '@/lib/db/schema'
 import { setTenant } from '@/lib/services/_shared/db.helpers'
-import { and, desc, eq, gt, inArray, isNotNull, or, isNull, not } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, or, isNull, not, sql } from 'drizzle-orm'
+
+// Acumulado pagado por el cliente final (todos los cortes) por venta — para
+// mostrar el % del PRECIO DEL LOTE ya cobrado (distinto del % de comisión pagada).
+async function getPorcentajesClientePagado(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tenantId: string,
+  ventaIds: string[],
+): Promise<Map<string, number>> {
+  if (ventaIds.length === 0) return new Map()
+
+  const rows = await tx
+    .select({
+      ventaId: ventasPagoCorte.ventaId,
+      suma: sql<string>`COALESCE(SUM(${ventasPagoCorte.montoPagadoCliente}), 0)`,
+    })
+    .from(ventasPagoCorte)
+    .where(and(eq(ventasPagoCorte.tenantId, tenantId), inArray(ventasPagoCorte.ventaId, ventaIds)))
+    .groupBy(ventasPagoCorte.ventaId)
+
+  return new Map(rows.map((r) => [r.ventaId, Number(r.suma)]))
+}
 
 export interface PerfilPortal {
   rolPortal: 'LIDER_ALIANZA' | 'ASESOR' | 'ADMINISTRATIVO'
@@ -288,6 +310,9 @@ export interface VentaLiderPortal {
   estadoVenta: string
   fecha: string
   comisionTotal: number
+  // % del PRECIO DEL LOTE que el cliente final ha pagado (acumulado, todos los
+  // cortes) — distinto del % de comisión pagada al beneficiario.
+  porcentajeClientePagado: number
   dispersiones: {
     id: string
     tipoBeneficiario: string
@@ -370,6 +395,7 @@ export async function getVentasPortalLider(userId: string): Promise<VentaLiderPo
           estadoVenta: r.v.estadoVenta,
           fecha: r.v.fecha,
           comisionTotal: Number(r.c.comisionBrutaTotal),
+          porcentajeClientePagado: 0,
           dispersiones: [],
         })
       }
@@ -383,6 +409,17 @@ export async function getVentasPortalLider(userId: string): Promise<VentaLiderPo
         estado: r.d.estado,
         fechaPago: r.d.fechaPago,
       })
+    }
+
+    const pagosCliente = await getPorcentajesClientePagado(
+      tx,
+      perfil.tenantId,
+      Array.from(ventaMap.keys()),
+    )
+    for (const venta of ventaMap.values()) {
+      const pagado = pagosCliente.get(venta.ventaId) ?? 0
+      venta.porcentajeClientePagado =
+        venta.monto > 0 ? Math.min(100, (pagado / venta.monto) * 100) : 0
     }
 
     return Array.from(ventaMap.values())
@@ -448,6 +485,7 @@ export async function getComisionesSocio(userId: string): Promise<VentaLiderPort
           estadoVenta: r.v.estadoVenta,
           fecha: r.v.fecha,
           comisionTotal: Number(r.c.comisionBrutaTotal),
+          porcentajeClientePagado: 0,
           dispersiones: [],
         })
       }
@@ -461,6 +499,17 @@ export async function getComisionesSocio(userId: string): Promise<VentaLiderPort
         estado: r.d.estado,
         fechaPago: r.d.fechaPago,
       })
+    }
+
+    const pagosCliente = await getPorcentajesClientePagado(
+      tx,
+      perfil.tenantId,
+      Array.from(ventaMap.keys()),
+    )
+    for (const venta of ventaMap.values()) {
+      const pagado = pagosCliente.get(venta.ventaId) ?? 0
+      venta.porcentajeClientePagado =
+        venta.monto > 0 ? Math.min(100, (pagado / venta.monto) * 100) : 0
     }
 
     return Array.from(ventaMap.values())
