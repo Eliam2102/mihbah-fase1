@@ -2,7 +2,7 @@ import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  // Output standalone para Easypanel (imagen Docker más liviana, ~80MB vs ~1GB).
+  // Output standalone para un despliegue liviano en VPS (~80MB vs ~1GB).
   output: 'standalone',
 
   // Headers globales — cache estáticos largos, no-cache dinámicos.
@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
     ]
   },
 
-  // Comprimir respuestas (gzip/brotli) — Easypanel/Nginx puede recomprimir; OK.
+  // Comprimir respuestas (gzip/brotli) — el proxy del VPS puede recomprimir; OK.
   compress: true,
 
   // Anti-fingerprinting headers + security defaults.

@@ -76,6 +76,12 @@ GEMINI.md
 
 # Excepción: el README sí se versiona
 !README.md
+!HANDOFF.md
+!docs/DEPLOYMENT.md
+!docs/BACKUP-RESTORE.md
+!docs/ACCESS-INVENTORY.md
+!docs/KNOWN-ISSUES.md
+!docs/ACCEPTANCE-CHECKLIST.md
 
 # Screenshots de validación — locales, no al repo
 docs/screenshots/
