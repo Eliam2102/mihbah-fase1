@@ -1,9 +1,8 @@
 'use client'
 
 import { useQueryState } from 'nuqs'
-// useRouter removed — not needed here
+import { usePeriodStore } from '@/stores/period-store'
 
-const AÑOS = [2023, 2024, 2025, 2026, 2027]
 const MESES = [
   { value: '', label: 'Acumulado' },
   { value: '1', label: 'Enero' },
@@ -20,22 +19,33 @@ const MESES = [
   { value: '12', label: 'Diciembre' },
 ]
 
-export function PeriodFilter() {
+interface PeriodFilterProps {
+  años: number[]
+  defaultAnio: number
+}
+
+export function PeriodFilter({ años, defaultAnio }: PeriodFilterProps) {
   const [anio, setAnio] = useQueryState('anio', {
-    defaultValue: String(new Date().getFullYear()),
+    defaultValue: String(defaultAnio),
     shallow: false,
   })
   const [mes, setMes] = useQueryState('mes', { defaultValue: '', shallow: false })
+  const { setAnio: setStoreAnio } = usePeriodStore()
+
+  function handleAnioChange(value: string) {
+    setAnio(value)
+    setStoreAnio(Number(value))
+  }
 
   return (
     <div className="flex items-center gap-2">
       <select
         value={anio}
-        onChange={(e) => setAnio(e.target.value)}
+        onChange={(e) => handleAnioChange(e.target.value)}
         className="border-border bg-background text-foreground focus:ring-primary/40 rounded-lg border px-3 py-2 text-sm font-medium focus:ring-2 focus:outline-none"
         aria-label="Año"
       >
-        {AÑOS.map((a) => (
+        {años.map((a) => (
           <option key={a} value={String(a)}>
             {a}
           </option>

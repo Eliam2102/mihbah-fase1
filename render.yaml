@@ -1,0 +1,29 @@
+databases:
+  - name: mihbah-postgres
+    databaseName: mihbah_prod
+    user: mihbah
+
+services:
+  - type: web
+    name: mihbah-fase1
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run db:migrate && npx tsx scripts/apply-rls-prod.ts && npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mihbah-postgres
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: BETTER_AUTH_SECRET
+        generateValue: true        # Render genera un secret aleatorio
+      - key: BETTER_AUTH_URL
+        sync: false                # Poner manualmente: https://mihbah-fase1.onrender.com
+      - key: NEXT_PUBLIC_BETTER_AUTH_URL
+        sync: false                # Mismo valor que BETTER_AUTH_URL
+      - key: MONDAY_API_KEY
+        sync: false                # Poner manualmente en Render dashboard
+      - key: MONDAY_BOARD_ID
+        sync: false                # Poner manualmente en Render dashboard

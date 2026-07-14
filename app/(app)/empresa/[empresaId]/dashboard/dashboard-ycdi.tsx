@@ -24,20 +24,27 @@ import { Users } from 'lucide-react'
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 function fmt(n: number) {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
+  return n.toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 interface Props {
   empresaId: string
   tenantId: string
+  anio: number
+  mes?: number
 }
 
-export async function DashboardYcdi({ empresaId, tenantId }: Props) {
+export async function DashboardYcdi({ empresaId, tenantId, anio, mes }: Props) {
   const [kpis, flujoMensual, accionistas, tabla] = await Promise.all([
-    getKpisYcdi(empresaId, tenantId),
-    getFlujomensualYcdi(empresaId, tenantId),
-    getTopAccionistas(empresaId, tenantId, 10),
-    getTablaConceptosProyectos(empresaId, tenantId),
+    getKpisYcdi(empresaId, tenantId, anio, mes),
+    getFlujomensualYcdi(empresaId, tenantId, anio),
+    getTopAccionistas(empresaId, tenantId, 10, anio, mes),
+    getTablaConceptosProyectos(empresaId, tenantId, anio, mes),
   ])
 
   const saldoPositivo = kpis.saldo >= 0
@@ -72,19 +79,23 @@ export async function DashboardYcdi({ empresaId, tenantId }: Props) {
               style={{ width: `${Math.min(kpis.porcentajeLevantamiento, 100)}%` }}
             />
           </div>
-          <div className="grid grid-cols-3 gap-4 pt-1">
-            <div>
+          <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-3 sm:gap-4">
+            <div className="min-w-0">
               <p className="text-muted-foreground text-xs">Aportado</p>
-              <p className="text-sm font-bold text-green-600">{fmt(kpis.totalCapitalAportado)}</p>
+              <p className="text-sm font-bold whitespace-nowrap text-green-600">
+                {fmt(kpis.totalCapitalAportado)}
+              </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-muted-foreground text-xs">Gastado</p>
-              <p className="text-destructive text-sm font-bold">{fmt(kpis.totalAcabadoGastar)}</p>
+              <p className="text-destructive text-sm font-bold whitespace-nowrap">
+                {fmt(kpis.totalAcabadoGastar)}
+              </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-muted-foreground text-xs">Diferencia</p>
               <p
-                className={`text-sm font-bold ${saldoPositivo ? 'text-green-600' : 'text-destructive'}`}
+                className={`text-sm font-bold whitespace-nowrap ${saldoPositivo ? 'text-green-600' : 'text-destructive'}`}
               >
                 {saldoPositivo ? '+' : ''}
                 {fmt(kpis.saldo)}
@@ -119,7 +130,7 @@ export async function DashboardYcdi({ empresaId, tenantId }: Props) {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-border border-b">
                   <th className="text-muted-foreground pb-2 text-left text-xs font-semibold">

@@ -12,12 +12,7 @@ import {
   Legend,
 } from 'recharts'
 import type { FlujoMensual } from '@/lib/services/dashboard.service'
-
-function formatMXN(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-  if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}k`
-  return `$${value.toFixed(0)}`
-}
+import { formatMXN, formatMXNCompact } from '@/lib/utils'
 
 const CustomTooltip = ({
   active,
@@ -40,7 +35,8 @@ const CustomTooltip = ({
             {p.value.toLocaleString('es-MX', {
               style: 'currency',
               currency: 'MXN',
-              maximumFractionDigits: 0,
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
             })}
           </span>
         </div>
@@ -71,16 +67,16 @@ export function FlowChart({ data, loading = false }: FlowChartProps) {
       </p>
       <ResponsiveContainer width="100%" height={220}>
         <ComposedChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="mesLabel"
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tickFormatter={formatMXN}
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            tickFormatter={formatMXNCompact}
+            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
             axisLine={false}
             tickLine={false}
             width={56}

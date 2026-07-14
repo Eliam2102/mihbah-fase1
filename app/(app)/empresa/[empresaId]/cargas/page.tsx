@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { listUploads } from '@/lib/services/excel.service'
 import { Upload, Plus, CheckCircle, AlertCircle, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -7,12 +8,13 @@ import { cn } from '@/lib/utils'
 export default async function CargasPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = await params
   const user = await requireUser()
+  await requireEmpresaAccess(user, empresaId, 'cargas')
   const tenantId = user.tenantId!
 
   const uploads = await listUploads(empresaId, tenantId)
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-foreground text-2xl font-bold">Cargas Excel</h1>
@@ -49,7 +51,7 @@ export default async function CargasPage({ params }: { params: Promise<{ empresa
           </Link>
         </div>
       ) : (
-        <div className="border-border bg-card overflow-hidden rounded-xl border">
+        <div className="border-border bg-card overflow-hidden overflow-x-auto rounded-xl border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-border bg-muted/50 border-b">

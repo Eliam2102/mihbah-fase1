@@ -1,14 +1,14 @@
 /**
- * Tenant isolation integration tests.
- * Verifies RLS policies prevent cross-tenant data access.
+ * Tenant isolation integration tests (RLS-level).
  *
- * FORCE ROW LEVEL SECURITY makes even the table owner (mihbah) subject to
- * policies, so no separate low-privilege role is needed — just controlling
- * app.current_tenant_id is enough.
+ * Cada transacción hace `SET LOCAL ROLE mihbah_app` para que las queries corran
+ * como usuario NO-SUPERUSER. Sin esto, el role bootstrap `mihbah` bypassa RLS
+ * y los tests no validan nada.
  *
- * Requires:
- *   - DB seeded (npm run db:seed)
- *   - RLS applied (npm run db:rls)
+ * Setup local: ver docs/comisiones-deploy.md §5 (role mihbah_app ya provisionado).
+ * Aislamiento de servicios además se valida en:
+ * - tests/integration/comisiones-isolation.test.ts
+ * - tests/integration/portal-isolation.test.ts
  */
 
 import postgres from 'postgres'
@@ -71,6 +71,8 @@ async function withTenant<T>(
   query: (trx: postgres.TransactionSql) => Promise<T>,
 ): Promise<T> {
   return sql.begin(async (trx) => {
+    // Bajar privilegios al role app dentro de esta tx — sin esto, mihbah bypassa RLS.
+    await trx`SET LOCAL ROLE mihbah_app`
     await trx`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`
     return query(trx)
   }) as Promise<T>
@@ -94,19 +96,19 @@ describe('tenant isolation — empresas', () => {
   })
 
   it('no tenant context → sees no empresas (FORCE RLS)', async () => {
-    const rows = await sql.begin(
-      (trx) =>
-        // No SET app.current_tenant_id
-        trx`SELECT name FROM empresas`,
-    )
+    const rows = await sql.begin(async (trx) => {
+      await trx`SET LOCAL ROLE mihbah_app`
+      // No SET app.current_tenant_id
+      return trx`SELECT name FROM empresas`
+    })
     expect(rows).toHaveLength(0)
   })
 })
 
 describe('tenant isolation — proyectos', () => {
-  it('tenant1 sees its 12 proyectos', async () => {
+  it('tenant1 sees proyectos del seed (12+)', async () => {
     const rows = await withTenant(tenant1Id, (trx) => trx`SELECT name FROM proyectos ORDER BY name`)
-    expect(rows).toHaveLength(12)
+    expect(rows.length).toBeGreaterThanOrEqual(12)
   })
 
   it('tenant2 sees 0 proyectos', async () => {

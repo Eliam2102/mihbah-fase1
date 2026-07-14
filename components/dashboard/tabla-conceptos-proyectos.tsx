@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { cn, formatMXN } from '@/lib/utils'
 import type { TablaConceptoProyecto } from '@/lib/services/aportaciones.service'
 
 interface TablaConceptosProyectosProps {
@@ -8,11 +8,6 @@ interface TablaConceptosProyectosProps {
   proyectosNames: string[]
   grandTotal: number
   loading?: boolean
-}
-
-function formatMXN(n: number) {
-  if (n === 0) return '—'
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 function cellColor(n: number, max: number) {

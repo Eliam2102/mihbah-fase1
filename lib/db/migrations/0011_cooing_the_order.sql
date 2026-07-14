@@ -1,0 +1,1 @@
+ALTER TABLE "usuarios_portal" ADD COLUMN "socio_tipo" text;

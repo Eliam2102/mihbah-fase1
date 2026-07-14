@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/lib/auth/helpers'
+import { requireEmpresaAccess } from '@/lib/auth/empresa-guards'
 import { getUploadById } from '@/lib/services/excel.service'
 import { db } from '@/lib/db'
 import { movimientos } from '@/lib/db/schema'
@@ -14,6 +15,7 @@ export default async function DetalleCargaPage({
 }) {
   const { empresaId, uploadId } = await params
   const user = await requireUser()
+  await requireEmpresaAccess(user, empresaId, 'cargas')
   const tenantId = user.tenantId!
 
   const upload = await getUploadById(uploadId, tenantId)
@@ -30,7 +32,7 @@ export default async function DetalleCargaPage({
   })
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <div className="mb-6">
         <Link
           href={`/empresa/${empresaId}/cargas`}
@@ -93,7 +95,7 @@ export default async function DetalleCargaPage({
           No hay movimientos vinculados a esta carga.
         </p>
       ) : (
-        <div className="border-border bg-card overflow-hidden rounded-xl border">
+        <div className="border-border bg-card overflow-hidden overflow-x-auto rounded-xl border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-border bg-muted/50 border-b">
@@ -122,6 +124,8 @@ export default async function DetalleCargaPage({
                     {Number(m.monto).toLocaleString('es-MX', {
                       style: 'currency',
                       currency: 'MXN',
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
                     })}
                   </td>
                   <td className="text-foreground max-w-xs truncate px-4 py-2.5">{m.concepto}</td>

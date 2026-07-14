@@ -430,6 +430,8 @@ export function UploadWizard() {
                               ? row.data.monto.toLocaleString('es-MX', {
                                   style: 'currency',
                                   currency: 'MXN',
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
                                 })
                               : String(row.raw.monto ?? '—')}
                           </td>

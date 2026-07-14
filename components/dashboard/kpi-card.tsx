@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { cn, formatMXN } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 type KpiVariant = 'default' | 'success' | 'warning' | 'critical'
@@ -30,10 +30,6 @@ const VARIANT_VALUE: Record<KpiVariant, string> = {
   success: 'text-emerald-600 dark:text-emerald-400',
   warning: 'text-amber-600 dark:text-amber-400',
   critical: 'text-red-600 dark:text-red-400',
-}
-
-function formatMXN(n: number): string {
-  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 }
 
 export function KpiCard({
@@ -85,10 +81,15 @@ export function KpiCard({
         {label}
       </p>
 
-      <p className={cn('mt-2 text-3xl font-bold tabular-nums', VARIANT_VALUE[variant])}>
-        {prefix && <span className="mr-0.5 text-lg">{prefix}</span>}
+      <p
+        className={cn(
+          'mt-2 text-sm font-bold tabular-nums sm:text-base lg:text-xl',
+          VARIANT_VALUE[variant],
+        )}
+      >
+        {prefix && <span className="mr-0.5">{prefix}</span>}
         {displayValue}
-        {suffix && <span className="ml-0.5 text-lg">{suffix}</span>}
+        {suffix && <span className="ml-0.5">{suffix}</span>}
       </p>
 
       {hasTrend && (

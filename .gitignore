@@ -33,6 +33,19 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Plantillas de configuración que sí se commitean
+!.env.example
+!.mcp.example.json
+
+# MCP local — puede contener slugs/tokens internos de Sentry
+.mcp.json
+
+# Inspecciones / dumps locales (datos de cliente)
+monday-inspection.json
+monday-historic-boards-inspection.json
+*.local.json
+*.local.md
+
 # vercel
 .vercel
 
@@ -40,10 +53,49 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# claude code
+# AI agents — contexto y memoria local (no subir al repo)
 .claude/
+.cursor/
+.aider*
+.windsurfrules
+.continue/
+.codex/
+.gemini/
+.antigravity/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+AGENT.md
+GEMINI.md
+.cursorrules
+.cursorignore
+.aiderignore
+
+# Markdown — documentación interna no se sube al repo
+*.md
+
+# Excepción: el README sí se versiona
+!README.md
+
+# Screenshots de validación — locales, no al repo
+docs/screenshots/
 
 # test artifacts
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Sentry Config File
+.env.sentry-build-plugin
+
+# Comprobantes de pago subidos (dev). Prod usa volumen Easypanel montado en COMPROBANTES_DIR.
+/.uploads/
+
+.uploads/
+
+# Respaldos de BD locales (no versionar — pesados, locales)
+/backups/
+
+# Documentos Word generados + locks temporales de Office
+/*.docx
+~$*

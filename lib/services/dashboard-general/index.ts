@@ -1,0 +1,6 @@
+export * from './dashboard-general.types'
+export * from './dashboard-general.queries'
+export * from './dashboard-general.service'
+export * from './dashboard-general.cuentas'
+export * from './dashboard-general.mihbah'
+export * from './dashboard-general.resumen-resumen'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEmpresaStore, type EmpresaId } from '@/stores/empresa-store'
 import { ChevronDown, Building2, Layers } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
@@ -19,8 +19,30 @@ interface EmpresaSelectorProps {
 export function EmpresaSelector({ empresas, compact = false }: EmpresaSelectorProps) {
   const { empresaActiva, setEmpresaActiva } = useEmpresaStore()
   const router = useRouter()
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+
+  // Sincroniza el store con el URL — si se navegó a /empresa/[id]/ por redirect
+  // (ej. login mono-empresa), actualiza empresaActiva para que el selector muestre
+  // la empresa correcta sin que el usuario tenga que seleccionarla manualmente.
+  // Si estamos en una ruta general (que no empieza por /empresa/), se sincroniza a 'TODAS'.
+  useEffect(() => {
+    const match = pathname.match(/^\/empresa\/([^/]+)(?:\/|$)/)
+    if (match) {
+      const idFromUrl = match[1]!
+      const esValida = empresas.some((e) => e.id === idFromUrl)
+      if (esValida && empresaActiva !== idFromUrl) {
+        setEmpresaActiva(idFromUrl)
+      }
+    } else {
+      // Si no es una ruta de empresa (como /dashboard, /flujo, /configuracion, etc.)
+      // y la empresa activa no es 'TODAS', la sincronizamos a 'TODAS'.
+      if (empresaActiva !== 'TODAS') {
+        setEmpresaActiva('TODAS')
+      }
+    }
+  }, [pathname, empresas, empresaActiva, setEmpresaActiva])
 
   // Close on outside click
   useEffect(() => {
@@ -40,9 +62,9 @@ export function EmpresaSelector({ empresas, compact = false }: EmpresaSelectorPr
     setEmpresaActiva(id)
     setOpen(false)
     if (id === 'TODAS') {
-      router.push('/dashboard')
+      window.location.href = '/dashboard'
     } else {
-      router.push(`/empresa/${id}/dashboard`)
+      window.location.href = `/empresa/${id}/dashboard`
     }
   }
 

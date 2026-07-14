@@ -7,16 +7,52 @@ import { nextCookies } from 'better-auth/next-js'
 const ac = createAccessControl({
   user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
   session: ['list', 'revoke', 'delete'],
+  // Recursos del portal externo (Épica 14)
+  portal: ['acceder'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
 })
 
 const userRole = ac.newRole({})
 const adminRole = ac.newRole({
   user: ['create', 'read', 'update', 'list', 'set-role', 'ban'],
   session: ['list', 'revoke'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
 })
 const superAdminRole = ac.newRole({
   user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
   session: ['list', 'revoke', 'delete'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
+})
+// SaaS owner — cross-tenant, full control
+const superAdminDevRole = ac.newRole({
+  user: ['create', 'read', 'update', 'delete', 'list', 'set-role', 'ban', 'impersonate'],
+  session: ['list', 'revoke', 'delete'],
+  comisiones: ['ver', 'crear', 'editar', 'aprobar', 'pagar'],
+  comprobantes: ['ver', 'subir'],
+})
+// Roles del portal externo (líderes y asesores)
+const liderAlianzaRole = ac.newRole({
+  portal: ['acceder'],
+  comisiones: ['ver'],
+  comprobantes: ['ver'],
+})
+const asesorRole = ac.newRole({
+  portal: ['acceder'],
+  comisiones: ['ver'],
+  comprobantes: ['ver'],
+})
+const administrativoRole = ac.newRole({
+  portal: ['acceder'],
+  comisiones: ['ver'],
+  comprobantes: ['ver'],
+})
+// Rol operativo: ejecuta pagos del corte y sube comprobantes (no es admin general)
+const tesoreriaRole = ac.newRole({
+  comisiones: ['ver', 'pagar'],
+  comprobantes: ['ver', 'subir'],
 })
 import { db } from '@/lib/db'
 import { accounts, sessions, users, verifications } from '@/lib/db/schema'
@@ -68,12 +104,36 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // refresh once per day
   },
 
+  // Rate limit en memoria — protege contra brute force login.
+  // Prod: 10 intentos por minuto por IP. Dev: 100 (no estorbar pruebas).
+  // Custom rule en /sign-in/email: 5 intentos cada 60s.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: process.env.NODE_ENV === 'production' ? 10 : 100,
+    storage: 'memory',
+    customRules: {
+      '/sign-in/email': {
+        window: 60,
+        max: process.env.NODE_ENV === 'production' ? 5 : 50,
+      },
+      '/sign-up/email': {
+        window: 60,
+        max: 3,
+      },
+      '/forget-password': {
+        window: 60,
+        max: 3,
+      },
+    },
+  },
+
   advanced: {
     cookiePrefix: 'mihbah',
     defaultCookieAttributes: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.SECURE_COOKIES === 'true',
     },
   },
 
@@ -92,9 +152,18 @@ export const auth = betterAuth({
   plugins: [
     admin({
       ac,
-      roles: { user: userRole, admin: adminRole, super_admin: superAdminRole },
+      roles: {
+        user: userRole,
+        admin: adminRole,
+        super_admin: superAdminRole,
+        super_admin_dev: superAdminDevRole,
+        lider_alianza: liderAlianzaRole,
+        administrativo: administrativoRole,
+        asesor: asesorRole,
+        tesoreria: tesoreriaRole,
+      },
       defaultRole: 'user',
-      adminRoles: ['admin', 'super_admin'],
+      adminRoles: ['admin', 'super_admin', 'super_admin_dev'],
     } as never),
     nextCookies(),
   ] as never,

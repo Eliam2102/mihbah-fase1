@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import { auth } from '@/lib/auth/config'
 import { checkRateLimit } from '@/lib/auth/rate-limiter'
+import { getEmpresasForUser } from '@/lib/services/empresas'
 
 const loginSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
@@ -53,5 +54,15 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { error: `Correo o contraseña incorrectos.${hint}` }
   }
 
-  redirect('/dashboard')
+  // Redirect role-based: portal users → /portal/dashboard, admin → /dashboard
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const role = (result.user as any)?.role
+
+  if (role === 'lider_alianza' || role === 'asesor') {
+    redirect('/portal/dashboard')
+  }
+
+  // Redirigir al root '/' donde la lógica unificada evaluará
+  // la cookie de la sesión anterior o la empresa única del tenant.
+  redirect('/')
 }

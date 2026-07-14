@@ -2,19 +2,19 @@
 
 import { useTheme } from 'next-themes'
 import { signOut } from '@/lib/auth/client'
-import { EmpresaSelector, type EmpresaOption } from './empresa-selector'
-import { Sun, Moon, Monitor, Bell, ChevronDown, User, LogOut, Settings } from 'lucide-react'
+import { Sun, Moon, Monitor, Bell, ChevronDown, User, LogOut, Settings, Menu } from 'lucide-react'
 import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { BmcorpSyncBadge } from '@/components/dashboard/bmcorp-sync-badge'
 
 interface TopbarProps {
-  empresas: EmpresaOption[]
   userName: string
   userEmail: string
+  onMobileMenuClick?: () => void
 }
 
-export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
+export function Topbar({ userName, userEmail, onMobileMenuClick }: TopbarProps) {
   const { theme, setTheme } = useTheme()
   const router = useRouter()
   const [notifOpen, setNotifOpen] = useState(false)
@@ -22,7 +22,6 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
 
-  // Hydration guard via useSyncExternalStore (avoids setState-in-effect)
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -41,7 +40,8 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
 
   async function handleLogout() {
     await signOut()
-    router.push('/login')
+    // Hard reload: limpia árbol RSC cacheado y cualquier estado cliente.
+    window.location.replace('/login')
   }
 
   const nextTheme = mounted
@@ -60,30 +60,36 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
     : Monitor
 
   return (
-    <header className="border-border bg-background/80 flex h-16 shrink-0 items-center gap-4 border-b px-6 backdrop-blur-sm">
-      {/* Empresa selector — compact mode in topbar */}
-      <div className="hidden w-64 md:block">
-        <EmpresaSelector empresas={empresas} compact />
-      </div>
+    <header className="border-border bg-background/80 flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-sm sm:px-6">
+      {/* Mobile hamburger */}
+      <button
+        onClick={onMobileMenuClick}
+        className="text-muted-foreground hover:bg-muted flex h-9 w-9 items-center justify-center rounded-lg transition-colors lg:hidden"
+        aria-label="Abrir menú"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
 
       {/* Spacer */}
       <div className="flex-1" />
 
       {/* Right cluster */}
       <div className="flex items-center gap-1">
+        {/* BM Corp sync badge — solo visible en dashboard BM Corp */}
+        <BmcorpSyncBadge />
         {/* Theme switcher */}
-        <button
+        {/* <button
           id="topbar-theme-switcher"
           onClick={() => setTheme(nextTheme)}
           title={`Cambiar a modo ${nextTheme}`}
           className="text-muted-foreground hover:bg-surface hover:text-foreground flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
         >
           <ThemeIcon className="h-4.5 w-4.5" />
-        </button>
+        </button> */}
 
         {/* Notifications */}
         <div ref={notifRef} className="relative">
-          <button
+          {/* <button
             id="topbar-notifications-btn"
             onClick={() => setNotifOpen((v) => !v)}
             className="text-muted-foreground hover:bg-surface hover:text-foreground relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
@@ -91,8 +97,7 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
             aria-expanded={notifOpen}
           >
             <Bell className="h-4.5 w-4.5" />
-            {/* Badge placeholder — empty for now */}
-          </button>
+          </button> */}
 
           {notifOpen && (
             <div className="border-border bg-popover absolute top-full right-0 z-50 mt-1 w-80 rounded-xl border shadow-lg">
@@ -110,7 +115,7 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
 
         {/* User avatar + menu */}
         <div ref={userRef} className="relative ml-1">
-          <button
+          {/* <button
             id="topbar-user-menu-btn"
             onClick={() => setUserMenuOpen((v) => !v)}
             className="text-foreground hover:bg-surface flex h-9 items-center gap-2 rounded-lg px-2 text-sm font-medium transition-colors"
@@ -127,7 +132,7 @@ export function Topbar({ empresas, userName, userEmail }: TopbarProps) {
                 userMenuOpen && 'rotate-180',
               )}
             />
-          </button>
+          </button> */}
 
           {userMenuOpen && (
             <div className="border-border bg-popover absolute top-full right-0 z-50 mt-1 w-56 rounded-xl border py-1 shadow-lg">
